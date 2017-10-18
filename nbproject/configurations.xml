@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="100">
+  <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <logicalFolder name="HeaderFiles"
+                   displayName="Header Files"
+                   projectFiles="true">
+      <logicalFolder name="library" displayName="library" projectFiles="true">
+        <itemPath>library/dynamicVectors.h</itemPath>
+        <itemPath>library/fileManagement.h</itemPath>
+      </logicalFolder>
+      <itemPath>ftpCommandsElaborate.h</itemPath>
+      <itemPath>ftpData.h</itemPath>
+      <itemPath>ftpServer.h</itemPath>
+      <itemPath>ftpSpecs.h</itemPath>
+    </logicalFolder>
+    <logicalFolder name="ResourceFiles"
+                   displayName="Resource Files"
+                   projectFiles="true">
+    </logicalFolder>
+    <logicalFolder name="SourceFiles"
+                   displayName="Source Files"
+                   projectFiles="true">
+      <logicalFolder name="library" displayName="library" projectFiles="true">
+        <itemPath>library/dynamicVectors.c</itemPath>
+        <itemPath>library/fileManagement.c</itemPath>
+      </logicalFolder>
+      <itemPath>ftpCommandElaborate.c</itemPath>
+      <itemPath>ftpData.c</itemPath>
+      <itemPath>ftpServer.c</itemPath>
+      <itemPath>uFTP.c</itemPath>
+    </logicalFolder>
+    <logicalFolder name="TestFiles"
+                   displayName="Test Files"
+                   projectFiles="false"
+                   kind="TEST_LOGICAL_FOLDER">
+    </logicalFolder>
+    <logicalFolder name="ExternalFiles"
+                   displayName="Important Files"
+                   projectFiles="false"
+                   kind="IMPORTANT_FILES_FOLDER">
+      <itemPath>Makefile</itemPath>
+    </logicalFolder>
+  </logicalFolder>
+  <sourceRootList>
+    <Elem>library</Elem>
+  </sourceRootList>
+  <projectmakefile>Makefile</projectmakefile>
+  <confs>
+    <conf name="Debug" type="1">
+      <toolsSet>
+        <compilerSet>default</compilerSet>
+        <dependencyChecking>true</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <compileType>
+        <cTool>
+          <incDir>
+            <pElem>library</pElem>
+          </incDir>
+          <incFile>
+            <pElem>library/dynamicVectors.h</pElem>
+            <pElem>library/fileManagement.h</pElem>
+          </incFile>
+          <commandLine>-pthread</commandLine>
+        </cTool>
+      </compileType>
+      <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="ftpCommandsElaborate.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="ftpData.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="ftpData.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="ftpServer.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="ftpServer.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="ftpSpecs.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="library/dynamicVectors.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/dynamicVectors.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="library/fileManagement.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/fileManagement.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="uFTP.c" ex="false" tool="0" flavor2="0">
+      </item>
+    </conf>
+    <conf name="Release" type="1">
+      <toolsSet>
+        <compilerSet>default</compilerSet>
+        <dependencyChecking>true</dependencyChecking>
+        <rebuildPropChanged>false</rebuildPropChanged>
+      </toolsSet>
+      <compileType>
+        <cTool>
+          <developmentMode>5</developmentMode>
+        </cTool>
+        <ccTool>
+          <developmentMode>5</developmentMode>
+        </ccTool>
+        <fortranCompilerTool>
+          <developmentMode>5</developmentMode>
+        </fortranCompilerTool>
+        <asmTool>
+          <developmentMode>5</developmentMode>
+        </asmTool>
+      </compileType>
+      <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="ftpCommandsElaborate.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="ftpData.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="ftpData.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="ftpServer.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="ftpServer.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="ftpSpecs.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="library/dynamicVectors.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/dynamicVectors.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="library/fileManagement.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/fileManagement.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="uFTP.c" ex="false" tool="0" flavor2="0">
+      </item>
+    </conf>
+  </confs>
+</configurationDescriptor>
