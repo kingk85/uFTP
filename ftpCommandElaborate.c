@@ -227,8 +227,6 @@ int parseCommandList(ftpDataType * data, int socketId)
    return 1;
 }
 
-
-
 int parseCommandRetr(ftpDataType * data, int socketId)
 {
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
@@ -316,8 +314,6 @@ int parseCommandCwd(clientDataType *theClientData)
     
 }
 
-
-
 int parseCommandRest(clientDataType *theClientData)
 {
     int i, theSizeIndex;
@@ -364,7 +360,6 @@ int parseCommandRest(clientDataType *theClientData)
     
     return 1;
 }
-
 
 int parseCommandCdup(clientDataType *theClientData)
 {
