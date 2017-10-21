@@ -27,6 +27,9 @@ void DYNV_VectorGeneric_InitWithSearchFunction(DYNV_VectorGenericDataType *TheVe
 
 void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, void * TheElementData, int TheElementSize)
 {
+    
+    printf("\nPush back Address of TheVector = %lX", TheVectorGeneric);
+    
     if (TheVectorGeneric->Data != NULL)
         {
         TheVectorGeneric->Data = (void **) realloc(TheVectorGeneric->Data, sizeof(void *) * (TheVectorGeneric->Size+1));
@@ -48,6 +51,8 @@ void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, v
     TheVectorGeneric->Data[TheVectorGeneric->Size] = (void *) calloc(1, TheElementSize);
 
     memcpy(TheVectorGeneric->Data[TheVectorGeneric->Size], TheElementData, TheElementSize);
+    
+    printf("\nPush back Address of TheVectorGeneric->Data[TheVectorGeneric->Size] = %lX", TheVectorGeneric->ElementSize[TheVectorGeneric->Size]);
 
     TheVectorGeneric->ElementSize[TheVectorGeneric->Size] = TheElementSize;
     TheVectorGeneric->Size++;
@@ -95,6 +100,9 @@ void DYNV_VectorGeneric_SoftPopBack(DYNV_VectorGenericDataType *TheVector)
 
 void DYNV_VectorGeneric_Destroy(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(void *TheElementToDelete))
 {
+    
+    
+    printf("\nDestroy Address of TheVector = %lX", TheVector);
     int i;
     for (i = 0; i < TheVector->Size; i++)
     {

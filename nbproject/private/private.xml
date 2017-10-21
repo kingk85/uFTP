@@ -9,8 +9,11 @@
         <group>
             <file>file:/home/ugo/NetBeansProjects/uFTP/ftpData.c</file>
             <file>file:/home/ugo/NetBeansProjects/uFTP/ftpCommandElaborate.c</file>
+            <file>file:/home/ugo/NetBeansProjects/uFTP/library/logFunctions.c</file>
             <file>file:/home/ugo/NetBeansProjects/uFTP/ftpServer.c</file>
+            <file>file:/home/ugo/NetBeansProjects/uFTP/library/logFunctions.h</file>
             <file>file:/home/ugo/NetBeansProjects/uFTP/uFTP.c</file>
+            <file>file:/home/ugo/NetBeansProjects/uFTP/library/dynamicVectors.c</file>
             <file>file:/home/ugo/NetBeansProjects/uFTP/ftpData.h</file>
             <file>file:/home/ugo/NetBeansProjects/uFTP/ftpCommandsElaborate.h</file>
         </group>

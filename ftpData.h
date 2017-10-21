@@ -17,7 +17,7 @@
 #include "library/dynamicVectors.h"
 
 #define CLIENT_COMMAND_STRING_SIZE                  2048
-#define CLIENT_BUFFER_STRING_SIZE                   1024
+#define CLIENT_BUFFER_STRING_SIZE                   2048
 
 #define LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE       80
 
@@ -106,7 +106,6 @@ struct ftpListData
     int isFile;
     char *owner;
     char *groupOwner;
-    char *permissions;
     int fileSize;
     char *inodePermissionString;
     char **fileList;
@@ -120,7 +119,8 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
 void deleteListDataInfoVector(void *TheElementToDelete);
-
+void resetPasvData(passiveDataType *pasvData);
+void resetClientData(clientDataType *clientData, int isInitialization);
 #ifdef __cplusplus
 }
 #endif

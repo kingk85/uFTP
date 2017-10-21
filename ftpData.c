@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
@@ -78,13 +79,16 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
 
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 {
+
+   //printf("\ngetListDataInfo address: %lX", directoryInfo);
+
     int i;
     int fileAndFoldersCount = 0;
     ftpListDataType data;
     
     data.fileList = NULL;
     
-    printf("\nThePath = %s", thePath);
+    //printf("\nThePath = %s", thePath);
     
     FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0);
     
@@ -155,7 +159,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         directoryInfo->PushBack(directoryInfo, &data, sizeof(ftpListDataType));
     }
     
-    /*
+    
     printf("\n\ntotal %d", directoryInfo->Size);
     for (i = 0; i < directoryInfo->Size; i++)
     {
@@ -167,15 +171,63 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         ,((ftpListDataType *)directoryInfo->Data[i])->lastModifiedDataString
         ,((ftpListDataType *)directoryInfo->Data[i])->fileNameNoPath);
     }
-    */
+    
 }
 
 void deleteListDataInfoVector(void *TheElementToDelete)
 {
-    ftpListDataType * data = TheElementToDelete;
-
-    free(data->permissions);
+    ftpListDataType *data = (ftpListDataType *)TheElementToDelete;
+    /*
+    printf("\nDeleteListData Address of TheElementToDelete = %lX", TheElementToDelete);
+    printf("\n\nDeleting element\ndata.numberOfSubDirectories = %d", data->numberOfSubDirectories);
+    printf("\ndata.isDirectory = %d", data->isDirectory);
+    printf("\ndata.isFile = %d", data->isFile);
+    printf("\ndata.fileSize = %d", data->fileSize);
+    printf("\ndata.owner = %s", data->owner);
+    printf("\ndata.groupOwner = %s", data->groupOwner);
+    printf("\ndata.fileNameWithPath = %s", data->fileNameWithPath);
+    printf("\ndata.fileNameNoPath = %s", data->fileNameNoPath);
+    printf("\ndata.inodePermissionString = %s", data->inodePermissionString);
+    printf("\ndata.lastModifiedDataString = %s", data->lastModifiedDataString);    
+    */
     free(data->owner);
+    free(data->groupOwner);
     free(data->inodePermissionString);
     free(data->fileNameWithPath);
+}
+
+void resetPasvData(passiveDataType *pasvData)
+{
+      pasvData->passivePort = 0;
+      pasvData->passiveModeOn = 0;
+      pasvData->passiveSocketIsConnected = 0;
+      pasvData->commandIndex = 0;
+      pasvData->passiveSocket = 0;
+      pasvData->passiveSocketConnection = 0;
+      pasvData->bufferIndex = 0;
+      pasvData->commandReceived = 0;
+      pasvData->retrRestartAtByte = 0;
+      memset(pasvData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(pasvData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
+}
+
+void resetClientData(clientDataType *clientData, int isInitialization)
+{
+    clientData->socketDescriptor = 0;
+    clientData->socketCommandReceived = 0;
+    clientData->socketIsConnected = 0;
+    clientData->bufferIndex = 0;
+    clientData->commandIndex = 0;
+    memset(clientData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+    memset(clientData->theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+    cleanLoginData(&clientData->login, isInitialization);
+    
+
+    if (isInitialization == 1)
+    {
+        if (pthread_mutex_init(&clientData->pasvData.lock, NULL) != 0)
+        {
+            printf("\nMutex init failed");
+        }
+    }
 }

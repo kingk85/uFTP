@@ -17,6 +17,7 @@
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
 #include "ftpData.h"
+#include "logFunctions.h"
 
 /* Elaborate the User login command */
 int parseCommandUser(clientDataType *theClientData)
@@ -29,9 +30,10 @@ int parseCommandUser(clientDataType *theClientData)
     for (i = strlen("USER")+1; i < theClientData->commandIndex; i++)
     {
         if (theClientData->theCommandReceived[i] == '\r' ||
-            theClientData->theCommandReceived[i] == '\n')
+            theClientData->theCommandReceived[i] == '\n' ||
+            theClientData->theCommandReceived[i] == '\0')
             {
-            break;
+                break;
             }
         
         if (theClientData->theCommandReceived[i] != ' ' &&
@@ -40,7 +42,8 @@ int parseCommandUser(clientDataType *theClientData)
             theName[theNameIndex++] = theClientData->theCommandReceived[i];
         }
     }
-    printf("\n The Name: %s", theName);
+    printTimeStamp();
+    printf("The Name: %s", theName);
     
     if (theNameIndex > 1)
     {
@@ -66,9 +69,10 @@ int parseCommandPass(clientDataType *theClientData)
     for (i = strlen("PASS")+1; i < theClientData->commandIndex; i++)
     {
         if (theClientData->theCommandReceived[i] == '\r' ||
+            theClientData->theCommandReceived[i] == '\0' ||
             theClientData->theCommandReceived[i] == '\n')
             {
-            break;
+                break;
             }
         
         if (theClientData->theCommandReceived[i] != ' ' &&
@@ -77,8 +81,8 @@ int parseCommandPass(clientDataType *theClientData)
             thePass[thePassIndex++] = theClientData->theCommandReceived[i];
         }
     }
-
-    printf("\n The Pass is: %s", thePass);
+    printTimeStamp();
+    printf("The Pass is: %s", thePass);
 
     if (thePassIndex > 1)
     {
@@ -91,7 +95,8 @@ int parseCommandPass(clientDataType *theClientData)
         setDynamicStringDataType(&theClientData->login.ftpPath, "/", strlen("/"));
         
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
-        printf("\nPASS COMMAND OK, PASSWORD IS: %s", theClientData->login.password.text);
+        printTimeStamp();
+        printf("PASS COMMAND OK, PASSWORD IS: %s", theClientData->login.password.text);
         printf("\nheClientData->login.homePath: %s", theClientData->login.homePath.text);
         printf("\nheClientData->login.ftpPath: %s", theClientData->login.ftpPath.text);
         printf("\nheClientData->login.absolutePath: %s", theClientData->login.absolutePath.text);
@@ -114,6 +119,7 @@ int parseCommandAuth(clientDataType *theClientData)
     for (i = strlen("AUTH")+1; i < theClientData->commandIndex; i++)
     {
         if (theClientData->theCommandReceived[i] == '\r' ||
+            theClientData->theCommandReceived[i] == '\0' ||
             theClientData->theCommandReceived[i] == '\n')
             {
             break;
@@ -125,8 +131,8 @@ int parseCommandAuth(clientDataType *theClientData)
             theAuth[theAuthIndex++] = theClientData->theCommandReceived[i];
         }
     }
-
-    printf("\n The Auth is: %s", theAuth);
+    printTimeStamp();
+    printf("The Auth is: %s", theAuth);
 
     char *theResponse = "502 Auth command is not supported.\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
@@ -192,15 +198,17 @@ int parseCommandTypeI(clientDataType *theClientData)
 
 int parseCommandPasv(ftpDataType * data, int socketId)
 {
-    char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    
-    sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",data->serverIp.ip[0], data->serverIp.ip[1], data->serverIp.ip[2], data->serverIp.ip[3], (data->clients[socketId].pasvData.passivePort / 256), (data->clients[socketId].pasvData.passivePort % 256));
 
     /* Create worker thread */
      if (data->clients[socketId].pasvData.passiveSocketIsConnected == 0)
+     {
         pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &socketId);
+     }
     
+    char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+    memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+    sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",data->serverIp.ip[0], data->serverIp.ip[1], data->serverIp.ip[2], data->serverIp.ip[3], (data->clients[socketId].pasvData.passivePort / 256), (data->clients[socketId].pasvData.passivePort % 256));     
+     
     //pthread_join(data->clients[socketId].pasvThread, NULL);
    
     write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
@@ -210,20 +218,9 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 
 int parseCommandList(ftpDataType * data, int socketId)
 {
-    char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-
-    /* Create worker thread */
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
-    
-    //strcpy(theResponse, "150 Accepted data connection\r\n");
-    //strcat(theResponse, "226 List processed\r\n");
-   
-    //226-Options: -a -l 
-    //226 31 matches total 
-   //write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
    return 1;
 }
 
@@ -245,6 +242,7 @@ int parseCommandCwd(clientDataType *theClientData)
     for (i = strlen("CWD")+1; i < theClientData->commandIndex; i++)
     {
         if (theClientData->theCommandReceived[i] == '\r' ||
+            theClientData->theCommandReceived[i] == '\0' ||
             theClientData->theCommandReceived[i] == '\n')
             {
             break;
@@ -255,8 +253,11 @@ int parseCommandCwd(clientDataType *theClientData)
             thePath[thePathIndex++] = theClientData->theCommandReceived[i];
         }
     }
-    printf("\n The Path requested for CWD IS: %s", thePath);
+    
+   printTimeStamp();
+    printf(" The Path requested for CWD IS: %s", thePath);
     fflush(0);
+    
     if (thePathIndex > 0)
     {
         char *theResponse;
@@ -265,16 +266,16 @@ int parseCommandCwd(clientDataType *theClientData)
         
         if (thePath[0] != '/')
         {
-                FILE_AppendToString(&theResponse, "/");
+            FILE_AppendToString(&theResponse, "/");
 
-                if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] != '/')
-                    FILE_AppendToString(&theClientData->login.absolutePath.text, "/");
-                
-                if (theClientData->login.ftpPath.text[theClientData->login.ftpPath.textLen-1] != '/')
-                    FILE_AppendToString(&theClientData->login.ftpPath.text, "/");
-                
-                FILE_AppendToString(&theClientData->login.absolutePath.text, thePath);
-                FILE_AppendToString(&theClientData->login.ftpPath.text, thePath);
+            if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] != '/')
+                FILE_AppendToString(&theClientData->login.absolutePath.text, "/");
+
+            if (theClientData->login.ftpPath.text[theClientData->login.ftpPath.textLen-1] != '/')
+                FILE_AppendToString(&theClientData->login.ftpPath.text, "/");
+
+            FILE_AppendToString(&theClientData->login.absolutePath.text, thePath);
+            FILE_AppendToString(&theClientData->login.ftpPath.text, thePath);
         }
         else if (thePath[0] == '/')
         {
@@ -292,26 +293,22 @@ int parseCommandCwd(clientDataType *theClientData)
         FILE_AppendToString(&theResponse, thePath);
         FILE_AppendToString(&theResponse, " \r\n");
         
-   
-
-        
         theClientData->login.absolutePath.textLen = strlen(theClientData->login.absolutePath.text);
         theClientData->login.ftpPath.textLen = strlen(theClientData->login.ftpPath.text);
         
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
-        printf("\nUSER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
+        printTimeStamp();
+        printf("USER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
         printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
         
         fflush(0);
         free(theResponse);
         return 1;
-        
     }
     else
     {
         return 0;
     }    
-    
 }
 
 int parseCommandRest(clientDataType *theClientData)
@@ -328,6 +325,7 @@ int parseCommandRest(clientDataType *theClientData)
     for (i = strlen("REST")+1; i < theClientData->commandIndex; i++)
     {
         if (theClientData->theCommandReceived[i] == '\r' ||
+            theClientData->theCommandReceived[i] == '\0' ||
             theClientData->theCommandReceived[i] == '\n')
             {
             break;
@@ -348,8 +346,8 @@ int parseCommandRest(clientDataType *theClientData)
             theSize[theSizeIndex++] = theClientData->theCommandReceived[i];
         }
     }
-    
-    printf("\n REST set to: %s", theSize);
+    printTimeStamp();
+    printf(" REST set to: %s", theSize);
     fflush(0);
     
     FILE_AppendToString(&theResponse, theSize);
@@ -383,7 +381,8 @@ int parseCommandCdup(clientDataType *theClientData)
         FILE_AppendToString(&theResponse, " \r\n");
 
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
-        printf("\nUSER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
+        printTimeStamp();
+        printf("USER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
         printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
         
         free(theResponse);

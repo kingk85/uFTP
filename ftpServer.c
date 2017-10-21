@@ -20,7 +20,7 @@
 #include "ftpData.h"
 #include "ftpCommandsElaborate.h"
 #include "fileManagement.h"
-
+#include "logFunctions.h"
 #define SERVER_PORT     21
 
 static ftpDataType ftpData;
@@ -32,6 +32,7 @@ static int processCommand(int processingElement);
 
 void *pasvThreadHandler(void * socketId)
 {
+    
   int theSocketId = *(int *)socketId;
   ftpData.clients[theSocketId].pasvData.passiveSocket = createPassiveSocket(ftpData.clients[theSocketId].pasvData.passivePort);
     
@@ -42,29 +43,31 @@ void *pasvThreadHandler(void * socketId)
 
 	if (ftpData.clients[theSocketId].pasvData.passiveSocketIsConnected == 0)
 	{
-            printf("\nWaiting for pasv client connection");
-            
+            printTimeStamp();
+            printf("Waiting for pasv client connection on port: %d", ftpData.clients[theSocketId].pasvData.passivePort);
+
             //Wait for sockets
             if ((ftpData.clients[theSocketId].pasvData.passiveSocketConnection = accept(ftpData.clients[theSocketId].pasvData.passiveSocket, 0, 0))!=-1)
             {
-                char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+                printTimeStamp();
+                printf("Pasv connection initialized");
                 int error;
                 ftpData.clients[theSocketId].pasvData.passiveSocketIsConnected = 1;
                 error = fcntl(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, F_SETFL, O_NONBLOCK);
-                memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-                strcpy(theResponse, "150 Accepted data connection\r\n");
-                write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
             }
 	}
 	else
 	{
-          //The client is not connected anymore
+        printTimeStamp();
+        printf("Pasv waiting..");
+
+            //the connection is closed
           if ((ftpData.clients[theSocketId].pasvData.bufferIndex = read(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
           {
-           close(theSocketId);
-           ftpData.clients[theSocketId].pasvData.passiveSocketIsConnected = 0;
+           break;
           }
           
+        //Some data is received
           if (ftpData.clients[theSocketId].pasvData.bufferIndex > 0)
           {
             int i = 0;
@@ -75,20 +78,28 @@ void *pasvThreadHandler(void * socketId)
 
             usleep(100);
                         
-            write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, ftpData.clients[theSocketId].pasvData.bufferIndex);
+            //write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, ftpData.clients[theSocketId].pasvData.bufferIndex);
           }
           
           if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
               strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "LIST", strlen("LIST")) == 0)
           {
-            char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+            
             DYNV_VectorGenericDataType directoryInfo;
             DYNV_VectorGeneric_Init(&directoryInfo);
+            
+            printf("directoryInfo address: %lX", &directoryInfo);
             int i;
             getListDataInfo(ftpData.clients[theSocketId].login.absolutePath.text, &directoryInfo);
+
+
+            char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+            strcpy(theResponse, "150 Accepted data connection\r\n");
+            write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+            
             char theBufferWrite[1024];
             memset(theBufferWrite, 0, 1024);
-            
             sprintf(theBufferWrite, "total %d\r\n", directoryInfo.Size);
             write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, theBufferWrite, strlen(theBufferWrite));
             printf("%s", theBufferWrite);
@@ -116,26 +127,26 @@ void *pasvThreadHandler(void * socketId)
             char ** lastToDestroy = NULL;
             
             if (theSize > 0)
+            {
                 lastToDestroy = ((ftpListDataType *)directoryInfo.Data[0])->fileList;
+            }
             
             directoryInfo.Destroy(&directoryInfo, deleteListDataInfoVector);
-            //Not freed by destroy
-            if (theSize > 0)
-                free(lastToDestroy);
-            //return;
-            ftpData.clients[theSocketId].socketCommandReceived = 0;
             
-            close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
-            //close (ftpData.clients[theSocketId].pasvData.passiveSocket);
-            //pthread_exit();
-            ftpData.clients[theSocketId].pasvData.passiveSocketIsConnected = 0;
+            if (theSize > 0)
+            {
+                 free(lastToDestroy);
+            }
+            
             break;
-          } else if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
+          }
+          else if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
               strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "RETR", strlen("RETR")) == 0)
           {
               char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-              printf("\nThe pasvData Command: %s", ftpData.clients[theSocketId].pasvData.theCommandReceived);
-              
+              printTimeStamp();
+              printf("The pasvData Command: %s", ftpData.clients[theSocketId].pasvData.theCommandReceived);
+
               int i;
               char theFileName[CLIENT_COMMAND_STRING_SIZE];
               int theFileNameCursor = 0;
@@ -156,40 +167,46 @@ void *pasvThreadHandler(void * socketId)
                     theFileName[theFileNameCursor++] = ftpData.clients[theSocketId].pasvData.theCommandReceived[i];
                   }
               }
-              
-              printf("\nThe File to retrieve is: %s", theFileName);
+              printTimeStamp();
+              printf("The File to retrieve is: %s", theFileName);
 
               theFullFileName = (char *) malloc(ftpData.clients[theSocketId].login.absolutePath.textLen+1);
               strcpy(theFullFileName, ftpData.clients[theSocketId].login.absolutePath.text);
               FILE_AppendToString(&theFullFileName, "/");
               FILE_AppendToString(&theFullFileName, theFileName);
-              
-              printf("\nThe File to retrieve is: %s", theFullFileName);
+              printTimeStamp();
+              printf("The File to retrieve is: %s", theFullFileName);
               
               int theFileSize = FILE_GetStringFromFile(theFullFileName, &theFullFileContent);
-              printf("\nThe File size is: %d", theFileSize);
-              write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, theFullFileContent, theFileSize);
+              printTimeStamp();              
+              printf("The File size is: %d", theFileSize);
+                memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+                strcpy(theResponse, "150 Accepted data connection\r\n");
+                write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));              
               
-            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-            sprintf(theResponse, "226-File successfully transferred\r\n226 done\r\n");
-            write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+              write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, theFullFileContent, theFileSize);
+
             
             free(theFullFileName);
             free(theFullFileContent);
             //226-File successfully transferred
             //226 0.013 seconds (measured here), 105.22 Kbytes per second
-              
-              close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
-              ftpData.clients[theSocketId].pasvData.passiveSocketIsConnected = 0;
-              ftpData.clients[theSocketId].socketCommandReceived = 0;
-              break;
+             
+            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+            sprintf(theResponse, "226-File successfully transferred\r\n226 done\r\n");
+            write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+            break;
           }
-          
-          
       }
-  }
+    }
 
-  printf("\nClosing pasv socket (%d) ok!", theSocketId);
+  printTimeStamp();
+  printf("Closing pasv socket (%d) ok!", theSocketId);
+    shutdown(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, SHUT_RDWR);
+    shutdown(ftpData.clients[theSocketId].pasvData.passiveSocket, SHUT_RDWR);
+    close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
+    close(ftpData.clients[theSocketId].pasvData.passiveSocket);  
+    resetPasvData(&ftpData.clients[theSocketId].pasvData);
   fflush(0);
   return NULL;
 }
@@ -197,17 +214,43 @@ void *pasvThreadHandler(void * socketId)
 void runFtpServer(void)
 {
   static int processingSock = 0;
-  
-  char *test;
-  test = (char *) malloc(strlen("/home/ugo/scrivania/viaggio california") + 1);
-;  
+ 
 
   //Initialize all ftp data
   initFtpData();  
 
+  /*
+    DYNV_VectorGenericDataType directoryInfo;
+    DYNV_VectorGeneric_Init(&directoryInfo);
+
+     printf("\ndirectoryInfo address: %lX", &directoryInfo);
+     int i;
+     getListDataInfo("/home/ugo", &directoryInfo);
+
+     int theSize = directoryInfo.Size;
+
+     char ** lastToDestroy = NULL;
+     directoryInfo.Destroy(&directoryInfo, deleteListDataInfoVector);
+
+     if (theSize > 0)
+     {
+         //lastToDestroy = ((ftpListDataType *)directoryInfo.Data[0])->fileList;
+         //free(lastToDestroy);
+     }
+           
+     exit(0);
+  */
+  
+  
+  
+  
+  
+  
+  
   //Socket main creator
   ftpData.theSocket = createSocket(SERVER_PORT);
-  printf("\nuFTP server starting..");
+  printTimeStamp();
+  printf("uFTP server starting..");
   printf("\n Server: Clients connected: %d", ftpData.connectedClients);
   printf("\nServer: Max Client Allowed: %d", ftpData.maxClients);
 
@@ -215,7 +258,7 @@ void runFtpServer(void)
   //Endless loop ftp process
     while (1)
     {
-      usleep(1000);
+      usleep(100000);
 
       for (processingSock = 0; processingSock < ftpData.maxClients; processingSock++)
       {
@@ -228,7 +271,8 @@ void runFtpServer(void)
                 ftpData.connectedClients++;
                 ftpData.clients[processingSock].socketIsConnected = 1;
                 error = fcntl(ftpData.clients[processingSock].socketDescriptor, F_SETFL, O_NONBLOCK);
-                printf("\nServer: New client connected with id: %d", processingSock);
+                printTimeStamp();
+                printf("Server: New client connected with id: %d", processingSock);
                 printf("\nServer: Clients connected: %d", ftpData.connectedClients);
                 write(ftpData.clients[processingSock].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
             }
@@ -240,37 +284,55 @@ void runFtpServer(void)
           {
            closeSocket(processingSock);
           }
-          
+
+          //Some commands has been received
           if (ftpData.clients[processingSock].bufferIndex > 0)
           {
             int i = 0;
             int commandProcessStatus = 0;
             for (i = 0; i < ftpData.clients[processingSock].bufferIndex; i++)
             {
-                ftpData.clients[processingSock].theCommandReceived[ftpData.clients[processingSock].commandIndex++] = ftpData.clients[processingSock].buffer[i];
+                if (ftpData.clients[processingSock].commandIndex < CLIENT_COMMAND_STRING_SIZE)
+                {
+                    if (ftpData.clients[processingSock].buffer[i] != '\r' && ftpData.clients[processingSock].buffer[i] != '\n')
+                    {
+                        ftpData.clients[processingSock].theCommandReceived[ftpData.clients[processingSock].commandIndex++] = ftpData.clients[processingSock].buffer[i];
+                    }
 
-                if (ftpData.clients[processingSock].buffer[i] == '\n') {
-                    ftpData.clients[processingSock].socketCommandReceived = 1;
-                    commandProcessStatus = processCommand(processingSock);
+                    if (ftpData.clients[processingSock].buffer[i] == '\n') 
+                        {
+                            ftpData.clients[processingSock].socketCommandReceived = 1;
+                            commandProcessStatus = processCommand(processingSock);
+                            //Echo unrecognized commands
+                            if (commandProcessStatus == 0) 
+                            {
+                                write(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, ftpData.clients[processingSock].bufferIndex);
+                            }
+                        }
+                }
+                else
+                {
+                    //Command overflow can't be processed
+                    ftpData.clients[processingSock].commandIndex = 0;
+                    memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+                    //Write some error message to the client
+                    break;
                 }
             }
             usleep(100);
-            
-            //Echo unrecognized commands
-            if (commandProcessStatus == 0){
-                
-                write(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, ftpData.clients[processingSock].bufferIndex);
-            }
-            
+
             memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
           }
+          
+          
       }
     }
   }
   
   //Server Close
   closeSocket(ftpData.theSocket);
-  printf("Server: Closed.\n");
+  printTimeStamp();
+  printf("Server: Closed.");
   
   ftpData.clients[processingSock].socketIsConnected = 0;
   return;
@@ -311,7 +373,7 @@ static int createSocket(int port)
 
  int createPassiveSocket(int port)
 {
-  int sock, errore;
+  int sock, errore, flags;
   struct sockaddr_in temp;
 
   //Socket creation
@@ -320,15 +382,19 @@ static int createSocket(int port)
   temp.sin_addr.s_addr = INADDR_ANY;
   temp.sin_port = htons(port);
 
-  //No blocking socket
-  //errore = fcntl(sock, F_SETFL, O_NONBLOCK);
   
-    int reuse = 1;
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
+
+    flags = fcntl(sock, F_GETFL, 0);
+    flags &= ~O_NONBLOCK;
+    errore =  fcntl(sock, F_SETFL, flags);
+  
+  
+  int reuse = 1;
+   if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
         perror("setsockopt(SO_REUSEADDR) failed");
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-        perror("setsockopt(SO_REUSEPORT) failed");
+       perror("setsockopt(SO_REUSEPORT) failed");
 
 
   //Bind socket
@@ -336,7 +402,7 @@ static int createSocket(int port)
 
   //Number of client allowed
   errore = listen(sock, 1);
- 
+
   return sock;
 }
 
@@ -345,29 +411,16 @@ static void closeSocket(int processingSocket)
     //Close the socket
     close(ftpData.clients[processingSocket].socketDescriptor);
 
-    //Reset the data
-    ftpData.clients[processingSocket].socketDescriptor = 0;
-    ftpData.clients[processingSocket].socketCommandReceived = 0;
-    ftpData.clients[processingSocket].socketIsConnected = 0;
-    ftpData.clients[processingSocket].bufferIndex = 0;
-    ftpData.clients[processingSocket].commandIndex = 0;
-    ftpData.clients[processingSocket].pasvData.passivePort = 0;
-    ftpData.clients[processingSocket].pasvData.passiveModeOn = 0;
-    ftpData.clients[processingSocket].pasvData.passiveSocketIsConnected = 0;
-    
-    memset(ftpData.clients[processingSocket].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-    memset(ftpData.clients[processingSocket].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    memset(ftpData.clients[processingSocket].pasvData.buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-    cleanLoginData(&ftpData.clients[processingSocket].login, 0);
-    
+    resetClientData(&ftpData.clients[processingSocket], 0);
+    resetPasvData(&ftpData.clients[processingSocket].pasvData);
     //Update client connecteds
     ftpData.connectedClients--;
     
     if (ftpData.connectedClients < 0){
         ftpData.connectedClients = 0;
     }
-    
-    printf("\nClient id: %d disconnected", processingSocket);
+    printTimeStamp();
+    printf("Client id: %d disconnected", processingSocket);
     printf("\nServer: Clients connected:%d", ftpData.connectedClients);
     return;
 }
@@ -390,25 +443,8 @@ static void initFtpData(void)
   //Client data reset to zero
   for (i = 0; i < ftpData.maxClients; i++)
   {
-      ftpData.clients[i].socketDescriptor = 0;
-      ftpData.clients[i].socketCommandReceived = 0;
-      ftpData.clients[i].socketIsConnected = 0;
-      ftpData.clients[i].bufferIndex = 0;
-      ftpData.clients[i].commandIndex = 0;
-      ftpData.clients[i].pasvData.passivePort = 0;
-      ftpData.clients[i].pasvData.passiveModeOn = 0;
-      ftpData.clients[i].pasvData.passiveSocketIsConnected = 0;
-
-        if (pthread_mutex_init(&ftpData.clients[i].pasvData.lock, NULL) != 0)
-        {
-            printf("\nMutex init failed");
-        }
-
-      memset(ftpData.clients[i].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-      memset(ftpData.clients[i].pasvData.buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-      memset(ftpData.clients[i].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-      
-      cleanLoginData(&ftpData.clients[i].login, 1);
+      resetPasvData(&ftpData.clients[i].pasvData);
+      resetClientData(&ftpData.clients[i], 1);
   }
  
  return;
@@ -417,7 +453,8 @@ static void initFtpData(void)
 static int processCommand(int processingElement)
 {
     int toReturn = 0;
-    printf ("\nCommand received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
+    printTimeStamp();
+    printf ("Command received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
    
     //Process Command
     if(strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) == 0)
