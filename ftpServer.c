@@ -88,10 +88,9 @@ void *pasvThreadHandler(void * socketId)
             DYNV_VectorGenericDataType directoryInfo;
             DYNV_VectorGeneric_Init(&directoryInfo);
             
-            printf("directoryInfo address: %lX", &directoryInfo);
+            //printf("directoryInfo address: %lX", &directoryInfo);
             int i;
             getListDataInfo(ftpData.clients[theSocketId].login.absolutePath.text, &directoryInfo);
-
 
             char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
@@ -102,7 +101,7 @@ void *pasvThreadHandler(void * socketId)
             memset(theBufferWrite, 0, 1024);
             sprintf(theBufferWrite, "total %d\r\n", directoryInfo.Size);
             write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, theBufferWrite, strlen(theBufferWrite));
-            printf("%s", theBufferWrite);
+            //printf("%s", theBufferWrite);
             for (i = 0; i < directoryInfo.Size; i++)
             {
                 memset(theBufferWrite, 0, 1024);
@@ -113,7 +112,7 @@ void *pasvThreadHandler(void * socketId)
                 ,((ftpListDataType *) directoryInfo.Data[i])->fileSize
                 ,((ftpListDataType *) directoryInfo.Data[i])->lastModifiedDataString
                 ,((ftpListDataType *) directoryInfo.Data[i])->fileNameNoPath);
-                printf("%s", theBufferWrite);
+                //printf("%s", theBufferWrite);
                 write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, theBufferWrite, strlen(theBufferWrite));
             }
 
@@ -532,6 +531,13 @@ static int processCommand(int processingElement)
     //150 Accepted data connection
     //226-File successfully transferred
     //226 0.013 seconds (measured here), 105.22 Kbytes per second
+    
+    
+    //227 Entering Passive Mode (192,185,16,65,182,64)
+    //STOR testUgo.txt
+    //150 Accepted data connection
+    //226-File successfully transferred
+    //226 21.350 seconds (measured here), 3.33 bytes per second
     
     ftpData.clients[processingElement].commandIndex = 0;
     memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);

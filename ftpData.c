@@ -160,7 +160,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
     }
     
     
-    printf("\n\ntotal %d", directoryInfo->Size);
+    /*printf("\n\ntotal %d", directoryInfo->Size);
     for (i = 0; i < directoryInfo->Size; i++)
     {
         printf("\n%s %d %s %s %d %s %s", ((ftpListDataType *)directoryInfo->Data[i])->inodePermissionString
@@ -170,7 +170,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         ,((ftpListDataType *)directoryInfo->Data[i])->fileSize
         ,((ftpListDataType *)directoryInfo->Data[i])->lastModifiedDataString
         ,((ftpListDataType *)directoryInfo->Data[i])->fileNameNoPath);
-    }
+    }*/
     
 }
 
