@@ -207,8 +207,10 @@ void resetPasvData(passiveDataType *pasvData)
       pasvData->bufferIndex = 0;
       pasvData->commandReceived = 0;
       pasvData->retrRestartAtByte = 0;
+      pasvData->theFileNameToStorIndex = 0;
       memset(pasvData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(pasvData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(pasvData->theFileNameToStor, 0, CLIENT_BUFFER_STRING_SIZE);
 }
 
 void resetClientData(clientDataType *clientData, int isInitialization)

@@ -13,81 +13,80 @@
 static int FILE_CompareString(const void * a, const void * b);
 
 static int FILE_CompareString(const void * a, const void * b)
-	{
-  /* The pointers point to offsets into "array", so we need to
-  dereference them to get at the strings. */
-  return strcmp (*(const char **) a, *(const char **) b);
-	}
+{
+    return strcmp (*(const char **) a, *(const char **) b);
+}
 
 static int FILE_CompareStringParameter(const void * a, const void * b);
 
 static int FILE_CompareStringParameter(const void * a, const void * b)
-	{
-	const FILE_StringParameter_DataType * typeA = *(const FILE_StringParameter_DataType **)a;
-	const FILE_StringParameter_DataType * typeB = *(const FILE_StringParameter_DataType **)b;
-	printf("Comparing  %s with %s",typeA->Name, typeB->Name);
-  return strcmp(typeA->Name, typeB->Name);
-	}
+{
+    const FILE_StringParameter_DataType * typeA = *(const FILE_StringParameter_DataType **)a;
+    const FILE_StringParameter_DataType * typeB = *(const FILE_StringParameter_DataType **)b;
+    printf("Comparing  %s with %s",typeA->Name, typeB->Name);
+    return strcmp(typeA->Name, typeB->Name);
+}
 
 /* Check if inode is a directory */
 int FILE_IsDirectory(char *DirectoryPath)
-	{
-	struct stat sb;
-	if (stat(DirectoryPath, &sb) == 0 && S_ISDIR(sb.st_mode))
-	 {
-	 return 1;
-	 }
-	else
-	 {
-	 return 0;
-	 }
-	return 0;
-	}
+{
+    struct stat sb;
+    if (stat(DirectoryPath, &sb) == 0 && S_ISDIR(sb.st_mode))
+        {
+        return 1;
+        }
+    else
+        {
+        return 0;
+        }
+    
+    return 0;
+}
 
 long int FILE_GetAvailableSpace(const char* path)
-	{
-  struct statvfs stat;
+{
+    struct statvfs stat;
 
-  if (statvfs(path, &stat) != 0)
-  	{
-    // error happens, just quits here
-    return -1;
-  	}
+    if (statvfs(path, &stat) != 0)
+    {
+        // error happens, just quits here
+        return -1;
+    }
 
-  // the available size is f_bsize * f_bavail
-  return stat.f_bsize * stat.f_bavail;
-	}
+    // the available size is f_bsize * f_bavail
+    return stat.f_bsize * stat.f_bavail;
+}
 
 /* Get the file size */
 int FILE_GetFileSize(FILE *TheFilePointer)
-	{
-  int Prev = 0, TheFileSize = 0;
-  Prev = ftell(TheFilePointer);
-  fseek(TheFilePointer, 0L, SEEK_END);
-  TheFileSize = ftell(TheFilePointer);
-  fseek(TheFilePointer, Prev, SEEK_SET);
-  return TheFileSize;
-	}
+{
+    int Prev = 0, TheFileSize = 0;
+    Prev = ftell(TheFilePointer);
+    fseek(TheFilePointer, 0L, SEEK_END);
+    TheFileSize = ftell(TheFilePointer);
+    fseek(TheFilePointer, Prev, SEEK_SET);
+    return TheFileSize;
+}
 
 int FILE_GetFileSizeFromPath(char *TheFileName)
-	{
-	if (FILE_IsFile(TheFileName) == 1)
-            {
-            FILE *TheFilePointer;
-            TheFilePointer = fopen(TheFileName, "rb");
-            int Prev = 0, TheFileSize = 0;
-            Prev = ftell(TheFilePointer);
-            fseek(TheFilePointer, 0L, SEEK_END);
-            TheFileSize = ftell(TheFilePointer);
-            fseek(TheFilePointer, Prev, SEEK_SET);
-            fclose(TheFilePointer);
-            return TheFileSize;
-            }
-	else
-            {
-                return 0;
-            }
-	}
+{
+    if (FILE_IsFile(TheFileName) == 1)
+    {
+        FILE *TheFilePointer;
+        TheFilePointer = fopen(TheFileName, "rb");
+        int Prev = 0, TheFileSize = 0;
+        Prev = ftell(TheFilePointer);
+        fseek(TheFilePointer, 0L, SEEK_END);
+        TheFileSize = ftell(TheFilePointer);
+        fseek(TheFilePointer, Prev, SEEK_SET);
+        fclose(TheFilePointer);
+        return TheFileSize;
+    }
+    else
+    {
+        return 0;
+    }
+}
 
 /* Check if a file is valid */
 int FILE_IsFile(const char *TheFileName)

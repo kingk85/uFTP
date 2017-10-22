@@ -63,6 +63,8 @@ struct passiveData
     
     pthread_mutex_t lock;
     
+    char theFileNameToStor[CLIENT_COMMAND_STRING_SIZE];
+    int theFileNameToStorIndex;
     unsigned long int retrRestartAtByte;
     
 } typedef passiveDataType;
@@ -95,7 +97,6 @@ struct ftpData
     clientDataType *clients;
     ipDataType serverIp;
 } typedef ftpDataType;
-
 
 struct ftpListData
 {

@@ -80,11 +80,55 @@ void *pasvThreadHandler(void * socketId)
                         
             //write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, ftpData.clients[theSocketId].pasvData.bufferIndex);
           }
-          
+
           if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
+              strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "STOR", strlen("STOR")) == 0 &&
+              ftpData.clients[theSocketId].pasvData.theFileNameToStorIndex > 0)
+          {
+            char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+
+            char theAbsoluteFileNamePath[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+            memset(theAbsoluteFileNamePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+
+            strcpy(theAbsoluteFileNamePath, ftpData.clients[theSocketId].login.absolutePath);
+            
+            if (theAbsoluteFileNamePath[strlen(theAbsoluteFileNamePath)-1] != '/')
+                strcat(theAbsoluteFileNamePath, "/");
+            
+            strcat(theAbsoluteFileNamePath, ftpData.clients[theSocketId].pasvData.theFileNameToStor);
+
+            strcpy(theResponse, "150 Accepted data connection\r\n");
+            write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+
+
+            while(1)
+            {
+                if ((ftpData.clients[theSocketId].pasvData.bufferIndex = read(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
+                {
+                    //Client is disconnected!
+                    break;
+                }             
+                
+                if (ftpData.clients[theSocketId].pasvData.bufferIndex > 0)
+                {
+                  int i = 0;
+                  for (i = 0; i < ftpData.clients[theSocketId].pasvData.bufferIndex; i++)
+                  {
+                    ;
+                  }
+                  usleep(100);
+                }
+            }
+
+            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+            sprintf(theResponse, "226 file stor ok\r\n");
+            write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+            break;
+          }        
+        else if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
               strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "LIST", strlen("LIST")) == 0)
           {
-            
             DYNV_VectorGenericDataType directoryInfo;
             DYNV_VectorGeneric_Init(&directoryInfo);
             
@@ -201,11 +245,11 @@ void *pasvThreadHandler(void * socketId)
 
   printTimeStamp();
   printf("Closing pasv socket (%d) ok!", theSocketId);
-    shutdown(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, SHUT_RDWR);
-    shutdown(ftpData.clients[theSocketId].pasvData.passiveSocket, SHUT_RDWR);
-    close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
-    close(ftpData.clients[theSocketId].pasvData.passiveSocket);  
-    resetPasvData(&ftpData.clients[theSocketId].pasvData);
+  shutdown(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, SHUT_RDWR);
+  shutdown(ftpData.clients[theSocketId].pasvData.passiveSocket, SHUT_RDWR);
+  close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
+  close(ftpData.clients[theSocketId].pasvData.passiveSocket);  
+  resetPasvData(&ftpData.clients[theSocketId].pasvData);
   fflush(0);
   return NULL;
 }
@@ -241,10 +285,7 @@ void runFtpServer(void)
   */
   
   
-  
-  
-  
-  
+ 
   
   //Socket main creator
   ftpData.theSocket = createSocket(SERVER_PORT);
@@ -521,6 +562,11 @@ static int processCommand(int processingElement)
     {
         printf("\nRETR COMMAND RECEIVED");
         toReturn = parseCommandRetr(&ftpData, processingElement);
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "STOR", strlen("STOR")) == 0)
+    {
+        printf("\nSTOR COMMAND RECEIVED");
+        toReturn = parseCommandStor(&ftpData, processingElement);
     }
     
     //REST COMMAND 

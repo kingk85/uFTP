@@ -232,6 +232,33 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     return 1;
 }
 
+int parseCommandStor(ftpDataType * data, int socketId)
+{
+    int i;
+    memset(data->clients[socketId].pasvData.theFileNameToStor, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+    data->clients[socketId].pasvData.theFileNameToStorIndex = 0;
+
+    for (i = strlen("STOR")+1; i < data->clients[socketId].commandIndex; i++)
+    {
+        if (data->clients[socketId].theCommandReceived[i] == '\r' ||
+            data->clients[socketId].theCommandReceived[i] == '\0' ||
+            data->clients[socketId].theCommandReceived[i] == '\n')
+            {
+                break;
+            }
+        
+        if (data->clients[socketId].pasvData.theFileNameToStorIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
+        {
+            data->clients[socketId].pasvData.theFileNameToStor[data->clients[socketId].pasvData.theFileNameToStorIndex++] = data->clients[socketId].theCommandReceived[i];
+        }
+    }
+
+    memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+    strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
+    data->clients[socketId].pasvData.commandReceived = 1;
+    return 1;
+}
+
 int parseCommandCwd(clientDataType *theClientData)
 {
     int i, thePathIndex;

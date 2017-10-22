@@ -33,6 +33,7 @@ int parseCommandTypeI(clientDataType *theClientData);
 int parseCommandPasv(ftpDataType * data, int socketId);
 int parseCommandList(ftpDataType * data, int socketId);
 int parseCommandRetr(ftpDataType * data, int socketId);
+int parseCommandStor(ftpDataType * data, int socketId);
 int parseCommandCwd(clientDataType *theClientData);
 int parseCommandCdup(clientDataType *theClientData);
 
