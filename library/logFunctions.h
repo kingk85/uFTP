@@ -20,6 +20,7 @@ extern "C" {
 
 
 void printTimeStamp(void);
+void makeTimeout(struct timespec *tsp, long minutes);
 
 #ifdef __cplusplus
 }

@@ -61,11 +61,13 @@ struct passiveData
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];    
     int commandReceived;
     
-    pthread_mutex_t lock;
-    
     char theFileNameToStor[CLIENT_COMMAND_STRING_SIZE];
     int theFileNameToStorIndex;
     unsigned long int retrRestartAtByte;
+    
+    /* The PASV thread will wait the signal before start */
+    pthread_mutex_t conditionMutex;
+    pthread_cond_t conditionVariable;
     
 } typedef passiveDataType;
 
@@ -120,7 +122,7 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
 void deleteListDataInfoVector(void *TheElementToDelete);
-void resetPasvData(passiveDataType *pasvData);
+void resetPasvData(passiveDataType *pasvData, int isInitialization);
 void resetClientData(clientDataType *clientData, int isInitialization);
 #ifdef __cplusplus
 }

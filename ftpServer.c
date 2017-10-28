@@ -58,10 +58,17 @@ void *pasvThreadHandler(void * socketId)
 	}
 	else
 	{
+        
+        
+        //Conditional lock on thread actions
+        pthread_mutex_lock(&ftpData.clients[theSocketId].pasvData.conditionMutex);
         printTimeStamp();
-        printf("Pasv waiting..");
+        printf("Pasv waiting for commands..");
+        while (ftpData.clients[theSocketId].pasvData.commandReceived == 0)
+            pthread_cond_wait(&ftpData.clients[theSocketId].pasvData.conditionVariable, &ftpData.clients[theSocketId].pasvData.conditionMutex);
+        pthread_mutex_unlock(&ftpData.clients[theSocketId].pasvData.conditionMutex);
 
-            //the connection is closed
+           //the connection is closed
           if ((ftpData.clients[theSocketId].pasvData.bufferIndex = read(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
           {
            break;
@@ -76,12 +83,11 @@ void *pasvThreadHandler(void * socketId)
                     ;
             }
 
-            usleep(100);
-                        
+            usleep(100);            
             //write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, ftpData.clients[theSocketId].pasvData.bufferIndex);
           }
 
-          if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
+          if (ftpData.clients[theSocketId].pasvData.commandReceived == 1 &&
               strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "STOR", strlen("STOR")) == 0 &&
               ftpData.clients[theSocketId].pasvData.theFileNameToStorIndex > 0)
           {
@@ -91,7 +97,7 @@ void *pasvThreadHandler(void * socketId)
             char theAbsoluteFileNamePath[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theAbsoluteFileNamePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
 
-            strcpy(theAbsoluteFileNamePath, ftpData.clients[theSocketId].login.absolutePath);
+            //strcpy(theAbsoluteFileNamePath, ftpData.clients[theSocketId].login.absolutePath);
             
             if (theAbsoluteFileNamePath[strlen(theAbsoluteFileNamePath)-1] != '/')
                 strcat(theAbsoluteFileNamePath, "/");
@@ -126,7 +132,7 @@ void *pasvThreadHandler(void * socketId)
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
             break;
           }        
-        else if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
+        else if (ftpData.clients[theSocketId].pasvData.commandReceived == 1 &&
               strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "LIST", strlen("LIST")) == 0)
           {
             DYNV_VectorGenericDataType directoryInfo;
@@ -183,7 +189,7 @@ void *pasvThreadHandler(void * socketId)
             
             break;
           }
-          else if (ftpData.clients[theSocketId].socketCommandReceived == 1 &&
+          else if (ftpData.clients[theSocketId].pasvData.commandReceived == 1 &&
               strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "RETR", strlen("RETR")) == 0)
           {
               char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
@@ -249,7 +255,7 @@ void *pasvThreadHandler(void * socketId)
   shutdown(ftpData.clients[theSocketId].pasvData.passiveSocket, SHUT_RDWR);
   close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
   close(ftpData.clients[theSocketId].pasvData.passiveSocket);  
-  resetPasvData(&ftpData.clients[theSocketId].pasvData);
+  resetPasvData(&ftpData.clients[theSocketId].pasvData, 0);
   fflush(0);
   return NULL;
 }
@@ -452,7 +458,7 @@ static void closeSocket(int processingSocket)
     close(ftpData.clients[processingSocket].socketDescriptor);
 
     resetClientData(&ftpData.clients[processingSocket], 0);
-    resetPasvData(&ftpData.clients[processingSocket].pasvData);
+    resetPasvData(&ftpData.clients[processingSocket].pasvData, 0);
     //Update client connecteds
     ftpData.connectedClients--;
     
@@ -483,7 +489,7 @@ static void initFtpData(void)
   //Client data reset to zero
   for (i = 0; i < ftpData.maxClients; i++)
   {
-      resetPasvData(&ftpData.clients[i].pasvData);
+      resetPasvData(&ftpData.clients[i].pasvData, 1);
       resetClientData(&ftpData.clients[i], 1);
   }
  

@@ -198,11 +198,15 @@ int parseCommandTypeI(clientDataType *theClientData)
 
 int parseCommandPasv(ftpDataType * data, int socketId)
 {
-
+    
     /* Create worker thread */
      if (data->clients[socketId].pasvData.passiveSocketIsConnected == 0)
      {
-        pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &socketId);
+        pthread_attr_t attr;
+        int ret;
+        ret = pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
+        pthread_create(&data->clients[socketId].pasvData.pasvThread, &attr, pasvThreadHandler, (void *) &socketId);
      }
     
     char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
@@ -218,22 +222,39 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 
 int parseCommandList(ftpDataType * data, int socketId)
 {
+    pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
+    //
+    //Set new command received
+    //
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
+    pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
+    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);     
    return 1;
 }
 
 int parseCommandRetr(ftpDataType * data, int socketId)
 {
+    pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
+    //
+    //Set new command received
+
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
+
+    pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
+    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);    
     return 1;
 }
 
 int parseCommandStor(ftpDataType * data, int socketId)
 {
+    pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
+    //
+    //Set new command received
+    //    
     int i;
     memset(data->clients[socketId].pasvData.theFileNameToStor, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
     data->clients[socketId].pasvData.theFileNameToStorIndex = 0;
@@ -257,6 +278,8 @@ int parseCommandStor(ftpDataType * data, int socketId)
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
     return 1;
+    pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
+    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);       
 }
 
 int parseCommandCwd(clientDataType *theClientData)

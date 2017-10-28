@@ -196,7 +196,7 @@ void deleteListDataInfoVector(void *TheElementToDelete)
     free(data->fileNameWithPath);
 }
 
-void resetPasvData(passiveDataType *pasvData)
+void resetPasvData(passiveDataType *pasvData, int isInitialization)
 {
       pasvData->passivePort = 0;
       pasvData->passiveModeOn = 0;
@@ -211,6 +211,16 @@ void resetPasvData(passiveDataType *pasvData)
       memset(pasvData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(pasvData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(pasvData->theFileNameToStor, 0, CLIENT_BUFFER_STRING_SIZE);
+      
+      /* wait main for action */
+      if (isInitialization != 1)
+      {
+        pthread_mutex_destroy(&pasvData->conditionMutex);
+        pthread_cond_destroy(&pasvData->conditionVariable);
+      }
+      
+      pthread_mutex_init(&pasvData->conditionMutex, NULL);
+      pthread_cond_init(&pasvData->conditionVariable, NULL);
 }
 
 void resetClientData(clientDataType *clientData, int isInitialization)
@@ -225,11 +235,4 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     cleanLoginData(&clientData->login, isInitialization);
     
 
-    if (isInitialization == 1)
-    {
-        if (pthread_mutex_init(&clientData->pasvData.lock, NULL) != 0)
-        {
-            printf("\nMutex init failed");
-        }
-    }
 }
