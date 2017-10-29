@@ -200,14 +200,20 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 {
     
     /* Create worker thread */
-     if (data->clients[socketId].pasvData.passiveSocketIsConnected == 0)
-     {
-        pthread_attr_t attr;
-        int ret;
-        ret = pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
-        pthread_create(&data->clients[socketId].pasvData.pasvThread, &attr, pasvThreadHandler, (void *) &socketId);
-     }
+    if (data->clients[socketId].pasvData.threadIsAlive == 1)
+    {
+        void *pReturn;
+        pthread_cancel(data->clients[socketId].pasvData.pasvThread);
+        pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
+        printf("\nThread has been cancelled.");
+    }
+    
+   // pthread_attr_t attr;
+    //int ret;
+    //ret = pthread_attr_init(&attr);
+    //pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
+    pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &socketId);
+
     
     char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
     memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);

@@ -30,10 +30,29 @@ static void closeSocket(int processingSocket);
 static void initFtpData(void);
 static int processCommand(int processingElement);
 
+
+
+void *pasvThreadHandlerCleanup(void *socketId)
+{
+    int theSocketId = *(int *)socketId;
+    printTimeStamp();
+    printf("\nCleanup called for thread id: %d", theSocketId);
+    printf("Closing pasv socket (%d) ok!", theSocketId);
+    shutdown(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, SHUT_RDWR);
+    shutdown(ftpData.clients[theSocketId].pasvData.passiveSocket, SHUT_RDWR);
+    close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
+    close(ftpData.clients[theSocketId].pasvData.passiveSocket);  
+    resetPasvData(&ftpData.clients[theSocketId].pasvData, 0); 
+}
+
 void *pasvThreadHandler(void * socketId)
 {
-    
   int theSocketId = *(int *)socketId;
+  pthread_cleanup_push(pasvThreadHandlerCleanup, socketId);
+
+  //Setting Alive Flag
+  ftpData.clients[theSocketId].pasvData.threadIsAlive = 1;
+  
   ftpData.clients[theSocketId].pasvData.passiveSocket = createPassiveSocket(ftpData.clients[theSocketId].pasvData.passivePort);
     
   //Endless loop ftp process
@@ -249,14 +268,11 @@ void *pasvThreadHandler(void * socketId)
       }
     }
 
-  printTimeStamp();
-  printf("Closing pasv socket (%d) ok!", theSocketId);
-  shutdown(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, SHUT_RDWR);
-  shutdown(ftpData.clients[theSocketId].pasvData.passiveSocket, SHUT_RDWR);
-  close(ftpData.clients[theSocketId].pasvData.passiveSocketConnection);
-  close(ftpData.clients[theSocketId].pasvData.passiveSocket);  
-  resetPasvData(&ftpData.clients[theSocketId].pasvData, 0);
-  fflush(0);
+ 
+  pthread_exit((void *)1);
+  pthread_cleanup_pop(0);
+  pthread_exit((void *)2);
+  
   return NULL;
 }
 

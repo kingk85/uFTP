@@ -21,6 +21,7 @@ void runFtpServer(void);
 int createPassiveSocket(int port);
 
 void *pasvThreadHandler(void * socketId);
+void *pasvThreadHandlerCleanup(void *socketId);
 
 
 #endif /* FTPSERVER_H */

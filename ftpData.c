@@ -208,10 +208,11 @@ void resetPasvData(passiveDataType *pasvData, int isInitialization)
       pasvData->commandReceived = 0;
       pasvData->retrRestartAtByte = 0;
       pasvData->theFileNameToStorIndex = 0;
+      pasvData->threadIsAlive = 0;
       memset(pasvData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(pasvData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(pasvData->theFileNameToStor, 0, CLIENT_BUFFER_STRING_SIZE);
-      
+
       /* wait main for action */
       if (isInitialization != 1)
       {

@@ -48,6 +48,7 @@ struct ipData
 
 struct passiveData
 {
+    int threadIsAlive;
     int passivePort;
     int passiveModeOn;
     pthread_t pasvThread;
