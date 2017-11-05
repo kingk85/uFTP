@@ -67,13 +67,38 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 
 void setRandomicPort(ftpDataType *data, int socketPosition)
 {
-    int randomicPort = 0;
+    static unsigned short int randomizeInteger = 0;
+    unsigned short int randomicPort = 5000;
+    int i;
     time_t t;
 
-   /* Intializes random number generator */
-   srand((unsigned) time(&t));
-   randomicPort = (rand() % (30000 - 50000)) + 30000;
+    randomizeInteger += 7;
+    
+    if (randomizeInteger >  50000 )
+        randomizeInteger = 1;
 
+    
+   /* Intializes random number generator */
+   srand( time(NULL));
+   
+   randomicPort = ((rand() + socketPosition + randomizeInteger) % (10000 - 50000)) + 10000;
+   i = 0;
+   printf("randomicPort  = %d", randomicPort);
+   while (i < data->maxClients)
+   {
+       
+       if (randomicPort == data->clients[i].pasvData.passivePort)
+       {
+        printf("randomicPort already in use = %d", randomicPort);
+        randomicPort = ((rand() + socketPosition + i + randomizeInteger) % (10000 - 50000)) + 10000;
+        i = 0;
+       }
+       else 
+       {
+        i++;
+       }
+   }
+   
    data->clients[socketPosition].pasvData.passivePort = randomicPort;
 }
 

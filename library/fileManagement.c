@@ -170,7 +170,7 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
 	file_size = FILE_GetFileSize(file);
 
 	count = 0;
-	*file_content  = (char *) malloc(file_size * sizeof(char) + 1);
+	*file_content  = (char *) malloc(file_size * sizeof(char) + 100);
 
 	while ((c = fgetc(file)) != EOF)
 		{
@@ -455,12 +455,19 @@ time_t FILE_GetLastModifiedData(char *path)
     return statbuf.st_mtime;
 }
 
-char *FILE_AppendToString(char ** sourceString, char *theString)
+void FILE_AppendToString(char ** sourceString, char *theString)
 {
+        //printf("\n sourcestring = %s", *sourceString);
+        //printf("\n theString = %s", theString);
+        
 	int theNewSize = strlen(*sourceString) + strlen(theString);
 	*sourceString = realloc(*sourceString, theNewSize + 10);
 	strcat(*sourceString, theString);
 	(*sourceString)[theNewSize] = '\0';
+        
+       // printf("\n sourcestring = %s", *sourceString);
+       // printf("\n theString = %s", theString);
+       // printf("\n theNewSize = %d", theNewSize);
 }
 
 char *FILE_DirectoryToParent(char ** sourceString)
@@ -473,15 +480,12 @@ char *FILE_DirectoryToParent(char ** sourceString)
         
         for (i = 0; i < strLen; i++)
         {
-            
             //printf("%c", (*sourceString)[i]);
-            
             if ( (*sourceString)[i] == '/')
             {
                 theLastSlash = i;
                 //printf("\n theLastSlash = %d", theLastSlash);
             }
-
         }
 
         if (theLastSlash > -1)
@@ -491,7 +495,7 @@ char *FILE_DirectoryToParent(char ** sourceString)
             {
                 theNewSize = 1;
             }
-            *sourceString = realloc(*sourceString, theNewSize);
+            *sourceString = realloc(*sourceString, theNewSize+1);
             (*sourceString)[theNewSize] = '\0';
 
         }

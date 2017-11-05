@@ -206,6 +206,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
         pthread_cancel(data->clients[socketId].pasvData.pasvThread);
         pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
         printf("\nThread has been cancelled.");
+        usleep(100000);
     }
     
    // pthread_attr_t attr;
@@ -214,6 +215,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     //pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
     pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &socketId);
 
+    usleep(100000);
     
     char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
     memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
@@ -236,7 +238,8 @@ int parseCommandList(ftpDataType * data, int socketId)
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
     pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);     
+    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+    
    return 1;
 }
 
@@ -245,13 +248,12 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
     //
     //Set new command received
-
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
-
     pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);    
+    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+    
     return 1;
 }
 
@@ -310,7 +312,7 @@ int parseCommandCwd(clientDataType *theClientData)
         }
     }
     
-   printTimeStamp();
+    printTimeStamp();
     printf(" The Path requested for CWD IS: %s", thePath);
     fflush(0);
     
@@ -335,15 +337,14 @@ int parseCommandCwd(clientDataType *theClientData)
         }
         else if (thePath[0] == '/')
         {
-            if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] != '/')
-                FILE_AppendToString(&theClientData->login.absolutePath.text, thePath);
-            else
-                FILE_AppendToString(&theClientData->login.absolutePath.text, thePath+1);
+            cleanDynamicStringDataType(&theClientData->login.ftpPath, 0);
+            cleanDynamicStringDataType(&theClientData->login.absolutePath, 0);
             
-            if (theClientData->login.ftpPath.text[theClientData->login.ftpPath.textLen-1] != '/')
-                FILE_AppendToString(&theClientData->login.ftpPath.text, thePath);
-            else
-                FILE_AppendToString(&theClientData->login.ftpPath.text, thePath+1);
+            setDynamicStringDataType(&theClientData->login.ftpPath, thePath, strlen(thePath));
+            setDynamicStringDataType(&theClientData->login.absolutePath, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+            
+            FILE_AppendToString(&theClientData->login.absolutePath.text, thePath);
+            theClientData->login.absolutePath.textLen = strlen(theClientData->login.absolutePath.text);
         }
         
         FILE_AppendToString(&theResponse, thePath);
