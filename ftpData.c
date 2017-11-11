@@ -65,6 +65,15 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
     }
 }
 
+
+void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen)
+{
+	int theNewSize = dynamicString->textLen + stringLen;
+	dynamicString->text = realloc(dynamicString->text, theNewSize + 1);
+	strcat(dynamicString->text, theString);
+	dynamicString->text[theNewSize] = '\0';
+}
+
 void setRandomicPort(ftpDataType *data, int socketPosition)
 {
     static unsigned short int randomizeInteger = 0;

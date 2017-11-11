@@ -36,6 +36,7 @@ int parseCommandRetr(ftpDataType * data, int socketId);
 int parseCommandStor(ftpDataType * data, int socketId);
 int parseCommandCwd(clientDataType *theClientData);
 int parseCommandCdup(clientDataType *theClientData);
+int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom);
 
 #ifdef __cplusplus
 }

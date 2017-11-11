@@ -74,6 +74,7 @@ struct passiveData
 
 struct clientData
 {
+    int clientProgressiveNumber;
     int socketDescriptor;
     int socketIsConnected;
     
@@ -96,7 +97,6 @@ struct ftpData
     int maxClients;
     char welcomeMessage[1024];
     int theSocket;
-
     clientDataType *clients;
     ipDataType serverIp;
 } typedef ftpDataType;
@@ -120,6 +120,7 @@ struct ftpListData
 void cleanLoginData(loginDataType *loginData, int init);
 void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init);
 void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
+void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
 void deleteListDataInfoVector(void *TheElementToDelete);

@@ -121,27 +121,31 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 		{
 		 while ((dir = readdir(TheDirectory)) != NULL)
 		 	 {
-				if ( dir->d_name[0] != '.' )
-					{
-					//Set the row to needed size
-					int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
-					(*InodeList) = (char ** ) realloc((*InodeList), ReallocSize );
-					int nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
-					//Allocate the path string size
-					(*InodeList)[FileAndFolderIndex]  = (char *) malloc (  nsize );
-					strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
-					strcat((*InodeList)[FileAndFolderIndex], "/" );
-					strcat((*InodeList)[FileAndFolderIndex], dir->d_name );
-					(*InodeList)[FileAndFolderIndex][ strlen(dir->d_name)  + strlen(DirectoryInodeName) + 1 ] = '\0';
-					(*FilesandFolders)++;
-					FileAndFolderIndex++;
+				if ( dir->d_name[0] == '.' && strlen(dir->d_name) == 1)
+                                    continue;
+                                
+				if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strlen(dir->d_name) == 2)
+                                    continue;                                
+					
+                                //Set the row to needed size
+                                int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
+                                (*InodeList) = (char ** ) realloc((*InodeList), ReallocSize );
+                                int nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
+                                //Allocate the path string size
+                                (*InodeList)[FileAndFolderIndex]  = (char *) malloc (  nsize );
+                                strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
+                                strcat((*InodeList)[FileAndFolderIndex], "/" );
+                                strcat((*InodeList)[FileAndFolderIndex], dir->d_name );
+                                (*InodeList)[FileAndFolderIndex][ strlen(dir->d_name)  + strlen(DirectoryInodeName) + 1 ] = '\0';
+                                (*FilesandFolders)++;
+                                FileAndFolderIndex++;
 
-					if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
-						{
-						FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive );
-						FileAndFolderIndex = (*FilesandFolders);
-						}
-				 }
+                                if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
+                                        {
+                                        FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive );
+                                        FileAndFolderIndex = (*FilesandFolders);
+                                        }
+				 
 		 	 }
 		 closedir(TheDirectory);
 		}
@@ -150,36 +154,36 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 	}
 
 int FILE_GetStringFromFile(char * filename, char **file_content)
-	{
-	int file_size = 0;
-	int c, count;
+{
+    int file_size = 0;
+    int c, count;
 
-	if (FILE_IsFile(filename) == 0)
-		{
-		return 0;
-		}
+    if (FILE_IsFile(filename) == 0)
+    {
+        return 0;
+    }
 
-	FILE *file = fopen(filename, "rb");
+    FILE *file = fopen(filename, "rb");
 
-	if (file == NULL)
-		{
-		fclose(file);
-		return 0;
-		}
+    if (file == NULL)
+    {
+        fclose(file);
+        return 0;
+    }
 
-	file_size = FILE_GetFileSize(file);
+    file_size = FILE_GetFileSize(file);
 
-	count = 0;
-	*file_content  = (char *) malloc(file_size * sizeof(char) + 100);
+    count = 0;
+    *file_content  = (char *) malloc(file_size * sizeof(char) + 100);
 
-	while ((c = fgetc(file)) != EOF)
-		{
-		(*file_content)[count++] = (char) c;
-		}
-	(*file_content)[count] = '\0';
-	fclose(file);
-	return (count);
-	}
+    while ((c = fgetc(file)) != EOF)
+    {
+        (*file_content)[count++] = (char) c;
+    }
+    (*file_content)[count] = '\0';
+    fclose(file);
+    return (count);
+}
 
 void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *ParametersVector)
 	{

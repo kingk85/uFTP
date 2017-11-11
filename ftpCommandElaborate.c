@@ -137,7 +137,6 @@ int parseCommandAuth(clientDataType *theClientData)
     char *theResponse = "502 Auth command is not supported.\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
-
 }
 
 int parseCommandPwd(clientDataType *theClientData)
@@ -206,25 +205,16 @@ int parseCommandPasv(ftpDataType * data, int socketId)
         pthread_cancel(data->clients[socketId].pasvData.pasvThread);
         pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
         printf("\nThread has been cancelled.");
-        usleep(100000);
     }
     
-   // pthread_attr_t attr;
-    //int ret;
-    //ret = pthread_attr_init(&attr);
-    //pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
-    pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &socketId);
-
-    usleep(100000);
+    usleep(10000);
+    pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &data->clients[socketId].clientProgressiveNumber);
+    usleep(10000);
     
     char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
     memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
     sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",data->serverIp.ip[0], data->serverIp.ip[1], data->serverIp.ip[2], data->serverIp.ip[3], (data->clients[socketId].pasvData.passivePort / 256), (data->clients[socketId].pasvData.passivePort % 256));     
-     
-    //pthread_join(data->clients[socketId].pasvThread, NULL);
-   
     write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
-
     return 1;
 }
 
@@ -445,4 +435,51 @@ int parseCommandCdup(clientDataType *theClientData)
         free(theResponse);
         return 1;
     
+}
+
+int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom)
+{
+    long int readen = 0;
+    long int toReturn = 0;
+    long int currentPosition = 0;
+    FILE *retrFP;
+    long long int theFileSize;
+    char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+    
+    printf("\nOpening: %s", theFilename);
+    
+    retrFP = fopen(theFilename, "rb");
+    if (retrFP == NULL)
+    {
+        fclose(retrFP);
+        return toReturn;
+    }
+
+    theFileSize = FILE_GetFileSize(retrFP);
+    
+    if (startFrom > 0)
+    {
+        
+        printf("\nSeek startFrom: %d", startFrom);
+        
+        currentPosition = (long int) lseek(fileno(retrFP), startFrom, SEEK_SET);
+        
+        printf("\nSeek result: %d", currentPosition);
+
+        if (currentPosition == -1)
+        {
+            fclose(retrFP);
+            return toReturn;
+        }
+    }
+    
+    while ((readen = (long int) fread(buffer, sizeof(char), FTP_COMMAND_ELABORATE_CHAR_BUFFER, retrFP)) > 0)
+    {
+      toReturn = toReturn + write(thePasvSocketConnection, buffer, readen);
+    }
+    
+    printf("\n Bytes written: %d", toReturn);
+    
+    fclose(retrFP);
+    return toReturn;
 }
