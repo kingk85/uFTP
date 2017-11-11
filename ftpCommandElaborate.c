@@ -282,10 +282,18 @@ int parseCommandStor(ftpDataType * data, int socketId)
 
 int parseCommandCwd(clientDataType *theClientData)
 {
+    dynamicStringDataType absolutePathPrevious, ftpPathPrevious;
     int i, thePathIndex;
     char thePath[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
     memset(thePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
     thePathIndex = 0;
+    char *theResponse;
+    
+    cleanDynamicStringDataType(&absolutePathPrevious, 1);
+    cleanDynamicStringDataType(&ftpPathPrevious, 1);
+    
+    setDynamicStringDataType(&absolutePathPrevious, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+    setDynamicStringDataType(&ftpPathPrevious, theClientData->login.ftpPath.text, theClientData->login.ftpPath.textLen);
     
     for (i = strlen("CWD")+1; i < theClientData->commandIndex; i++)
     {
@@ -301,29 +309,23 @@ int parseCommandCwd(clientDataType *theClientData)
             thePath[thePathIndex++] = theClientData->theCommandReceived[i];
         }
     }
-    
+
     printTimeStamp();
-    printf(" The Path requested for CWD IS: %s", thePath);
+    printf("\n The Path requested for CWD IS: %s", thePath);
     fflush(0);
-    
+
     if (thePathIndex > 0)
     {
-        char *theResponse;
-        theResponse = (char *) malloc (strlen("250 OK. Current directory is ")+1);
-        strcpy(theResponse, "250 OK. Current directory is ");
-        
         if (thePath[0] != '/')
         {
-            FILE_AppendToString(&theResponse, "/");
-
             if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] != '/')
-                FILE_AppendToString(&theClientData->login.absolutePath.text, "/");
+                appendToDynamicStringDataType(&theClientData->login.absolutePath, "/", 1);
 
             if (theClientData->login.ftpPath.text[theClientData->login.ftpPath.textLen-1] != '/')
-                FILE_AppendToString(&theClientData->login.ftpPath.text, "/");
+                appendToDynamicStringDataType(&theClientData->login.ftpPath, "/", 1);
 
-            FILE_AppendToString(&theClientData->login.absolutePath.text, thePath);
-            FILE_AppendToString(&theClientData->login.ftpPath.text, thePath);
+            appendToDynamicStringDataType(&theClientData->login.absolutePath, thePath, strlen(thePath));
+            appendToDynamicStringDataType(&theClientData->login.ftpPath, thePath, strlen(thePath));
         }
         else if (thePath[0] == '/')
         {
@@ -332,22 +334,39 @@ int parseCommandCwd(clientDataType *theClientData)
             
             setDynamicStringDataType(&theClientData->login.ftpPath, thePath, strlen(thePath));
             setDynamicStringDataType(&theClientData->login.absolutePath, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
-            
-            FILE_AppendToString(&theClientData->login.absolutePath.text, thePath);
-            theClientData->login.absolutePath.textLen = strlen(theClientData->login.absolutePath.text);
+
+            appendToDynamicStringDataType(&theClientData->login.absolutePath, thePath, strlen(thePath));            
         }
-        
+
+        if (FILE_IsDirectory(theClientData->login.absolutePath.text) == 1)
+        {
+            theResponse = (char *) malloc (strlen("250 OK. Current directory is ")+theClientData->login.ftpPath.textLen+1);
+            strcpy(theResponse, "250 OK. Current directory is ");
+            strcat(theResponse, theClientData->login.ftpPath.text);
+        }
+        else
+        {
+            printf("\n%s does not exist", theClientData->login.absolutePath.text);
+            setDynamicStringDataType(&theClientData->login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
+            setDynamicStringDataType(&theClientData->login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
+
+            theResponse = (char *) malloc (strlen("550 Can't change directory to  : No such file or directory")+10+strlen(theClientData->login.ftpPath.text));
+            strcpy(theResponse, "550 Can't change directory to ");
+            strcat(theResponse, theClientData->login.ftpPath.text);
+            strcat(theResponse, ": No such file or directory");      
+        }
+
         FILE_AppendToString(&theResponse, thePath);
         FILE_AppendToString(&theResponse, " \r\n");
         
-        theClientData->login.absolutePath.textLen = strlen(theClientData->login.absolutePath.text);
-        theClientData->login.ftpPath.textLen = strlen(theClientData->login.ftpPath.text);
-        
+   
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
         printTimeStamp();
         printf("USER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
         printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
         
+        cleanDynamicStringDataType(&absolutePathPrevious, 0);
+        cleanDynamicStringDataType(&ftpPathPrevious, 0);
         fflush(0);
         free(theResponse);
         return 1;

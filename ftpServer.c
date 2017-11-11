@@ -311,36 +311,12 @@ void *pasvThreadHandler(void * socketId)
 
 void runFtpServer(void)
 {
+
   static int processingSock = 0;
   static int maxSocketFD = 0;
 
   //Initialize all ftp data
-  initFtpData();  
-
-  /*
-    DYNV_VectorGenericDataType directoryInfo;
-    DYNV_VectorGeneric_Init(&directoryInfo);
-
-     printf("\ndirectoryInfo address: %lX", &directoryInfo);
-     int i;
-     getListDataInfo("/home/ugo", &directoryInfo);
-
-     int theSize = directoryInfo.Size;
-
-     char ** lastToDestroy = NULL;
-     directoryInfo.Destroy(&directoryInfo, deleteListDataInfoVector);
-
-     if (theSize > 0)
-     {
-         //lastToDestroy = ((ftpListDataType *)directoryInfo.Data[0])->fileList;
-         //free(lastToDestroy);
-     }
-           
-     exit(0);
-  */
-  
-  
- 
+  initFtpData();    
   
   //Socket main creator
   ftpData.theSocket = createSocket(SERVER_PORT);
@@ -348,41 +324,57 @@ void runFtpServer(void)
   printf("uFTP server starting..");
   printf("\n Server: Clients connected: %d", ftpData.connectedClients);
   printf("\nServer: Max Client Allowed: %d", ftpData.maxClients);
-  fd_set rset, wset, eset;
+  fd_set rset, wset, eset, rsetTemp, wsetTemp, esetTemp;
+    //Initialize the select structure
+    FD_ZERO(&rset);
+    FD_ZERO(&wset);
+    FD_ZERO(&eset);
+    
+    FD_ZERO(&rsetTemp);
+    FD_ZERO(&wsetTemp);
+    FD_ZERO(&esetTemp);
 
-  FD_ZERO(&rset);
-  FD_ZERO(&wset);
-  FD_ZERO(&eset);
-  
-  FD_SET(ftpData.theSocket, &rset);
-  FD_SET(ftpData.theSocket, &wset);
-  FD_SET(ftpData.theSocket, &eset);
-
-  maxSocketFD = ftpData.theSocket +1;
-
+    FD_SET(ftpData.theSocket, &rset);    
+    FD_SET(ftpData.theSocket, &wset);
+    FD_SET(ftpData.theSocket, &eset);
+    
+    maxSocketFD = ftpData.theSocket+1;
+    
   //Endless loop ftp process
     while (1)
     {
+      int i, selectResult;
       struct timeval selectMaximumLockTime;   // sleep for 1 second!
-      selectMaximumLockTime.tv_sec = 1;
+      selectMaximumLockTime.tv_sec = 10;
       selectMaximumLockTime.tv_usec = 0;
-      
+
+
+      memcpy(&rsetTemp, &rset, sizeof(rsetTemp));
+      memcpy(&wsetTemp, &wset, sizeof(wsetTemp));
+      memcpy(&esetTemp, &eset, sizeof(esetTemp));
+
       //printf("\n\nSelect will wait for socket data.. ");
       if (ftpData.connectedClients < ftpData.maxClients)
       {
            printf("\nServer: Clients connected: %d", ftpData.connectedClients);
-           select(maxSocketFD, &rset, NULL, &eset, &selectMaximumLockTime);
+           selectResult = select(maxSocketFD, &rsetTemp, NULL, &esetTemp, &selectMaximumLockTime);
       }
       else
       {    
           printf("\nServer (maximum reached): Clients connected: %d", ftpData.connectedClients);
-          select(maxSocketFD, &rset, NULL, &eset, &selectMaximumLockTime);
+          selectResult = select(maxSocketFD, &rsetTemp, NULL, &esetTemp, &selectMaximumLockTime);
       }
-
+      
+    if (selectResult == 0)
+    {
+       printf("select() timed out!\n");
+       continue;
+    }
 
       for (processingSock = 0; processingSock < ftpData.maxClients; processingSock++)
       {
-	if (ftpData.clients[processingSock].socketIsConnected == 0)
+	if (ftpData.clients[processingSock].socketIsConnected == 0 &&
+            FD_ISSET(ftpData.theSocket, &rsetTemp))
 	{
             //Wait for sockets
             if ((ftpData.clients[processingSock].socketDescriptor = accept(ftpData.theSocket,0 ,0 ))!=-1)
@@ -396,35 +388,28 @@ void runFtpServer(void)
                 printf("Server: New client connected with id: %d", processingSock);
                 printf("\nServer: Clients connected: %d", ftpData.connectedClients);
                 write(ftpData.clients[processingSock].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
-
-                //Initialize the select structure
-                FD_ZERO(&rset);
-                FD_ZERO(&wset);
-                FD_ZERO(&eset);
                 
-                FD_SET(ftpData.theSocket, &rset);    
-                FD_SET(ftpData.theSocket, &wset);
-                FD_SET(ftpData.theSocket, &eset);
-                
-                for (i = 0; i <ftpData.maxClients; i++)
-                {
-                    if (ftpData.clients[processingSock].socketIsConnected == 1)
-                    {
-                        FD_SET(ftpData.clients[processingSock].socketDescriptor, &rset);
-                        FD_SET(ftpData.clients[processingSock].socketDescriptor, &wset);
-                        FD_SET(ftpData.clients[processingSock].socketDescriptor, &eset);
-                    }
-                }
+                FD_SET(ftpData.clients[processingSock].socketDescriptor, &rset);    
+                FD_SET(ftpData.clients[processingSock].socketDescriptor, &wset);
+                FD_SET(ftpData.clients[processingSock].socketDescriptor, &eset);
                 
                 maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
+                
             }
 	}
-	else
+	else if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &rsetTemp) || 
+                 FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &esetTemp))
 	{
           //The client is not connected anymore
           if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
           {
-           closeSocket(processingSock);
+            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &rset);    
+            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &wset);
+            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &eset);
+            
+            maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
+            
+            closeSocket(processingSock);
           }
 
           //Some commands has been received
@@ -465,8 +450,6 @@ void runFtpServer(void)
 
             memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
           }
-          
-          
       }
     }
   }

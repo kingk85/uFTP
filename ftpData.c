@@ -68,10 +68,14 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen)
 {
-	int theNewSize = dynamicString->textLen + stringLen;
-	dynamicString->text = realloc(dynamicString->text, theNewSize + 1);
-	strcat(dynamicString->text, theString);
-	dynamicString->text[theNewSize] = '\0';
+    printf("\n Appending in %s --> %s", dynamicString->text, theString);
+    int theNewSize = dynamicString->textLen + stringLen;
+    dynamicString->text = realloc(dynamicString->text, theNewSize + 1);
+    memset(dynamicString->text+dynamicString->textLen, 0, stringLen+1);
+    memcpy(dynamicString->text+dynamicString->textLen, theString, stringLen);
+    dynamicString->text[theNewSize] = '\0';
+    dynamicString->textLen = theNewSize;
+    printf("\n Append done --> %s", dynamicString->text);    
 }
 
 void setRandomicPort(ftpDataType *data, int socketPosition)
