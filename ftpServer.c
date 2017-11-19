@@ -329,7 +329,7 @@ void runFtpServer(void)
     FD_ZERO(&rset);
     FD_ZERO(&wset);
     FD_ZERO(&eset);
-    
+
     FD_ZERO(&rsetTemp);
     FD_ZERO(&wsetTemp);
     FD_ZERO(&esetTemp);
@@ -668,7 +668,84 @@ static int processCommand(int processingElement)
         printf("\nSTOR COMMAND RECEIVED");
         toReturn = parseCommandStor(&ftpData, processingElement);
     }
-    
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MKD", strlen("MKD")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "mkd", strlen("mkd")) == 0)
+    {
+        printf("\nMKD command received");
+        toReturn = parseCommandMkd(&ftpData.clients[processingElement]);
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "ABOR", strlen("ABOR")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "abor", strlen("abor")) == 0)
+    {
+        printf("\nABOR command received");
+        //To implement
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "DELE", strlen("DELE")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "dele", strlen("dele")) == 0)
+    {
+        printf("\nDELE command received");
+        //To implement
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MTDM", strlen("MTDM")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "mtdm", strlen("mtdm")) == 0)
+    {
+        printf("\nMTDM command received");
+        //To implement
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "NLST", strlen("NLST")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "nlst", strlen("nlst")) == 0)
+    {
+        printf("\nNLST command received");
+        //To implement
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "PORT", strlen("PORT")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "port", strlen("port")) == 0)
+    {
+        printf("\nPORT command received");
+        //To implement
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "QUIT", strlen("QUIT")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "quit", strlen("quit")) == 0)
+    {
+        printf("\nQUIT command received");
+        //To implement
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RMD", strlen("RMD")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "rmd", strlen("rmd")) == 0)
+    {
+        printf("\nRMD command received");
+        toReturn = parseCommandRmd(&ftpData.clients[processingElement]);
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RNFR", strlen("RNFR")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "rnfr", strlen("rnfr")) == 0)
+    {
+        printf("\nRNFR command received");
+        //To implement
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RNTO", strlen("RNTO")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "rnto", strlen("rnto")) == 0)
+    {
+        printf("\nRNTO command received");
+        //To implement
+    }    
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "SIZE", strlen("SIZE")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "size", strlen("size")) == 0)
+    {
+        printf("\nSIZE command received");
+        //To implement
+    }    
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "APPE", strlen("APPE")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "appe", strlen("appe")) == 0)
+    {
+        printf("\nAPPE command received");
+        //To implement
+    }    
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "NOOP", strlen("NOOP")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "noop", strlen("noop")) == 0)
+    {
+        printf("\nNOOP command received");
+        //To implement
+    }        
     //REST COMMAND 
     //REST 0
     //350 Restarting at 0

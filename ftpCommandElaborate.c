@@ -425,6 +425,87 @@ int parseCommandRest(clientDataType *theClientData)
     return 1;
 }
 
+int parseCommandMkd(clientDataType *theClientData)
+{
+    int returnStatus = 0;
+    char *theDirectoryFilename;
+    dynamicStringDataType theResponse;
+    dynamicStringDataType mkdFileName;
+    
+    theDirectoryFilename = getFtpCommandArg("MKD", theClientData->theCommandReceived);
+    
+    
+    cleanDynamicStringDataType(&theResponse, 1);
+    cleanDynamicStringDataType(&mkdFileName, 1);
+    
+    if (theDirectoryFilename[0] == '/')
+    {
+        setDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+    }
+    else
+    {
+        setDynamicStringDataType(&mkdFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+        appendToDynamicStringDataType(&mkdFileName, "/", 1);
+        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+    }
+    
+    if (strlen(theDirectoryFilename) > 0)
+    {
+        printf("\nThe directory to make is: %s", mkdFileName.text);
+        returnStatus = mkdir(mkdFileName.text, S_IRWXU | S_IRWXG | S_IRWXO);
+    }
+    
+    setDynamicStringDataType(&theResponse, "257 \"", strlen("257 \""));
+    appendToDynamicStringDataType(&theResponse, theDirectoryFilename, strlen(theDirectoryFilename));
+    appendToDynamicStringDataType(&theResponse, "\" : The directory was successfully created\r\n", strlen("\" : The directory was successfully created\r\n"));
+
+    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
+    
+    cleanDynamicStringDataType(&theResponse, 0);
+    cleanDynamicStringDataType(&mkdFileName, 0);
+    
+    return 1;
+}
+
+
+int parseCommandRmd(clientDataType *theClientData)
+{
+    int returnStatus = 0;
+    char *theDirectoryFilename;
+    dynamicStringDataType theResponse;
+    dynamicStringDataType mkdFileName;
+    
+    theDirectoryFilename = getFtpCommandArg("RMD", theClientData->theCommandReceived);
+    
+    cleanDynamicStringDataType(&theResponse, 1);
+    cleanDynamicStringDataType(&mkdFileName, 1);
+    
+    if (theDirectoryFilename[0] == '/')
+    {
+        setDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+    }
+    else
+    {
+        setDynamicStringDataType(&mkdFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+        appendToDynamicStringDataType(&mkdFileName, "/", 1);
+        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+    }
+    
+    if (strlen(theDirectoryFilename) > 0)
+    {
+        printf("\nThe directory to make is: %s", mkdFileName.text);
+        returnStatus = rmdir(mkdFileName.text);
+    }
+    
+    setDynamicStringDataType(&theResponse, "250 The directory was successfully removed\r\n", strlen("250 The directory was successfully removed\r\n"));
+    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
+    
+    cleanDynamicStringDataType(&theResponse, 0);
+    cleanDynamicStringDataType(&mkdFileName, 0);
+    
+    return 1;
+}
+
 int parseCommandCdup(clientDataType *theClientData)
 {
         int i;
@@ -500,5 +581,18 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     printf("\n Bytes written: %d", toReturn);
     
     fclose(retrFP);
+    return toReturn;
+}
+
+
+char *getFtpCommandArg(char * theCommand, char *theCommandString)
+{
+    char *toReturn = theCommandString + strlen(theCommand);
+    
+    while (toReturn[0] == ' ')
+    {
+        toReturn += 1;
+    }
+    
     return toReturn;
 }

@@ -65,7 +65,6 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
     }
 }
 
-
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen)
 {
     printf("\n Appending in %s --> %s", dynamicString->text, theString);
