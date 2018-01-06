@@ -125,25 +125,33 @@ void *pasvThreadHandler(void * socketId)
           if (ftpData.clients[theSocketId].pasvData.commandReceived == 1 &&
               ((strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "STOR", strlen("STOR")) == 0) || 
                (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "stor", strlen("stor")) == 0)) &&
-              ftpData.clients[theSocketId].pasvData.theFileNameToStorIndex > 0)
+               ftpData.clients[theSocketId].pasvData.theFileNameToStorIndex > 0)
           {
+            FILE *theStorFile;
             char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-
             char theAbsoluteFileNamePath[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theAbsoluteFileNamePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-
-            //strcpy(theAbsoluteFileNamePath, ftpData.clients[theSocketId].login.absolutePath);
             
-            if (theAbsoluteFileNamePath[strlen(theAbsoluteFileNamePath)-1] != '/')
-                strcat(theAbsoluteFileNamePath, "/");
+            char *theFullFileName;
+            theFullFileName = (char *) malloc(ftpData.clients[theSocketId].login.absolutePath.textLen+1);
+            strcpy(theFullFileName, ftpData.clients[theSocketId].login.absolutePath.text);
+            if (theFullFileName[strlen(theAbsoluteFileNamePath)-1] != '/')
+                FILE_AppendToString(&theFullFileName, "/");
             
-            strcat(theAbsoluteFileNamePath, ftpData.clients[theSocketId].pasvData.theFileNameToStor);
+            FILE_AppendToString(&theFullFileName, ftpData.clients[theSocketId].pasvData.theFileNameToStor);
+            
+            
+            theStorFile = fopen(theFullFileName, "wb");
+            
+            printf("\nSaving new file to the server: %s", theFullFileName);
+            
+            
 
             strcpy(theResponse, "150 Accepted data connection\r\n");
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
 
-
+            
             while(1)
             {
                 if ((ftpData.clients[theSocketId].pasvData.bufferIndex = read(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
@@ -154,15 +162,12 @@ void *pasvThreadHandler(void * socketId)
                 
                 if (ftpData.clients[theSocketId].pasvData.bufferIndex > 0)
                 {
-                  int i = 0;
-                  for (i = 0; i < ftpData.clients[theSocketId].pasvData.bufferIndex; i++)
-                  {
-                    ;
-                  }
+                  fwrite(ftpData.clients[theSocketId].pasvData.buffer, ftpData.clients[theSocketId].pasvData.bufferIndex, 1, theStorFile);
                   usleep(100);
                 }
             }
-
+            close(theStorFile);
+            free(theFullFileName);
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             sprintf(theResponse, "226 file stor ok\r\n");
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));

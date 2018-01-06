@@ -271,13 +271,17 @@ int parseCommandStor(ftpDataType * data, int socketId)
             data->clients[socketId].pasvData.theFileNameToStor[data->clients[socketId].pasvData.theFileNameToStorIndex++] = data->clients[socketId].theCommandReceived[i];
         }
     }
+    
+    printf("data->clients[%d].pasvData.theFileNameToStor = %s", socketId, data->clients[socketId].pasvData.theFileNameToStor);
 
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
-    return 1;
+
     pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);       
+    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);  
+    
+    return 1;
 }
 
 int parseCommandCwd(clientDataType *theClientData)
