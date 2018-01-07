@@ -58,7 +58,7 @@ void *pasvThreadHandler(void * socketId)
 {
   int theSocketId = *(int *)socketId;
   pthread_cleanup_push(pasvThreadHandlerCleanup,  (void *) &theSocketId);
-
+  
   //Setting Alive Flag
   ftpData.clients[theSocketId].pasvData.threadIsAlive = 1;
   
@@ -127,6 +127,9 @@ void *pasvThreadHandler(void * socketId)
                (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "stor", strlen("stor")) == 0)) &&
                ftpData.clients[theSocketId].pasvData.theFileNameToStorIndex > 0)
           {
+            //Set the busy flag
+            ftpData.clients[theSocketId].pasvData.threadIsBusy = 1;
+            
             FILE *theStorFile;
             char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
@@ -145,8 +148,6 @@ void *pasvThreadHandler(void * socketId)
             theStorFile = fopen(theFullFileName, "wb");
             
             printf("\nSaving new file to the server: %s", theFullFileName);
-            
-            
 
             strcpy(theResponse, "150 Accepted data connection\r\n");
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
@@ -172,7 +173,7 @@ void *pasvThreadHandler(void * socketId)
             sprintf(theResponse, "226 file stor ok\r\n");
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
             break;
-          }        
+          }
         else if (ftpData.clients[theSocketId].pasvData.commandReceived == 1 &&
                ((strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "LIST", strlen("LIST")) == 0) ||
                 (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "list", strlen("list")) == 0))
@@ -240,6 +241,9 @@ void *pasvThreadHandler(void * socketId)
               ((strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "RETR", strlen("RETR")) == 0) ||
                (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "retr", strlen("retr")) == 0)))
           {
+              //Set the busy flag
+              ftpData.clients[theSocketId].pasvData.threadIsBusy = 1;
+              
               int theFileSize = 0;
               int writenSize = 0;
               char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
@@ -342,7 +346,7 @@ void runFtpServer(void)
     FD_SET(ftpData.theSocket, &rset);    
     FD_SET(ftpData.theSocket, &wset);
     FD_SET(ftpData.theSocket, &eset);
-    
+
     maxSocketFD = ftpData.theSocket+1;
     
   //Endless loop ftp process
@@ -683,13 +687,13 @@ static int processCommand(int processingElement)
             strncmp(ftpData.clients[processingElement].theCommandReceived, "abor", strlen("abor")) == 0)
     {
         printf("\nABOR command received");
-        //To implement
+        toReturn = parseCommandAbor(&ftpData, processingElement);
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "DELE", strlen("DELE")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "dele", strlen("dele")) == 0)
     {
         printf("\nDELE command received");
-        //To implement
+        toReturn = parseCommandDele(&ftpData.clients[processingElement]);
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MTDM", strlen("MTDM")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "mtdm", strlen("mtdm")) == 0)
@@ -726,18 +730,24 @@ static int processCommand(int processingElement)
     {
         printf("\nRNFR command received");
         //To implement
+        //350 RNFR accepted - file exists, ready for destination
+        //550 Sorry, but that file doesn't exist
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RNTO", strlen("RNTO")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "rnto", strlen("rnto")) == 0)
     {
         printf("\nRNTO command received");
         //To implement
+        //503 Need RNFR before RNTO
+        //250 File successfully renamed or moved
     }    
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "SIZE", strlen("SIZE")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "size", strlen("size")) == 0)
     {
         printf("\nSIZE command received");
         //To implement
+        //213 71
+        //550 Can't check for file existence
     }    
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "APPE", strlen("APPE")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "appe", strlen("appe")) == 0)
@@ -750,7 +760,8 @@ static int processCommand(int processingElement)
     {
         printf("\nNOOP command received");
         //To implement
-    }        
+        //200 Zzz...
+    }
     //REST COMMAND 
     //REST 0
     //350 Restarting at 0

@@ -218,6 +218,44 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     return 1;
 }
 
+
+int parseCommandAbor(ftpDataType * data, int socketId)
+{
+    char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+
+    /*
+     426 ABORT
+    226-Transfer aborted
+    226 3.406 seconds (measured here), 1.58 Mbytes per second
+    226 Since you see this ABOR must've succeeded
+    */
+
+    if (data->clients[socketId].pasvData.threadIsAlive == 1 &&
+        data->clients[socketId].pasvData.threadIsBusy == 1)
+    {
+        void *pReturn;
+        pthread_cancel(data->clients[socketId].pasvData.pasvThread);
+        pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
+        printf("\nThread has been cancelled due to ABOR request.");
+        
+        memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+        sprintf(theResponse, "426 ABORT\r\n");     
+        write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
+        
+        memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+        sprintf(theResponse, "226 Transfer aborted\r\n");     
+        write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
+    }
+    else
+    {
+        memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+        sprintf(theResponse, "226 Since you see this ABOR must've succeeded\r\n");     
+        write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
+    }
+
+    return 1;
+}
+
 int parseCommandList(ftpDataType * data, int socketId)
 {
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
@@ -472,6 +510,47 @@ int parseCommandMkd(clientDataType *theClientData)
 }
 
 
+
+int parseCommandDele(clientDataType *theClientData)
+{
+    int returnStatus = 0;
+    char *theFileToDelete;
+    dynamicStringDataType theResponse;
+    dynamicStringDataType deleFileName;
+    
+    theFileToDelete = getFtpCommandArg("DELE", theClientData->theCommandReceived);
+    
+    
+    cleanDynamicStringDataType(&theResponse, 1);
+    cleanDynamicStringDataType(&deleFileName, 1);
+    
+    if (theFileToDelete[0] == '/')
+    {
+        setDynamicStringDataType(&deleFileName, theFileToDelete, strlen(theFileToDelete));
+    }
+    else
+    {
+        setDynamicStringDataType(&deleFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+        appendToDynamicStringDataType(&deleFileName, "/", 1);
+        appendToDynamicStringDataType(&deleFileName, theFileToDelete, strlen(theFileToDelete));
+    }
+    
+    if (strlen(theFileToDelete) > 0)
+    {
+        printf("\nThe file to delete is: %s", deleFileName.text);
+        returnStatus = remove(deleFileName.text);
+    }
+    
+    setDynamicStringDataType(&theResponse, "250 Deleted ", strlen("250 Deleted "));
+    appendToDynamicStringDataType(&theResponse, theFileToDelete, strlen(theFileToDelete));
+    appendToDynamicStringDataType(&theResponse, "\r\n", strlen("\r\n"));
+
+    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
+    cleanDynamicStringDataType(&theResponse, 0);
+    cleanDynamicStringDataType(&deleFileName, 0);
+    return 1;
+}
+
 int parseCommandRmd(clientDataType *theClientData)
 {
     int returnStatus = 0;
@@ -497,7 +576,7 @@ int parseCommandRmd(clientDataType *theClientData)
     
     if (strlen(theDirectoryFilename) > 0)
     {
-        printf("\nThe directory to make is: %s", mkdFileName.text);
+        printf("\nThe directory to delete is: %s", mkdFileName.text);
         returnStatus = rmdir(mkdFileName.text);
     }
     

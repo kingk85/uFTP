@@ -236,6 +236,7 @@ void deleteListDataInfoVector(void *TheElementToDelete)
 void resetPasvData(passiveDataType *pasvData, int isInitialization)
 {
       pasvData->passivePort = 0;
+      pasvData->threadIsBusy = 0;
       pasvData->passiveModeOn = 0;
       pasvData->passiveSocketIsConnected = 0;
       pasvData->commandIndex = 0;

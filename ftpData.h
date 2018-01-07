@@ -65,6 +65,7 @@ struct passiveData
     char theFileNameToStor[CLIENT_COMMAND_STRING_SIZE];
     int theFileNameToStorIndex;
     unsigned long int retrRestartAtByte;
+    int threadIsBusy;
     
     /* The PASV thread will wait the signal before start */
     pthread_mutex_t conditionMutex;
