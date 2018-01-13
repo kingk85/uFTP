@@ -197,7 +197,6 @@ int parseCommandTypeI(clientDataType *theClientData)
 
 int parseCommandPasv(ftpDataType * data, int socketId)
 {
-    
     /* Create worker thread */
     if (data->clients[socketId].pasvData.threadIsAlive == 1)
     {
@@ -217,7 +216,6 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }
-
 
 int parseCommandAbor(ftpDataType * data, int socketId)
 {
@@ -259,23 +257,17 @@ int parseCommandAbor(ftpDataType * data, int socketId)
 int parseCommandList(ftpDataType * data, int socketId)
 {
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-    //
-    //Set new command received
-    //
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
     pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
     pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
-    
    return 1;
 }
 
 int parseCommandRetr(ftpDataType * data, int socketId)
 {
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-    //
-    //Set new command received
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].pasvData.commandReceived = 1;
@@ -551,6 +543,15 @@ int parseCommandDele(clientDataType *theClientData)
     return 1;
 }
 
+
+int parseCommandNoop(clientDataType *theClientData)
+{
+    //200 Zzz...
+    char *theResponse = "200 Zzz...\r\n";
+    write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    return 1;
+}
+
 int parseCommandRmd(clientDataType *theClientData)
 {
     int returnStatus = 0;
@@ -585,6 +586,58 @@ int parseCommandRmd(clientDataType *theClientData)
     
     cleanDynamicStringDataType(&theResponse, 0);
     cleanDynamicStringDataType(&mkdFileName, 0);
+    
+    return 1;
+}
+
+
+int parseCommandSize(clientDataType *theClientData)
+{
+    // to be continued
+    unsigned long long int theSize;
+    int returnStatus = 0;
+    char *theFileName;
+    dynamicStringDataType theResponse;
+    dynamicStringDataType getSizeFromFileName;
+    
+    theFileName = getFtpCommandArg("SIZE", theClientData->theCommandReceived);
+
+    cleanDynamicStringDataType(&theResponse, 1);
+    cleanDynamicStringDataType(&getSizeFromFileName, 1);
+    
+    if (theFileName[0] == '/')
+    {
+        setDynamicStringDataType(&getSizeFromFileName, theFileName, strlen(theFileName));
+    }
+    else
+    {
+        setDynamicStringDataType(&getSizeFromFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+        appendToDynamicStringDataType(&getSizeFromFileName, "/", 1);
+        appendToDynamicStringDataType(&getSizeFromFileName, theFileName, strlen(theFileName));
+    }
+    
+    if (strlen(theFileName) > 0)
+    {
+        printf("\nThe file to get the size is: %s", getSizeFromFileName.text);
+        
+        if (FILE_IsFile(getSizeFromFileName.text)==1)
+        {
+            char theFileSizeResponse[2014];
+            memset(theFileSizeResponse, 0 ,1024);
+            
+            theSize = FILE_GetFileSizeFromPath(getSizeFromFileName.text);
+            sprintf(theFileSizeResponse, "213 %lld\r\n", theSize);
+            setDynamicStringDataType(&theResponse, theFileSizeResponse, strlen(theFileSizeResponse));
+        }
+        else
+        {
+            setDynamicStringDataType(&theResponse, "550 Can't check for file existence\r\n", strlen("550 Can't check for file existence\r\n"));
+        }
+    }
+    
+    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
+    cleanDynamicStringDataType(&theResponse, 0);
+    cleanDynamicStringDataType(&getSizeFromFileName, 0);
     
     return 1;
 }

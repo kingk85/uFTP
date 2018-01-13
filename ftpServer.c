@@ -579,6 +579,9 @@ static void initFtpData(void)
   {
       resetPasvData(&ftpData.clients[i].pasvData, 1);
       resetClientData(&ftpData.clients[i], 1);
+      
+
+      
       ftpData.clients[i].clientProgressiveNumber = i;
   }
  
@@ -745,32 +748,33 @@ static int processCommand(int processingElement)
             strncmp(ftpData.clients[processingElement].theCommandReceived, "size", strlen("size")) == 0)
     {
         printf("\nSIZE command received");
+        toReturn = parseCommandSize(&ftpData.clients[processingElement]);
         //To implement
         //213 71
         //550 Can't check for file existence
-    }    
+    }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "APPE", strlen("APPE")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "appe", strlen("appe")) == 0)
     {
         printf("\nAPPE command received");
         //To implement
-    }    
+    }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "NOOP", strlen("NOOP")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "noop", strlen("noop")) == 0)
     {
         printf("\nNOOP command received");
-        //To implement
-        //200 Zzz...
+        toReturn = parseCommandNoop(&ftpData.clients[processingElement]);
     }
+
     //REST COMMAND 
     //REST 0
     //350 Restarting at 0
-    
+
     //RETR info.php
     //150 Accepted data connection
     //226-File successfully transferred
     //226 0.013 seconds (measured here), 105.22 Kbytes per second
-    
+ 
     //227 Entering Passive Mode (192,185,16,65,182,64)
     //STOR testUgo.txt
     //150 Accepted data connection

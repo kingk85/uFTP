@@ -87,6 +87,9 @@ struct clientData
     int commandIndex;
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];
     
+    dynamicStringDataType renameFromFile;
+    dynamicStringDataType renameToFile;
+    
     //User authentication
     loginDataType login;
     passiveDataType pasvData;
