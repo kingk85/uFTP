@@ -579,9 +579,6 @@ static void initFtpData(void)
   {
       resetPasvData(&ftpData.clients[i].pasvData, 1);
       resetClientData(&ftpData.clients[i], 1);
-      
-
-      
       ftpData.clients[i].clientProgressiveNumber = i;
   }
  
@@ -720,7 +717,7 @@ static int processCommand(int processingElement)
             strncmp(ftpData.clients[processingElement].theCommandReceived, "quit", strlen("quit")) == 0)
     {
         printf("\nQUIT command received");
-        //To implement
+        toReturn = parseCommandQuit(&ftpData, processingElement);
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RMD", strlen("RMD")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "rmd", strlen("rmd")) == 0)
@@ -732,26 +729,20 @@ static int processCommand(int processingElement)
             strncmp(ftpData.clients[processingElement].theCommandReceived, "rnfr", strlen("rnfr")) == 0)
     {
         printf("\nRNFR command received");
-        //To implement
-        //350 RNFR accepted - file exists, ready for destination
-        //550 Sorry, but that file doesn't exist
+        toReturn = parseCommandRnfr(&ftpData.clients[processingElement]);
+
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RNTO", strlen("RNTO")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "rnto", strlen("rnto")) == 0)
     {
         printf("\nRNTO command received");
-        //To implement
-        //503 Need RNFR before RNTO
-        //250 File successfully renamed or moved
+        toReturn = parseCommandRnto(&ftpData.clients[processingElement]);
     }    
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "SIZE", strlen("SIZE")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "size", strlen("size")) == 0)
     {
         printf("\nSIZE command received");
         toReturn = parseCommandSize(&ftpData.clients[processingElement]);
-        //To implement
-        //213 71
-        //550 Can't check for file existence
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "APPE", strlen("APPE")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "appe", strlen("appe")) == 0)
@@ -766,21 +757,6 @@ static int processCommand(int processingElement)
         toReturn = parseCommandNoop(&ftpData.clients[processingElement]);
     }
 
-    //REST COMMAND 
-    //REST 0
-    //350 Restarting at 0
-
-    //RETR info.php
-    //150 Accepted data connection
-    //226-File successfully transferred
-    //226 0.013 seconds (measured here), 105.22 Kbytes per second
- 
-    //227 Entering Passive Mode (192,185,16,65,182,64)
-    //STOR testUgo.txt
-    //150 Accepted data connection
-    //226-File successfully transferred
-    //226 21.350 seconds (measured here), 3.33 bytes per second
-    
     ftpData.clients[processingElement].commandIndex = 0;
     memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
 

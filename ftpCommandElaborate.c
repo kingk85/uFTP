@@ -501,8 +501,6 @@ int parseCommandMkd(clientDataType *theClientData)
     return 1;
 }
 
-
-
 int parseCommandDele(clientDataType *theClientData)
 {
     int returnStatus = 0;
@@ -543,12 +541,45 @@ int parseCommandDele(clientDataType *theClientData)
     return 1;
 }
 
-
 int parseCommandNoop(clientDataType *theClientData)
 {
     //200 Zzz...
     char *theResponse = "200 Zzz...\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    return 1;
+}
+
+
+int parseCommandQuit(ftpDataType * data, int socketId)
+{
+    dynamicStringDataType theResponse;
+    cleanDynamicStringDataType(&theResponse, 1);
+    
+    
+    if (data->clients[socketId].pasvData.threadIsAlive == 1)
+    {
+        void *pReturn;
+        pthread_cancel(data->clients[socketId].pasvData.pasvThread);
+        pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
+        printf("\nQuit command received the Pasv Thread has been cancelled.");
+    }
+
+    setDynamicStringDataType(&theResponse, "221 Logout.\r\n", strlen("221 Logout.\r\n"));
+    write(data->clients[socketId].socketDescriptor, theResponse.text, theResponse.textLen);
+    
+    
+    close(data->clients[socketId].socketDescriptor);
+
+    resetClientData(&data->clients[socketId], 0);
+    resetPasvData(&data->clients[socketId].pasvData, 0);
+    //Update client connecteds
+    data->connectedClients--;
+    
+    if (data->connectedClients < 0){
+        data->connectedClients = 0;
+    }
+    
+    cleanDynamicStringDataType(&theResponse, 0);
     return 1;
 }
 
@@ -590,12 +621,9 @@ int parseCommandRmd(clientDataType *theClientData)
     return 1;
 }
 
-
 int parseCommandSize(clientDataType *theClientData)
 {
-    // to be continued
     unsigned long long int theSize;
-    int returnStatus = 0;
     char *theFileName;
     dynamicStringDataType theResponse;
     dynamicStringDataType getSizeFromFileName;
@@ -639,6 +667,108 @@ int parseCommandSize(clientDataType *theClientData)
     cleanDynamicStringDataType(&theResponse, 0);
     cleanDynamicStringDataType(&getSizeFromFileName, 0);
     
+    return 1;
+}
+
+int parseCommandRnfr(clientDataType *theClientData)
+{
+    char *theRnfrFileName;
+    dynamicStringDataType theResponse;
+
+    theRnfrFileName = getFtpCommandArg("RNFR", theClientData->theCommandReceived);
+    cleanDynamicStringDataType(&theClientData->renameFromFile, 0);
+    cleanDynamicStringDataType(&theResponse, 1);
+
+    if (theRnfrFileName[0] == '/')
+    {
+        setDynamicStringDataType(&theClientData->renameFromFile, theRnfrFileName, strlen(theRnfrFileName));
+    }
+    else
+    {
+        setDynamicStringDataType(&theClientData->renameFromFile, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+        appendToDynamicStringDataType(&theClientData->renameFromFile, "/", 1);
+        appendToDynamicStringDataType(&theClientData->renameFromFile, theRnfrFileName, strlen(theRnfrFileName));
+    }
+    
+    if (strlen(theRnfrFileName) > 0)
+    {
+        printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
+        
+        if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
+            FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
+        {
+            setDynamicStringDataType(&theResponse, "350 RNFR accepted - file exists, ready for destination\r\n", strlen("350 RNFR accepted - file exists, ready for destination\r\n"));
+        }
+        else
+        {
+            setDynamicStringDataType(&theResponse, "550 Sorry, but that file doesn't exist\r\n", strlen("550 Sorry, but that file doesn't exist\r\n"));
+        }
+    }
+    else
+    {
+        setDynamicStringDataType(&theResponse, "550 Sorry, but that file doesn't exist\r\n", strlen("550 Sorry, but that file doesn't exist\r\n"));
+    }
+
+    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
+    cleanDynamicStringDataType(&theResponse, 0);
+    return 1;
+}
+
+int parseCommandRnto(clientDataType *theClientData)
+{
+    char *theRntoFileName;
+    dynamicStringDataType theResponse;
+
+    theRntoFileName = getFtpCommandArg("RNTO", theClientData->theCommandReceived);
+    cleanDynamicStringDataType(&theClientData->renameToFile, 0);
+    cleanDynamicStringDataType(&theResponse, 1);
+
+    if (theRntoFileName[0] == '/')
+    {
+        setDynamicStringDataType(&theClientData->renameToFile, theRntoFileName, strlen(theRntoFileName));
+    }
+    else
+    {
+        setDynamicStringDataType(&theClientData->renameToFile, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+        appendToDynamicStringDataType(&theClientData->renameToFile, "/", 1);
+        appendToDynamicStringDataType(&theClientData->renameToFile, theRntoFileName, strlen(theRntoFileName));
+    }
+    
+    if (strlen(theRntoFileName) > 0 &&
+        theClientData->renameFromFile.textLen > 0)
+    {
+        printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
+        
+        if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
+            FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
+        {
+            int returnCode = 0;
+            returnCode = rename (theClientData->renameFromFile.text, theClientData->renameToFile.text);
+            if (returnCode == 0) 
+            {
+                setDynamicStringDataType(&theResponse, "250 File successfully renamed or moved\r\n", strlen("250 File successfully renamed or moved\r\n"));
+            }
+            else
+            {
+                setDynamicStringDataType(&theResponse, "503 Error Renaming the file\r\n", strlen("503 Error Renaming the file\r\n"));
+            }
+        }
+        else
+        {
+            setDynamicStringDataType(&theResponse, "503 Need RNFR before RNTO\r\n", strlen("503 Need RNFR before RNTO\r\n"));
+        }
+    }
+    else
+    {
+        setDynamicStringDataType(&theResponse, "503 Error Renaming the file\r\n", strlen("503 Need RNFR before RNTO\r\n"));
+    }
+
+            //To implement
+        //503 Need RNFR before RNTO
+        //250 File successfully renamed or moved
+    
+    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
+    cleanDynamicStringDataType(&theResponse, 0);
     return 1;
 }
 
@@ -719,7 +849,6 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     fclose(retrFP);
     return toReturn;
 }
-
 
 char *getFtpCommandArg(char * theCommand, char *theCommandString)
 {

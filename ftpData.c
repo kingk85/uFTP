@@ -274,8 +274,8 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     cleanLoginData(&clientData->login, isInitialization);
     
     //Rename from and to data init
-    cleanDynamicStringDataType(ftpData.clients[i].renameFromFile, isInitialization);
-    cleanDynamicStringDataType(ftpData.clients[i].renameToFile, isInitialization);
+    cleanDynamicStringDataType(&clientData->renameFromFile, isInitialization);
+    cleanDynamicStringDataType(&clientData->renameToFile, isInitialization);
     
     
 }
