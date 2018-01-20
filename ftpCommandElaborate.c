@@ -44,7 +44,7 @@ int parseCommandUser(clientDataType *theClientData)
     }
     printTimeStamp();
     printf("The Name: %s", theName);
-    
+
     if (theNameIndex > 1)
     {
         char *theResponse = "331 User ok, Waiting for the password.\r\n";
@@ -181,8 +181,8 @@ int parseCommandFeat(clientDataType *theClientData)
      SPSV
      ESTP
     211 End.
-
      */
+
     char *theResponse = "211-Extensions supported:\r\n PASV\r\n211 End.\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
@@ -205,11 +205,11 @@ int parseCommandPasv(ftpDataType * data, int socketId)
         pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
         printf("\nThread has been cancelled.");
     }
-    
+
     usleep(10000);
     pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &data->clients[socketId].clientProgressiveNumber);
     usleep(10000);
-    
+
     char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
     memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
     sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",data->serverIp.ip[0], data->serverIp.ip[1], data->serverIp.ip[2], data->serverIp.ip[3], (data->clients[socketId].pasvData.passivePort / 256), (data->clients[socketId].pasvData.passivePort % 256));     
@@ -273,16 +273,13 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     data->clients[socketId].pasvData.commandReceived = 1;
     pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
     pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
-    
     return 1;
 }
 
 int parseCommandStor(ftpDataType * data, int socketId)
 {
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-    //
-    //Set new command received
-    //    
+
     int i;
     memset(data->clients[socketId].pasvData.theFileNameToStor, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
     data->clients[socketId].pasvData.theFileNameToStorIndex = 0;
@@ -374,7 +371,10 @@ int parseCommandCwd(clientDataType *theClientData)
 
         if (FILE_IsDirectory(theClientData->login.absolutePath.text) == 1)
         {
-            theResponse = (char *) malloc (strlen("250 OK. Current directory is ")+theClientData->login.ftpPath.textLen+1);
+            printf("\nDirectory ok found, theClientData->login.ftpPath.text = %s", theClientData->login.ftpPath.text);
+            int theSizeToMalloc = strlen("250 OK. Current directory is ")+theClientData->login.ftpPath.textLen+1;
+            theResponse = (char *) malloc (theSizeToMalloc);
+            memset(theResponse, 0, theSizeToMalloc);
             strcpy(theResponse, "250 OK. Current directory is ");
             strcat(theResponse, theClientData->login.ftpPath.text);
         }
@@ -383,20 +383,21 @@ int parseCommandCwd(clientDataType *theClientData)
             printf("\n%s does not exist", theClientData->login.absolutePath.text);
             setDynamicStringDataType(&theClientData->login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
             setDynamicStringDataType(&theClientData->login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
-
-            theResponse = (char *) malloc (strlen("550 Can't change directory to  : No such file or directory")+10+strlen(theClientData->login.ftpPath.text));
+            int theSizeToMalloc = strlen("550 Can't change directory to  : No such file or directory")+10+strlen(theClientData->login.ftpPath.text);
+            theResponse = (char *) malloc (theSizeToMalloc);
+            memset(theResponse, 0, theSizeToMalloc);
             strcpy(theResponse, "550 Can't change directory to ");
             strcat(theResponse, theClientData->login.ftpPath.text);
             strcat(theResponse, ": No such file or directory");      
         }
 
-        FILE_AppendToString(&theResponse, thePath);
         FILE_AppendToString(&theResponse, " \r\n");
         
    
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
         printTimeStamp();
-        printf("USER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
+        printf("\nCwd response : %s", theResponse);
+        printf("\nUSER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
         printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
         
         cleanDynamicStringDataType(&absolutePathPrevious, 0);
@@ -446,6 +447,7 @@ int parseCommandRest(clientDataType *theClientData)
             theSize[theSizeIndex++] = theClientData->theCommandReceived[i];
         }
     }
+
     printTimeStamp();
     printf(" REST set to: %s", theSize);
     fflush(0);
@@ -474,7 +476,8 @@ int parseCommandMkd(clientDataType *theClientData)
     
     if (theDirectoryFilename[0] == '/')
     {
-        setDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+        setDynamicStringDataType(&mkdFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
     }
     else
     {
@@ -514,9 +517,12 @@ int parseCommandDele(clientDataType *theClientData)
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&deleFileName, 1);
     
+    printf("\ntheFileToDelete[0] = %c", theFileToDelete[0]);
+    
     if (theFileToDelete[0] == '/')
     {
-        setDynamicStringDataType(&deleFileName, theFileToDelete, strlen(theFileToDelete));
+        setDynamicStringDataType(&deleFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+        appendToDynamicStringDataType(&deleFileName, theFileToDelete, strlen(theFileToDelete));
     }
     else
     {
@@ -548,7 +554,6 @@ int parseCommandNoop(clientDataType *theClientData)
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }
-
 
 int parseCommandQuit(ftpDataType * data, int socketId)
 {
@@ -597,7 +602,8 @@ int parseCommandRmd(clientDataType *theClientData)
     
     if (theDirectoryFilename[0] == '/')
     {
-        setDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+        setDynamicStringDataType(&mkdFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
     }
     else
     {
@@ -635,7 +641,8 @@ int parseCommandSize(clientDataType *theClientData)
     
     if (theFileName[0] == '/')
     {
-        setDynamicStringDataType(&getSizeFromFileName, theFileName, strlen(theFileName));
+        setDynamicStringDataType(&getSizeFromFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+        appendToDynamicStringDataType(&getSizeFromFileName, theFileName, strlen(theFileName));
     }
     else
     {
@@ -681,7 +688,8 @@ int parseCommandRnfr(clientDataType *theClientData)
 
     if (theRnfrFileName[0] == '/')
     {
-        setDynamicStringDataType(&theClientData->renameFromFile, theRnfrFileName, strlen(theRnfrFileName));
+        setDynamicStringDataType(&theClientData->renameFromFile, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+        appendToDynamicStringDataType(&theClientData->renameFromFile, theRnfrFileName, strlen(theRnfrFileName));
     }
     else
     {
@@ -725,7 +733,8 @@ int parseCommandRnto(clientDataType *theClientData)
 
     if (theRntoFileName[0] == '/')
     {
-        setDynamicStringDataType(&theClientData->renameToFile, theRntoFileName, strlen(theRntoFileName));
+        setDynamicStringDataType(&theClientData->renameToFile, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+        appendToDynamicStringDataType(&theClientData->renameToFile, theRntoFileName, strlen(theRntoFileName));
     }
     else
     {
@@ -763,10 +772,10 @@ int parseCommandRnto(clientDataType *theClientData)
         setDynamicStringDataType(&theResponse, "503 Error Renaming the file\r\n", strlen("503 Need RNFR before RNTO\r\n"));
     }
 
-            //To implement
-        //503 Need RNFR before RNTO
-        //250 File successfully renamed or moved
-    
+    //To implement
+    //503 Need RNFR before RNTO
+    //250 File successfully renamed or moved
+
     write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
     cleanDynamicStringDataType(&theResponse, 0);
     return 1;
@@ -797,10 +806,8 @@ int parseCommandCdup(clientDataType *theClientData)
         printTimeStamp();
         printf("USER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
         printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
-        
         free(theResponse);
         return 1;
-    
 }
 
 int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom)
@@ -811,9 +818,9 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     FILE *retrFP;
     long long int theFileSize;
     char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    
+
     printf("\nOpening: %s", theFilename);
-    
+
     retrFP = fopen(theFilename, "rb");
     if (retrFP == NULL)
     {
@@ -822,30 +829,26 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     }
 
     theFileSize = FILE_GetFileSize(retrFP);
-    
+
     if (startFrom > 0)
     {
-        
         printf("\nSeek startFrom: %d", startFrom);
-        
         currentPosition = (long int) lseek(fileno(retrFP), startFrom, SEEK_SET);
-        
         printf("\nSeek result: %d", currentPosition);
-
         if (currentPosition == -1)
         {
             fclose(retrFP);
             return toReturn;
         }
     }
-    
+
     while ((readen = (long int) fread(buffer, sizeof(char), FTP_COMMAND_ELABORATE_CHAR_BUFFER, retrFP)) > 0)
     {
       toReturn = toReturn + write(thePasvSocketConnection, buffer, readen);
     }
-    
+
     printf("\n Bytes written: %d", toReturn);
-    
+
     fclose(retrFP);
     return toReturn;
 }
@@ -853,11 +856,11 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
 char *getFtpCommandArg(char * theCommand, char *theCommandString)
 {
     char *toReturn = theCommandString + strlen(theCommand);
-    
+
     while (toReturn[0] == ' ')
     {
         toReturn += 1;
     }
-    
+
     return toReturn;
 }

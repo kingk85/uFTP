@@ -129,27 +129,35 @@ void *pasvThreadHandler(void * socketId)
           {
             //Set the busy flag
             ftpData.clients[theSocketId].pasvData.threadIsBusy = 1;
-            
+
             FILE *theStorFile;
             char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             char theAbsoluteFileNamePath[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theAbsoluteFileNamePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             
-            char *theFullFileName;
-            theFullFileName = (char *) malloc(ftpData.clients[theSocketId].login.absolutePath.textLen+1);
-            strcpy(theFullFileName, ftpData.clients[theSocketId].login.absolutePath.text);
-            if (theFullFileName[strlen(theAbsoluteFileNamePath)-1] != '/')
-                FILE_AppendToString(&theFullFileName, "/");
+            dynamicStringDataType fileNameToStor;
             
-            FILE_AppendToString(&theFullFileName, ftpData.clients[theSocketId].pasvData.theFileNameToStor);
+            if (ftpData.clients[theSocketId].pasvData.theFileNameToStor[0] == '/')
+            {
+                setDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].login.homePath.text, ftpData.clients[theSocketId].login.homePath.textLen);
+                appendToDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].pasvData.theFileNameToStor, strlen(ftpData.clients[theSocketId].pasvData.theFileNameToStor));
+            }
+            else
+            {
+                setDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
+                appendToDynamicStringDataType(&fileNameToStor, "/", 1);
+                appendToDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].pasvData.theFileNameToStor, strlen(ftpData.clients[theSocketId].pasvData.theFileNameToStor));
+            }
+
+            theStorFile = fopen(fileNameToStor.text, "wb");
             
-            
-            theStorFile = fopen(theFullFileName, "wb");
-            
-            printf("\nSaving new file to the server: %s", theFullFileName);
+            printf("\nftpData.clients[theSocketId].pasvData.theFileNameToStor: %s", ftpData.clients[theSocketId].pasvData.theFileNameToStor);
+            printf("\nftpData.clients[theSocketId].login.absolutePath.text: %s", ftpData.clients[theSocketId].login.absolutePath.text);
+            printf("\nSaving new file to the server: %s", fileNameToStor.text);
 
             strcpy(theResponse, "150 Accepted data connection\r\n");
+
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
 
             
@@ -168,7 +176,9 @@ void *pasvThreadHandler(void * socketId)
                 }
             }
             close(theStorFile);
-            free(theFullFileName);
+
+            cleanDynamicStringDataType(&fileNameToStor, 0);
+            
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             sprintf(theResponse, "226 file stor ok\r\n");
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
@@ -181,10 +191,39 @@ void *pasvThreadHandler(void * socketId)
           {
             DYNV_VectorGenericDataType directoryInfo;
             DYNV_VectorGeneric_Init(&directoryInfo);
+
+            dynamicStringDataType theListFilePathToRead;
+            cleanDynamicStringDataType(&theListFilePathToRead, 1);
+            
+            char * theListFilePathArg;
+            theListFilePathArg = getFtpCommandArg("LIST", ftpData.clients[theSocketId].pasvData.theCommandReceived);
+
+            if (strlen(theListFilePathArg) > 0)
+            {
+                printf("\n List path arg is : %s", theListFilePathArg);
+                
+                if (theListFilePathArg[0] == '/')
+                {
+                    setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.homePath.text, ftpData.clients[theSocketId].login.homePath.textLen);
+                    appendToDynamicStringDataType(&theListFilePathToRead, theListFilePathArg, strlen(theListFilePathArg));
+                }
+                else
+                {
+                    setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
+                    appendToDynamicStringDataType(&theListFilePathToRead, "/", 1);
+                    appendToDynamicStringDataType(&theListFilePathToRead, theListFilePathArg, strlen(theListFilePathArg));
+                }
+            }
+            else
+            {
+                printf("\n No List path specified");
+                setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
+            }
+            
             
             //printf("directoryInfo address: %lX", &directoryInfo);
             int i;
-            getListDataInfo(ftpData.clients[theSocketId].login.absolutePath.text, &directoryInfo);
+            getListDataInfo(theListFilePathToRead.text, &directoryInfo);
 
             printf("\nPasv (%d) ftpData.clients[theSocketId].login.absolutePath.text = %s",theSocketId, ftpData.clients[theSocketId].login.absolutePath.text);
             
@@ -218,23 +257,20 @@ void *pasvThreadHandler(void * socketId)
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
             
             int theSize = directoryInfo.Size;
-            
             char ** lastToDestroy = NULL;
-            
             if (theSize > 0)
             {
                 lastToDestroy = ((ftpListDataType *)directoryInfo.Data[0])->fileList;
             }
-            
+
             directoryInfo.Destroy(&directoryInfo, deleteListDataInfoVector);
-            
+
             if (theSize > 0)
             {
                  free(lastToDestroy);
             }
-            
             printf("\nPasv (%d) List end", theSocketId);
-            
+            cleanDynamicStringDataType(&theListFilePathToRead, 0);
             break;
           }
           else if (ftpData.clients[theSocketId].pasvData.commandReceived == 1 &&
@@ -254,7 +290,6 @@ void *pasvThreadHandler(void * socketId)
               char theFileName[CLIENT_COMMAND_STRING_SIZE];
               int theFileNameCursor = 0;
               memset(theFileName, 0, CLIENT_COMMAND_STRING_SIZE);
-              char *theFullFileName;
               
               for (i = strlen("RETR") + 1; i < CLIENT_COMMAND_STRING_SIZE; i++)
               {
@@ -269,40 +304,46 @@ void *pasvThreadHandler(void * socketId)
                     theFileName[theFileNameCursor++] = ftpData.clients[theSocketId].pasvData.theCommandReceived[i];
                   }
               }
+              
+            dynamicStringDataType theFullFileName;
+            
+            if (ftpData.clients[theSocketId].pasvData.theFileNameToStor[0] == '/')
+            {
+                setDynamicStringDataType(&theFullFileName, ftpData.clients[theSocketId].login.homePath.text, ftpData.clients[theSocketId].login.homePath.textLen);
+                appendToDynamicStringDataType(&theFullFileName, theFileName, strlen(theFileName));
+            }
+            else
+            {
+                setDynamicStringDataType(&theFullFileName, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
+                appendToDynamicStringDataType(&theFullFileName, "/", 1);
+                appendToDynamicStringDataType(&theFullFileName, theFileName, strlen(theFileName));
+            }
 
-              theFullFileName = (char *) malloc(ftpData.clients[theSocketId].login.absolutePath.textLen+1);
-              strcpy(theFullFileName, ftpData.clients[theSocketId].login.absolutePath.text);
-              FILE_AppendToString(&theFullFileName, "/");
-              FILE_AppendToString(&theFullFileName, theFileName);
 
-              if (FILE_IsFile(theFullFileName) == 0)
+              if (FILE_IsFile(theFullFileName.text) == 0)
                   break;
               
-              theFileSize = FILE_GetFileSizeFromPath(theFullFileName);
+              theFileSize = FILE_GetFileSizeFromPath(theFullFileName.text);
               
               memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
               strcpy(theResponse, "150 Accepted data connection\r\n");
               
               writeReturn = write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));              
               printf("\nPasv (%d) writeReturn: %d",theSocketId, writeReturn);
-              fflush(0);
               
-              writenSize = writeRetrFile(theFullFileName, ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.retrRestartAtByte);
+              writenSize = writeRetrFile(theFullFileName.text, ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.retrRestartAtByte);
               
               //writeReturn = write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, theFullFileContent+ftpData.clients[theSocketId].pasvData.retrRestartAtByte, theFileSize-ftpData.clients[theSocketId].pasvData.retrRestartAtByte);
               ftpData.clients[theSocketId].pasvData.retrRestartAtByte = 0;
               printf("\nPasv (%d) writeReturn data: %d",theSocketId, writeReturn);
-              fflush(0);
             
-            free(theFullFileName);
-            //226-File successfully transferred
-            //226 0.013 seconds (measured here), 105.22 Kbytes per second
+            cleanDynamicStringDataType(&theFullFileName, 0);
+
              
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             sprintf(theResponse, "226-File successfully transferred\r\n226 done\r\n");
             writeReturn =  write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
             printf("\nPasv (%d) writeReturn response to 21: %d",theSocketId, writeReturn);
-            fflush(0);
             break;
           }
         
@@ -755,6 +796,11 @@ static int processCommand(int processingElement)
     {
         printf("\nNOOP command received");
         toReturn = parseCommandNoop(&ftpData.clients[processingElement]);
+    }
+    else
+    {
+        //Parse unsupported command
+        
     }
 
     ftpData.clients[processingElement].commandIndex = 0;
