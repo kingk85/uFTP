@@ -59,26 +59,26 @@ int parseCommandUser(clientDataType *theClientData)
     }
 }
 
-int parseCommandPass(clientDataType *theClientData)
+int parseCommandPass(ftpDataType * data, int socketId)
 {
     int i, thePassIndex;
     char thePass[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
     memset(thePass, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
     thePassIndex = 0;
 
-    for (i = strlen("PASS")+1; i < theClientData->commandIndex; i++)
+    for (i = strlen("PASS")+1; i < data->clients[socketId].commandIndex; i++)
     {
-        if (theClientData->theCommandReceived[i] == '\r' ||
-            theClientData->theCommandReceived[i] == '\0' ||
-            theClientData->theCommandReceived[i] == '\n')
+        if (data->clients[socketId].theCommandReceived[i] == '\r' ||
+            data->clients[socketId].theCommandReceived[i] == '\0' ||
+            data->clients[socketId].theCommandReceived[i] == '\n')
             {
                 break;
             }
         
-        if (theClientData->theCommandReceived[i] != ' ' &&
+        if (data->clients[socketId].theCommandReceived[i] != ' ' &&
             thePassIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
         {
-            thePass[thePassIndex++] = theClientData->theCommandReceived[i];
+            thePass[thePassIndex++] = data->clients[socketId].theCommandReceived[i];
         }
     }
     printTimeStamp();
@@ -86,20 +86,33 @@ int parseCommandPass(clientDataType *theClientData)
 
     if (thePassIndex > 1)
     {
-        //430	Invalid username or password.
-        char *theResponse = "230 Login Ok.\r\n";
-        setDynamicStringDataType(&theClientData->login.password, thePass, thePassIndex);
-        
-        setDynamicStringDataType(&theClientData->login.absolutePath, "/home/ugo", strlen("/home/ugo"));
-        setDynamicStringDataType(&theClientData->login.homePath, "/home/ugo", strlen("/home/ugo"));
-        setDynamicStringDataType(&theClientData->login.ftpPath, "/", strlen("/"));
-        
-        write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
-        printTimeStamp();
-        printf("PASS COMMAND OK, PASSWORD IS: %s", theClientData->login.password.text);
-        printf("\nheClientData->login.homePath: %s", theClientData->login.homePath.text);
-        printf("\nheClientData->login.ftpPath: %s", theClientData->login.ftpPath.text);
-        printf("\nheClientData->login.absolutePath: %s", theClientData->login.absolutePath.text);
+        int searchUserNameIndex;
+        searchUserNameIndex = searchUser(data->clients[socketId].login.name.text, &data->ftpParameters.usersVector);
+
+        if (searchUserNameIndex < 0 ||
+            (strcmp(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->password, thePass) != 0))
+        {
+            char *theResponse = "430 Invalid username or password\r\n";
+            write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
+            printf("\nLogin Error recorded no such username or password");
+        }
+        else
+        {
+            char *theResponse = "230 Login Ok.\r\n";
+            setDynamicStringDataType(&data->clients[socketId].login.password, thePass, thePassIndex);
+            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
+            setDynamicStringDataType(&data->clients[socketId].login.homePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
+            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", strlen("/"));
+            data->clients[socketId].login.userLoggedIn = 1;
+
+            write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
+            printTimeStamp();
+            
+            printf("PASS COMMAND OK, PASSWORD IS: %s", data->clients[socketId].login.password.text);
+            printf("\nheClientData->login.homePath: %s", data->clients[socketId].login.homePath.text);
+            printf("\nheClientData->login.ftpPath: %s", data->clients[socketId].login.ftpPath.text);
+            printf("\nheClientData->login.absolutePath: %s", data->clients[socketId].login.absolutePath.text);
+        }
         
        return 1;
     }
@@ -265,7 +278,6 @@ int parseCommandList(ftpDataType * data, int socketId)
    return 1;
 }
 
-
 int parseCommandNlst(ftpDataType * data, int socketId)
 {
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
@@ -276,7 +288,6 @@ int parseCommandNlst(ftpDataType * data, int socketId)
     pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
    return 1;
 }
-
 
 int parseCommandRetr(ftpDataType * data, int socketId)
 {
@@ -564,6 +575,13 @@ int parseCommandNoop(clientDataType *theClientData)
 {
     //200 Zzz...
     char *theResponse = "200 Zzz...\r\n";
+    write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    return 1;
+}
+
+int notLoggedInMessage(clientDataType *theClientData)
+{
+    char *theResponse = "530 You aren't logged in\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }

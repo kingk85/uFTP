@@ -1,0 +1,3 @@
+
+-Handle login, if user not logged lock the session with the message error:
+530 You aren't logged in

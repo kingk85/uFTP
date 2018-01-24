@@ -15,6 +15,7 @@
 #define FTPDATA_H
 
 #include "library/dynamicVectors.h"
+#include "library/configRead.h"
 
 #define CLIENT_COMMAND_STRING_SIZE                  2048
 #define CLIENT_BUFFER_STRING_SIZE                   2048
@@ -34,6 +35,7 @@ struct dynamicStringData
 
 struct loginData
 {
+    int userLoggedIn;
     dynamicStringDataType name;
     dynamicStringDataType password;
     dynamicStringDataType homePath;
@@ -98,11 +100,11 @@ struct clientData
 struct ftpData
 {
     int connectedClients;
-    int maxClients;
     char welcomeMessage[1024];
     int theSocket;
     clientDataType *clients;
     ipDataType serverIp;
+    ftpParameters_DataType ftpParameters;
 } typedef ftpDataType;
 
 struct ftpListData

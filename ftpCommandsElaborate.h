@@ -24,7 +24,7 @@ extern "C" {
 
 /* Elaborate the User login command */
 int parseCommandUser(clientDataType *theClientData);
-int parseCommandPass(clientDataType *theClientData);
+int parseCommandPass(ftpDataType * data, int socketId);
 int parseCommandAuth(clientDataType *theClientData);
 int parseCommandPwd(clientDataType *theClientData);
 int parseCommandSyst(clientDataType *theClientData);
@@ -37,6 +37,7 @@ int parseCommandNlst(ftpDataType * data, int socketId);
 int parseCommandRetr(ftpDataType * data, int socketId);
 int parseCommandMkd(clientDataType *theClientData);
 int parseCommandNoop(clientDataType *theClientData);
+int notLoggedInMessage(clientDataType *theClientData);
 int parseCommandRmd(clientDataType *theClientData);
 int parseCommandQuit(ftpDataType * data, int socketId);
 int parseCommandSize(clientDataType *theClientData);

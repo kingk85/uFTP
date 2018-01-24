@@ -5,6 +5,7 @@
                    displayName="Header Files"
                    projectFiles="true">
       <logicalFolder name="library" displayName="library" projectFiles="true">
+        <itemPath>library/configRead.h</itemPath>
         <itemPath>library/dynamicVectors.h</itemPath>
         <itemPath>library/fileManagement.h</itemPath>
         <itemPath>library/logFunctions.h</itemPath>
@@ -22,13 +23,16 @@
                    displayName="Source Files"
                    projectFiles="true">
       <logicalFolder name="library" displayName="library" projectFiles="true">
+        <itemPath>library/configRead.c</itemPath>
         <itemPath>library/dynamicVectors.c</itemPath>
         <itemPath>library/fileManagement.c</itemPath>
         <itemPath>library/logFunctions.c</itemPath>
       </logicalFolder>
+      <itemPath>config.cfg</itemPath>
       <itemPath>ftpCommandElaborate.c</itemPath>
       <itemPath>ftpData.c</itemPath>
       <itemPath>ftpServer.c</itemPath>
+      <itemPath>todo.txt</itemPath>
       <itemPath>uFTP.c</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
@@ -67,6 +71,8 @@
           <commandLine>-pthread</commandLine>
         </cTool>
       </compileType>
+      <item path="config.cfg" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="ftpCommandsElaborate.h" ex="false" tool="3" flavor2="0">
@@ -81,6 +87,10 @@
       </item>
       <item path="ftpSpecs.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="library/configRead.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/configRead.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="library/dynamicVectors.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/dynamicVectors.h" ex="false" tool="3" flavor2="0">
@@ -92,6 +102,8 @@
       <item path="library/logFunctions.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/logFunctions.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="todo.txt" ex="false" tool="3" flavor2="0">
       </item>
       <item path="uFTP.c" ex="false" tool="0" flavor2="0">
       </item>
@@ -116,6 +128,8 @@
           <developmentMode>5</developmentMode>
         </asmTool>
       </compileType>
+      <item path="config.cfg" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="ftpCommandsElaborate.h" ex="false" tool="3" flavor2="0">
@@ -130,6 +144,10 @@
       </item>
       <item path="ftpSpecs.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="library/configRead.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/configRead.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="library/dynamicVectors.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/dynamicVectors.h" ex="false" tool="3" flavor2="0">
@@ -141,6 +159,8 @@
       <item path="library/logFunctions.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/logFunctions.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="todo.txt" ex="false" tool="3" flavor2="0">
       </item>
       <item path="uFTP.c" ex="false" tool="0" flavor2="0">
       </item>

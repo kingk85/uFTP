@@ -38,6 +38,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/ftpCommandElaborate.o \
 	${OBJECTDIR}/ftpData.o \
 	${OBJECTDIR}/ftpServer.o \
+	${OBJECTDIR}/library/configRead.o \
 	${OBJECTDIR}/library/dynamicVectors.o \
 	${OBJECTDIR}/library/fileManagement.o \
 	${OBJECTDIR}/library/logFunctions.o \
@@ -82,6 +83,11 @@ ${OBJECTDIR}/ftpServer.o: ftpServer.c
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.c) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ftpServer.o ftpServer.c
+
+${OBJECTDIR}/library/configRead.o: library/configRead.c
+	${MKDIR} -p ${OBJECTDIR}/library
+	${RM} "$@.d"
+	$(COMPILE.c) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/configRead.o library/configRead.c
 
 ${OBJECTDIR}/library/dynamicVectors.o: library/dynamicVectors.c
 	${MKDIR} -p ${OBJECTDIR}/library

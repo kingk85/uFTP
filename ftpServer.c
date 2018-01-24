@@ -21,7 +21,7 @@
 #include "ftpCommandsElaborate.h"
 #include "fileManagement.h"
 #include "logFunctions.h"
-
+#include "configRead.h"
 
 
 /* Catch Signal Handler functio */
@@ -443,11 +443,15 @@ void *pasvThreadHandler(void * socketId)
 
 void runFtpServer(void)
 {
-
+ 
+  DYNV_VectorGenericDataType configParameters;
   static int processingSock = 0;
   static int maxSocketFD = 0;
-
-  //Initialize all ftp data
+  
+  DYNV_VectorGeneric_Init(&configParameters);
+  readConfigurationFile("./config.cfg", &configParameters);
+  parseConfigurationFile(&ftpData.ftpParameters, &configParameters);
+  
   initFtpData();    
   
   //Socket main creator
@@ -455,7 +459,7 @@ void runFtpServer(void)
   printTimeStamp();
   printf("uFTP server starting..");
   printf("\n Server: Clients connected: %d", ftpData.connectedClients);
-  printf("\nServer: Max Client Allowed: %d", ftpData.maxClients);
+  printf("\nServer: Max Client Allowed: %d", ftpData.ftpParameters.maxClients);
   fd_set rset, wset, eset, rsetTemp, wsetTemp, esetTemp;
     //Initialize the select structure
     FD_ZERO(&rset);
@@ -486,7 +490,7 @@ void runFtpServer(void)
       memcpy(&esetTemp, &eset, sizeof(esetTemp));
 
       //printf("\n\nSelect will wait for socket data.. ");
-      if (ftpData.connectedClients < ftpData.maxClients)
+      if (ftpData.connectedClients < ftpData.ftpParameters.maxClients)
       {
            printf("\nServer: Clients connected: %d", ftpData.connectedClients);
            selectResult = select(maxSocketFD, &rsetTemp, NULL, &esetTemp, &selectMaximumLockTime);
@@ -503,7 +507,7 @@ void runFtpServer(void)
        continue;
     }
 
-      for (processingSock = 0; processingSock < ftpData.maxClients; processingSock++)
+      for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
       {
 	if (ftpData.clients[processingSock].socketIsConnected == 0 &&
             FD_ISSET(ftpData.theSocket, &rsetTemp))
@@ -623,7 +627,7 @@ static int createSocket(int port)
   errore = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
 
   //Number of client allowed
-  errore = listen(sock, ftpData.maxClients);
+  errore = listen(sock, ftpData.ftpParameters.maxClients);
  
   return sock;
 }
@@ -686,8 +690,8 @@ static void initFtpData(void)
 {
  int i;
  ftpData.connectedClients = 0;
- ftpData.maxClients = 10;
- ftpData.clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData.maxClients);
+
+ ftpData.clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData.ftpParameters.maxClients);
  
  ftpData.serverIp.ip[0] = 127;
  ftpData.serverIp.ip[1] = 0;
@@ -698,7 +702,7 @@ static void initFtpData(void)
  strcpy(ftpData.welcomeMessage, "220 Hello\r\n");
  
   //Client data reset to zero
-  for (i = 0; i < ftpData.maxClients; i++)
+  for (i = 0; i < ftpData.ftpParameters.maxClients; i++)
   {
       resetPasvData(&ftpData.clients[i].pasvData, 1);
       resetClientData(&ftpData.clients[i], 1);
@@ -714,6 +718,23 @@ static int processCommand(int processingElement)
     printTimeStamp();
     printf ("Command received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
    
+    
+    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"USER\", strlen(\"USER\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")));
+    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"user\", strlen(\"user\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")));
+    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"PASS\", strlen(\"PASS\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")));
+    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"pass\", strlen(\"pass\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")));
+    
+    if (ftpData.clients[processingElement].login.userLoggedIn == 0 &&
+        (strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) != 0 && 
+         strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")) != 0 &&
+         strncmp(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")) != 0 &&
+         strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")) != 0))
+        {
+            toReturn = notLoggedInMessage(&ftpData.clients[processingElement]);
+            return 1;
+        }
+    
+    
     //Process Command
     if(strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) == 0 || 
        strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")) == 0)
@@ -725,7 +746,7 @@ static int processCommand(int processingElement)
             strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")) == 0)
     {
         printf("\nPASS COMMAND RECEIVED");
-        toReturn = parseCommandPass(&ftpData.clients[processingElement]);
+        toReturn = parseCommandPass(&ftpData, processingElement);
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "auth", strlen("auth")) == 0)
@@ -896,7 +917,7 @@ static int getMaximumSocketFd(int mainSocket, ftpDataType * data)
     int toReturn = mainSocket;
     int i = 0;
     
-    for (i = 0; i < data->maxClients; i++)
+    for (i = 0; i < data->ftpParameters.maxClients; i++)
     {
         if (data->clients[i].socketDescriptor > toReturn) {
             toReturn = data->clients[i].socketDescriptor;

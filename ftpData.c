@@ -37,6 +37,7 @@ void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init)
 
 void cleanLoginData(loginDataType *loginData, int init)
 {
+    loginData->userLoggedIn = 0;
     cleanDynamicStringDataType(&loginData->homePath, init);
     cleanDynamicStringDataType(&loginData->ftpPath, init);
     cleanDynamicStringDataType(&loginData->name, init);
@@ -96,7 +97,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
    randomicPort = ((rand() + socketPosition + randomizeInteger) % (10000 - 50000)) + 10000;
    i = 0;
    printf("randomicPort  = %d", randomicPort);
-   while (i < data->maxClients)
+   while (i < data->ftpParameters.maxClients)
    {
        
        if (randomicPort == data->clients[i].pasvData.passivePort)
