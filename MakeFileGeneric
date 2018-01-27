@@ -1,0 +1,65 @@
+#LINARO
+#CC=arm-linux-gnueabihf-gcc
+
+#Other arm
+#CC=arm-unknown-linux-gnu-gcc
+
+#Linux Generic
+CC=gcc
+
+#Windows
+#CC=i686-w64-mingw32-gcc
+
+#Windows
+#CCWIN=i686-w64-mingw32-gcc
+#CCLINUX=gcc
+#CCARM=/opt/crosstool/gcc-4.0.1-glibc-2.3.5/arm-unknown-linux-gnu/bin/arm-unknown-linux-gnu-gcc
+
+OUTPATH=./build/
+SOURCE_MODULES_PATH=./library/
+CFLAGS=-c -Wall -I.
+OPTIMIZATION=-O3
+HEADERS=-I
+LIBPATH=./build/modules/
+BUILDFILES=start uFTP end  
+
+
+all: $(BUILDFILES)
+
+start:
+	@echo Compiler: $(CC)
+	@echo Output Directory: $(OUTPATH)
+	@echo CGI FILES: $(BUILDFILES)
+	@rm -rf $(LIBPATH)*.o $(OUTPATH)uFTP
+	@echo "Clean ok"
+	
+end:
+	@echo Build process end
+
+uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o
+	@$(CC) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o -o $(OUTPATH)uFTP -lpthread
+
+dynamicVectors.o: 
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)dynamicVectors.c -o $(LIBPATH)dynamicVectors.o
+
+configRead.o: dynamicVectors.o fileManagement.o
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)configRead.c -o $(LIBPATH)configRead.o 
+
+fileManagement.o:
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)fileManagement.c -o $(LIBPATH)fileManagement.o
+
+logFunctions.o:
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)logFunctions.c -o $(LIBPATH)logFunctions.o
+
+ftpCommandElaborate.o:
+	@$(CC) $(CFLAGS) ftpCommandElaborate.c -o $(LIBPATH)ftpCommandElaborate.o
+
+ftpData.o:
+	@$(CC) $(CFLAGS) ftpData.c -o $(LIBPATH)ftpData.o
+
+ftpServer.o:
+	@$(CC) $(CFLAGS) ftpServer.c -o $(LIBPATH)ftpServer.o
+
+clean:
+	@rm -rf $(LIBPATH)*.o $(OUTPATH)uFTP
+	@echo "Clean ok"

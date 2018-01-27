@@ -8,6 +8,7 @@
 #include "logFunctions.h"
 #include <sys/time.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 void printTimeStamp(void)
 {

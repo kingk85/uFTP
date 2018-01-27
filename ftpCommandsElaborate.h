@@ -43,6 +43,7 @@ int parseCommandQuit(ftpDataType * data, int socketId);
 int parseCommandSize(clientDataType *theClientData);
 int parseCommandStor(ftpDataType * data, int socketId);
 int parseCommandCwd(clientDataType *theClientData);
+int parseCommandRest(clientDataType *theClientData);
 int parseCommandCdup(clientDataType *theClientData);
 int parseCommandDele(clientDataType *theClientData);
 

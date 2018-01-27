@@ -35,6 +35,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+    
+#include "dynamicVectors.h"
 
 struct parameter
 {

@@ -19,9 +19,9 @@
 #include "ftpServer.h"
 #include "ftpData.h"
 #include "ftpCommandsElaborate.h"
-#include "fileManagement.h"
-#include "logFunctions.h"
-#include "configRead.h"
+#include "library/fileManagement.h"
+#include "library/logFunctions.h"
+#include "library/configRead.h"
 
 
 /* Catch Signal Handler functio */
@@ -173,7 +173,7 @@ void *pasvThreadHandler(void * socketId)
                   usleep(100);
                 }
             }
-            close(theStorFile);
+            fclose(theStorFile);
 
             cleanDynamicStringDataType(&fileNameToStor, 0);
             
@@ -479,7 +479,7 @@ void runFtpServer(void)
   //Endless loop ftp process
     while (1)
     {
-      int i, selectResult;
+      int selectResult;
       struct timeval selectMaximumLockTime;   // sleep for 1 second!
       selectMaximumLockTime.tv_sec = 10;
       selectMaximumLockTime.tv_usec = 0;
@@ -515,7 +515,6 @@ void runFtpServer(void)
             //Wait for sockets
             if ((ftpData.clients[processingSock].socketDescriptor = accept(ftpData.theSocket,0 ,0 ))!=-1)
             {
-                int i;
                 int error;
                 ftpData.connectedClients++;
                 ftpData.clients[processingSock].socketIsConnected = 1;
@@ -602,7 +601,7 @@ void runFtpServer(void)
 /* STATIC FUNCTIONS */
 static int createSocket(int port)
 {
-  int sock, errore;
+  int sock, errorCode;
   struct sockaddr_in temp;
 
   //Socket creation
@@ -612,7 +611,7 @@ static int createSocket(int port)
   temp.sin_port = htons(port);
 
   //No blocking socket
-  errore = fcntl(sock, F_SETFL, O_NONBLOCK);
+  errorCode = fcntl(sock, F_SETFL, O_NONBLOCK);
   
   
     int reuse = 1;
@@ -624,17 +623,17 @@ static int createSocket(int port)
 
 
   //Bind socket
-  errore = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
+  errorCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
 
   //Number of client allowed
-  errore = listen(sock, ftpData.ftpParameters.maxClients);
+  errorCode = listen(sock, ftpData.ftpParameters.maxClients);
  
   return sock;
 }
 
  int createPassiveSocket(int port)
 {
-  int sock, errore, flags;
+  int sock, returnCode, flags;
   struct sockaddr_in temp;
 
   //Socket creation
@@ -647,7 +646,7 @@ static int createSocket(int port)
 
     flags = fcntl(sock, F_GETFL, 0);
     flags &= ~O_NONBLOCK;
-    errore =  fcntl(sock, F_SETFL, flags);
+    returnCode =  fcntl(sock, F_SETFL, flags);
   
   
   int reuse = 1;
@@ -659,10 +658,10 @@ static int createSocket(int port)
 
 
   //Bind socket
-  errore = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
+  returnCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
 
   //Number of client allowed
-  errore = listen(sock, 1);
+  returnCode = listen(sock, 1);
 
   return sock;
 }

@@ -385,7 +385,7 @@ char * FILE_GetListPermissionsString(char *file) {
         mode_t perm = st.st_mode;
         
     modeval[0] = (S_ISDIR(st.st_mode)) ? 'd' : '-';
-    modeval[0] = (perm & S_IFMT == S_IFLNK) ? 'L' : modeval[0];
+    modeval[0] = ((perm & S_IFMT) == S_IFLNK) ? 'L' : modeval[0];
     modeval[1] = (perm & S_IRUSR) ? 'r' : '-';
     modeval[2] = (perm & S_IWUSR) ? 'w' : '-';
     modeval[3] = (perm & S_IXUSR) ? 'x' : '-';
@@ -474,7 +474,7 @@ void FILE_AppendToString(char ** sourceString, char *theString)
        // printf("\n theNewSize = %d", theNewSize);
 }
 
-char *FILE_DirectoryToParent(char ** sourceString)
+void FILE_DirectoryToParent(char ** sourceString)
 {
          //printf("\n");
         int i = 0, theLastSlash = -1, strLen = 0;
@@ -501,6 +501,5 @@ char *FILE_DirectoryToParent(char ** sourceString)
             }
             *sourceString = realloc(*sourceString, theNewSize+1);
             (*sourceString)[theNewSize] = '\0';
-
         }
 }

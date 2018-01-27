@@ -39,6 +39,6 @@
     char * FILE_GetGroupOwner(char *fileName);
     time_t FILE_GetLastModifiedData(char *path);
     void FILE_AppendToString(char ** sourceString, char *theString);
-    char *FILE_DirectoryToParent(char ** sourceString);
+    void FILE_DirectoryToParent(char ** sourceString);
 #define	GEN_FILE_MANAGEMENT_TYPES
 #endif

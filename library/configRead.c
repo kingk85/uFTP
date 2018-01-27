@@ -175,6 +175,8 @@ int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVect
 
 
     }
+    
+    return 1;
 
 }
 

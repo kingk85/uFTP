@@ -28,6 +28,7 @@
         <itemPath>library/fileManagement.c</itemPath>
         <itemPath>library/logFunctions.c</itemPath>
       </logicalFolder>
+      <itemPath>MakeFileGeneric</itemPath>
       <itemPath>config.cfg</itemPath>
       <itemPath>ftpCommandElaborate.c</itemPath>
       <itemPath>ftpData.c</itemPath>
@@ -71,6 +72,8 @@
           <commandLine>-pthread</commandLine>
         </cTool>
       </compileType>
+      <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="config.cfg" ex="false" tool="3" flavor2="0">
       </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
@@ -128,6 +131,8 @@
           <developmentMode>5</developmentMode>
         </asmTool>
       </compileType>
+      <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="config.cfg" ex="false" tool="3" flavor2="0">
       </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">

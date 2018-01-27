@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
+
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
@@ -17,7 +19,8 @@
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
 #include "ftpData.h"
-#include "logFunctions.h"
+#include "library/logFunctions.h"
+#include "library/fileManagement.h"
 
 /* Elaborate the User login command */
 int parseCommandUser(clientDataType *theClientData)
@@ -154,10 +157,8 @@ int parseCommandAuth(clientDataType *theClientData)
 
 int parseCommandPwd(clientDataType *theClientData)
 {
-    int i, thePwdIndex;
     char thePwdResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
     memset(thePwdResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    thePwdIndex = 0;
     sprintf(thePwdResponse, "257 \"%s\" is your current location\r\n", theClientData->login.ftpPath.text);
     write(theClientData->socketDescriptor, thePwdResponse, strlen(thePwdResponse));
     return 1;
@@ -487,7 +488,6 @@ int parseCommandRest(clientDataType *theClientData)
 
 int parseCommandMkd(clientDataType *theClientData)
 {
-    int returnStatus = 0;
     char *theDirectoryFilename;
     dynamicStringDataType theResponse;
     dynamicStringDataType mkdFileName;
@@ -512,6 +512,7 @@ int parseCommandMkd(clientDataType *theClientData)
     
     if (strlen(theDirectoryFilename) > 0)
     {
+        int returnStatus;
         printf("\nThe directory to make is: %s", mkdFileName.text);
         returnStatus = mkdir(mkdFileName.text, S_IRWXU | S_IRWXG | S_IRWXO);
     }
@@ -814,8 +815,6 @@ int parseCommandRnto(clientDataType *theClientData)
 
 int parseCommandCdup(clientDataType *theClientData)
 {
-        int i;
-
         char *theResponse;
         theResponse = (char *) malloc (strlen("250 OK. Current directory is ")+1);
         strcpy(theResponse, "250 OK. Current directory is ");
@@ -865,7 +864,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     {
         printf("\nSeek startFrom: %d", startFrom);
         currentPosition = (long int) lseek(fileno(retrFP), startFrom, SEEK_SET);
-        printf("\nSeek result: %d", currentPosition);
+        printf("\nSeek result: %ld", currentPosition);
         if (currentPosition == -1)
         {
             fclose(retrFP);
@@ -878,7 +877,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
       toReturn = toReturn + write(thePasvSocketConnection, buffer, readen);
     }
 
-    printf("\n Bytes written: %d", toReturn);
+    printf("\n Bytes written: %ld", toReturn);
 
     fclose(retrFP);
     return toReturn;
