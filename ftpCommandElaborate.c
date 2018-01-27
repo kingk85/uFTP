@@ -25,69 +25,37 @@
 /* Elaborate the User login command */
 int parseCommandUser(clientDataType *theClientData)
 {
-    int i, theNameIndex;
-    char theName[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(theName, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    theNameIndex = 0;
+    char *theName;
+    theName = getFtpCommandArg("USER", theClientData->theCommandReceived);
 
-    for (i = strlen("USER")+1; i < theClientData->commandIndex; i++)
-    {
-        if (theClientData->theCommandReceived[i] == '\r' ||
-            theClientData->theCommandReceived[i] == '\n' ||
-            theClientData->theCommandReceived[i] == '\0')
-            {
-                break;
-            }
-        
-        if (theClientData->theCommandReceived[i] != ' ' &&
-            theNameIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
-        {
-            theName[theNameIndex++] = theClientData->theCommandReceived[i];
-        }
-    }
     printTimeStamp();
     printf("The Name: %s", theName);
 
-    if (theNameIndex > 1)
+    if (strlen(theName) >= 1)
     {
         char *theResponse = "331 User ok, Waiting for the password.\r\n";
-        setDynamicStringDataType(&theClientData->login.name, theName, theNameIndex);
+        setDynamicStringDataType(&theClientData->login.name, theName, strlen(theName));
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
         printf("\nUSER COMMAND OK, USERNAME IS: %s", theClientData->login.name.text);
         return 1;
     }
     else
     {
-        return 0;
+        char *theResponse = "430 Invalid username.\r\n";
+        write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+        return 1;
     }
 }
 
 int parseCommandPass(ftpDataType * data, int socketId)
 {
-    int i, thePassIndex;
-    char thePass[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(thePass, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    thePassIndex = 0;
-
-    for (i = strlen("PASS")+1; i < data->clients[socketId].commandIndex; i++)
-    {
-        if (data->clients[socketId].theCommandReceived[i] == '\r' ||
-            data->clients[socketId].theCommandReceived[i] == '\0' ||
-            data->clients[socketId].theCommandReceived[i] == '\n')
-            {
-                break;
-            }
-        
-        if (data->clients[socketId].theCommandReceived[i] != ' ' &&
-            thePassIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
-        {
-            thePass[thePassIndex++] = data->clients[socketId].theCommandReceived[i];
-        }
-    }
+    char *thePass;
+    thePass = getFtpCommandArg("PASS", data->clients[socketId].theCommandReceived);
+    
     printTimeStamp();
     printf("The Pass is: %s", thePass);
 
-    if (thePassIndex > 1)
+    if (strlen(thePass) >= 1)
     {
         int searchUserNameIndex;
         searchUserNameIndex = searchUser(data->clients[socketId].login.name.text, &data->ftpParameters.usersVector);
@@ -102,7 +70,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
         else
         {
             char *theResponse = "230 Login Ok.\r\n";
-            setDynamicStringDataType(&data->clients[socketId].login.password, thePass, thePassIndex);
+            setDynamicStringDataType(&data->clients[socketId].login.password, thePass, strlen(thePass));
             setDynamicStringDataType(&data->clients[socketId].login.absolutePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
             setDynamicStringDataType(&data->clients[socketId].login.homePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
             setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", strlen("/"));
@@ -121,35 +89,18 @@ int parseCommandPass(ftpDataType * data, int socketId)
     }
     else
     {
-        return 0;
+        char *theResponse = "430 Invalid username or password\r\n";
+        write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
+        return 1;
     }
 }
 
 int parseCommandAuth(clientDataType *theClientData)
 {
-    int i, theAuthIndex;
-    char theAuth[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(theAuth, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    theAuthIndex = 0;
-
-    for (i = strlen("AUTH")+1; i < theClientData->commandIndex; i++)
-    {
-        if (theClientData->theCommandReceived[i] == '\r' ||
-            theClientData->theCommandReceived[i] == '\0' ||
-            theClientData->theCommandReceived[i] == '\n')
-            {
-            break;
-            }
-        
-        if (theClientData->theCommandReceived[i] != ' ' &&
-            theAuthIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
-        {
-            theAuth[theAuthIndex++] = theClientData->theCommandReceived[i];
-        }
-    }
+    char *theAuth;
+    theAuth = getFtpCommandArg("AUTH", theClientData->theCommandReceived);    
     printTimeStamp();
     printf("The Auth is: %s", theAuth);
-
     char *theResponse = "502 Auth command is not supported.\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
@@ -303,35 +254,30 @@ int parseCommandRetr(ftpDataType * data, int socketId)
 
 int parseCommandStor(ftpDataType * data, int socketId)
 {
-    pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-
-    int i;
-    memset(data->clients[socketId].pasvData.theFileNameToStor, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    data->clients[socketId].pasvData.theFileNameToStorIndex = 0;
-
-    for (i = strlen("STOR")+1; i < data->clients[socketId].commandIndex; i++)
-    {
-        if (data->clients[socketId].theCommandReceived[i] == '\r' ||
-            data->clients[socketId].theCommandReceived[i] == '\0' ||
-            data->clients[socketId].theCommandReceived[i] == '\n')
-            {
-                break;
-            }
-        
-        if (data->clients[socketId].pasvData.theFileNameToStorIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
-        {
-            data->clients[socketId].pasvData.theFileNameToStor[data->clients[socketId].pasvData.theFileNameToStorIndex++] = data->clients[socketId].theCommandReceived[i];
-        }
-    }
+    int isSafePath = 0;
+    char *theNameToStor;
+    theNameToStor = getFtpCommandArg("STOR", data->clients[socketId].theCommandReceived);    
+    cleanDynamicStringDataType(&data->clients[socketId].pasvData.theFileNameToStor, 0);
     
-    printf("data->clients[%d].pasvData.theFileNameToStor = %s", socketId, data->clients[socketId].pasvData.theFileNameToStor);
+    if (strlen(theNameToStor) > 0)
+    {
+        isSafePath = getSafePath(&data->clients[socketId].pasvData.theFileNameToStor, theNameToStor, &data->clients[socketId].login);
+    }
 
-    memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
-    data->clients[socketId].pasvData.commandReceived = 1;
-
-    pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);  
+    if (isSafePath == 1)
+    {
+        pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
+        printf("data->clients[%d].pasvData.theFileNameToStor = %s", socketId, data->clients[socketId].pasvData.theFileNameToStor.text);
+        memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+        strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        data->clients[socketId].pasvData.commandReceived = 1;
+        pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
+        pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+    }
+    else
+    {
+        return 0;
+    }
     
     return 1;
 }
@@ -488,85 +434,72 @@ int parseCommandRest(clientDataType *theClientData)
 
 int parseCommandMkd(clientDataType *theClientData)
 {
+    int isSafePath;
     char *theDirectoryFilename;
     dynamicStringDataType theResponse;
     dynamicStringDataType mkdFileName;
     
     theDirectoryFilename = getFtpCommandArg("MKD", theClientData->theCommandReceived);
     
-    
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&mkdFileName, 1);
     
-    if (theDirectoryFilename[0] == '/')
-    {
-        setDynamicStringDataType(&mkdFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
-        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
-    }
-    else
-    {
-        setDynamicStringDataType(&mkdFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-        appendToDynamicStringDataType(&mkdFileName, "/", 1);
-        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
-    }
+    isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &theClientData->login);
     
-    if (strlen(theDirectoryFilename) > 0)
+    if (isSafePath == 1)
     {
         int returnStatus;
         printf("\nThe directory to make is: %s", mkdFileName.text);
         returnStatus = mkdir(mkdFileName.text, S_IRWXU | S_IRWXG | S_IRWXO);
+        setDynamicStringDataType(&theResponse, "257 \"", strlen("257 \""));
+        appendToDynamicStringDataType(&theResponse, theDirectoryFilename, strlen(theDirectoryFilename));
+        appendToDynamicStringDataType(&theResponse, "\" : The directory was successfully created\r\n", strlen("\" : The directory was successfully created\r\n"));
+        write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
     }
-    
-    setDynamicStringDataType(&theResponse, "257 \"", strlen("257 \""));
-    appendToDynamicStringDataType(&theResponse, theDirectoryFilename, strlen(theDirectoryFilename));
-    appendToDynamicStringDataType(&theResponse, "\" : The directory was successfully created\r\n", strlen("\" : The directory was successfully created\r\n"));
+    else
+    {
+        cleanDynamicStringDataType(&theResponse, 0);
+        cleanDynamicStringDataType(&mkdFileName, 0);
+        return 0;
+    }
 
-    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
-    
     cleanDynamicStringDataType(&theResponse, 0);
-    cleanDynamicStringDataType(&mkdFileName, 0);
-    
+    cleanDynamicStringDataType(&mkdFileName, 0);    
     return 1;
 }
 
 int parseCommandDele(clientDataType *theClientData)
 {
+    int isSafePath;
     int returnStatus = 0;
     char *theFileToDelete;
     dynamicStringDataType theResponse;
     dynamicStringDataType deleFileName;
-    
+
     theFileToDelete = getFtpCommandArg("DELE", theClientData->theCommandReceived);
-    
-    
+
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&deleFileName, 1);
     
-    printf("\ntheFileToDelete[0] = %c", theFileToDelete[0]);
+    isSafePath = getSafePath(&deleFileName, theFileToDelete, &theClientData->login);
     
-    if (theFileToDelete[0] == '/')
-    {
-        setDynamicStringDataType(&deleFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
-        appendToDynamicStringDataType(&deleFileName, theFileToDelete, strlen(theFileToDelete));
-    }
-    else
-    {
-        setDynamicStringDataType(&deleFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-        appendToDynamicStringDataType(&deleFileName, "/", 1);
-        appendToDynamicStringDataType(&deleFileName, theFileToDelete, strlen(theFileToDelete));
-    }
-    
-    if (strlen(theFileToDelete) > 0)
+    if (isSafePath == 1)
     {
         printf("\nThe file to delete is: %s", deleFileName.text);
         returnStatus = remove(deleFileName.text);
+        setDynamicStringDataType(&theResponse, "250 Deleted ", strlen("250 Deleted "));
+        appendToDynamicStringDataType(&theResponse, theFileToDelete, strlen(theFileToDelete));
+        appendToDynamicStringDataType(&theResponse, "\r\n", strlen("\r\n"));
+        write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
+    }
+    else
+    {
+        cleanDynamicStringDataType(&theResponse, 0);
+        cleanDynamicStringDataType(&deleFileName, 0);
+        return 0;
     }
     
-    setDynamicStringDataType(&theResponse, "250 Deleted ", strlen("250 Deleted "));
-    appendToDynamicStringDataType(&theResponse, theFileToDelete, strlen(theFileToDelete));
-    appendToDynamicStringDataType(&theResponse, "\r\n", strlen("\r\n"));
 
-    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
     cleanDynamicStringDataType(&theResponse, 0);
     cleanDynamicStringDataType(&deleFileName, 0);
     return 1;
@@ -622,45 +555,42 @@ int parseCommandQuit(ftpDataType * data, int socketId)
 
 int parseCommandRmd(clientDataType *theClientData)
 {
+    int isSafePath;
     int returnStatus = 0;
     char *theDirectoryFilename;
     dynamicStringDataType theResponse;
-    dynamicStringDataType mkdFileName;
+    dynamicStringDataType rmdFileName;
     
     theDirectoryFilename = getFtpCommandArg("RMD", theClientData->theCommandReceived);
     
     cleanDynamicStringDataType(&theResponse, 1);
-    cleanDynamicStringDataType(&mkdFileName, 1);
+    cleanDynamicStringDataType(&rmdFileName, 1);
     
-    if (theDirectoryFilename[0] == '/')
+    isSafePath = getSafePath(&rmdFileName, theDirectoryFilename, &theClientData->login);
+    
+    if (isSafePath == 1)
     {
-        setDynamicStringDataType(&mkdFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
-        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+        printf("\nThe directory to delete is: %s", rmdFileName.text);
+        returnStatus = rmdir(rmdFileName.text);
+        setDynamicStringDataType(&theResponse, "250 The directory was successfully removed\r\n", strlen("250 The directory was successfully removed\r\n"));
+        write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
     }
     else
     {
-        setDynamicStringDataType(&mkdFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-        appendToDynamicStringDataType(&mkdFileName, "/", 1);
-        appendToDynamicStringDataType(&mkdFileName, theDirectoryFilename, strlen(theDirectoryFilename));
+        cleanDynamicStringDataType(&theResponse, 0);
+        cleanDynamicStringDataType(&rmdFileName, 0);
+        return 0;
     }
-    
-    if (strlen(theDirectoryFilename) > 0)
-    {
-        printf("\nThe directory to delete is: %s", mkdFileName.text);
-        returnStatus = rmdir(mkdFileName.text);
-    }
-    
-    setDynamicStringDataType(&theResponse, "250 The directory was successfully removed\r\n", strlen("250 The directory was successfully removed\r\n"));
-    write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
-    
+
     cleanDynamicStringDataType(&theResponse, 0);
-    cleanDynamicStringDataType(&mkdFileName, 0);
-    
+    cleanDynamicStringDataType(&rmdFileName, 0);
+
     return 1;
 }
 
 int parseCommandSize(clientDataType *theClientData)
 {
+    int isSafePath;
     unsigned long long int theSize;
     char *theFileName;
     dynamicStringDataType theResponse;
@@ -671,19 +601,10 @@ int parseCommandSize(clientDataType *theClientData)
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&getSizeFromFileName, 1);
     
-    if (theFileName[0] == '/')
-    {
-        setDynamicStringDataType(&getSizeFromFileName, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
-        appendToDynamicStringDataType(&getSizeFromFileName, theFileName, strlen(theFileName));
-    }
-    else
-    {
-        setDynamicStringDataType(&getSizeFromFileName, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-        appendToDynamicStringDataType(&getSizeFromFileName, "/", 1);
-        appendToDynamicStringDataType(&getSizeFromFileName, theFileName, strlen(theFileName));
-    }
+    isSafePath = getSafePath(&getSizeFromFileName, theFileName, &theClientData->login);
     
-    if (strlen(theFileName) > 0)
+    
+    if (isSafePath == 1)
     {
         printf("\nThe file to get the size is: %s", getSizeFromFileName.text);
         
@@ -701,6 +622,10 @@ int parseCommandSize(clientDataType *theClientData)
             setDynamicStringDataType(&theResponse, "550 Can't check for file existence\r\n", strlen("550 Can't check for file existence\r\n"));
         }
     }
+    else
+    {
+        setDynamicStringDataType(&theResponse, "550 Can't check for file existence\r\n", strlen("550 Can't check for file existence\r\n"));
+    }
     
     write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
     cleanDynamicStringDataType(&theResponse, 0);
@@ -711,26 +636,17 @@ int parseCommandSize(clientDataType *theClientData)
 
 int parseCommandRnfr(clientDataType *theClientData)
 {
+    int isSafePath;
     char *theRnfrFileName;
     dynamicStringDataType theResponse;
 
     theRnfrFileName = getFtpCommandArg("RNFR", theClientData->theCommandReceived);
     cleanDynamicStringDataType(&theClientData->renameFromFile, 0);
     cleanDynamicStringDataType(&theResponse, 1);
-
-    if (theRnfrFileName[0] == '/')
-    {
-        setDynamicStringDataType(&theClientData->renameFromFile, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
-        appendToDynamicStringDataType(&theClientData->renameFromFile, theRnfrFileName, strlen(theRnfrFileName));
-    }
-    else
-    {
-        setDynamicStringDataType(&theClientData->renameFromFile, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-        appendToDynamicStringDataType(&theClientData->renameFromFile, "/", 1);
-        appendToDynamicStringDataType(&theClientData->renameFromFile, theRnfrFileName, strlen(theRnfrFileName));
-    }
     
-    if (strlen(theRnfrFileName) > 0)
+    isSafePath = getSafePath(&theClientData->renameFromFile, theRnfrFileName, &theClientData->login);
+    
+    if (isSafePath == 1)
     {
         printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
         
@@ -756,26 +672,18 @@ int parseCommandRnfr(clientDataType *theClientData)
 
 int parseCommandRnto(clientDataType *theClientData)
 {
+    int isSafePath;
     char *theRntoFileName;
     dynamicStringDataType theResponse;
 
     theRntoFileName = getFtpCommandArg("RNTO", theClientData->theCommandReceived);
     cleanDynamicStringDataType(&theClientData->renameToFile, 0);
     cleanDynamicStringDataType(&theResponse, 1);
-
-    if (theRntoFileName[0] == '/')
-    {
-        setDynamicStringDataType(&theClientData->renameToFile, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
-        appendToDynamicStringDataType(&theClientData->renameToFile, theRntoFileName, strlen(theRntoFileName));
-    }
-    else
-    {
-        setDynamicStringDataType(&theClientData->renameToFile, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-        appendToDynamicStringDataType(&theClientData->renameToFile, "/", 1);
-        appendToDynamicStringDataType(&theClientData->renameToFile, theRntoFileName, strlen(theRntoFileName));
-    }
     
-    if (strlen(theRntoFileName) > 0 &&
+    isSafePath = getSafePath(&theClientData->renameToFile, theRntoFileName, &theClientData->login);
+
+
+    if (isSafePath == 1 &&
         theClientData->renameFromFile.textLen > 0)
     {
         printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
@@ -803,10 +711,6 @@ int parseCommandRnto(clientDataType *theClientData)
     {
         setDynamicStringDataType(&theResponse, "503 Error Renaming the file\r\n", strlen("503 Need RNFR before RNTO\r\n"));
     }
-
-    //To implement
-    //503 Need RNFR before RNTO
-    //250 File successfully renamed or moved
 
     write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
     cleanDynamicStringDataType(&theResponse, 0);

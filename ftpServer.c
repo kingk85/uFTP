@@ -123,7 +123,7 @@ void *pasvThreadHandler(void * socketId)
           if (ftpData.clients[theSocketId].pasvData.commandReceived == 1 &&
               ((strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "STOR", strlen("STOR")) == 0) || 
                (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "stor", strlen("stor")) == 0)) &&
-               ftpData.clients[theSocketId].pasvData.theFileNameToStorIndex > 0)
+               ftpData.clients[theSocketId].pasvData.theFileNameToStor.textLen > 0)
           {
             //Set the busy flag
             ftpData.clients[theSocketId].pasvData.threadIsBusy = 1;
@@ -132,33 +132,16 @@ void *pasvThreadHandler(void * socketId)
             char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             char theAbsoluteFileNamePath[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-            memset(theAbsoluteFileNamePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+            memset(theAbsoluteFileNamePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);  
             
-            dynamicStringDataType fileNameToStor;
+            theStorFile = fopen(ftpData.clients[theSocketId].pasvData.theFileNameToStor.text, "wb");
             
-            if (ftpData.clients[theSocketId].pasvData.theFileNameToStor[0] == '/')
-            {
-                setDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].login.homePath.text, ftpData.clients[theSocketId].login.homePath.textLen);
-                appendToDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].pasvData.theFileNameToStor, strlen(ftpData.clients[theSocketId].pasvData.theFileNameToStor));
-            }
-            else
-            {
-                setDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
-                appendToDynamicStringDataType(&fileNameToStor, "/", 1);
-                appendToDynamicStringDataType(&fileNameToStor, ftpData.clients[theSocketId].pasvData.theFileNameToStor, strlen(ftpData.clients[theSocketId].pasvData.theFileNameToStor));
-            }
-
-            theStorFile = fopen(fileNameToStor.text, "wb");
-            
-            printf("\nftpData.clients[theSocketId].pasvData.theFileNameToStor: %s", ftpData.clients[theSocketId].pasvData.theFileNameToStor);
+            printf("\nftpData.clients[theSocketId].pasvData.theFileNameToStor: %s", ftpData.clients[theSocketId].pasvData.theFileNameToStor.text);
             printf("\nftpData.clients[theSocketId].login.absolutePath.text: %s", ftpData.clients[theSocketId].login.absolutePath.text);
-            printf("\nSaving new file to the server: %s", fileNameToStor.text);
-
+            
             strcpy(theResponse, "150 Accepted data connection\r\n");
-
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
 
-            
             while(1)
             {
                 if ((ftpData.clients[theSocketId].pasvData.bufferIndex = read(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, ftpData.clients[theSocketId].pasvData.buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
@@ -174,8 +157,6 @@ void *pasvThreadHandler(void * socketId)
                 }
             }
             fclose(theStorFile);
-
-            cleanDynamicStringDataType(&fileNameToStor, 0);
             
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             sprintf(theResponse, "226 file stor ok\r\n");
@@ -187,37 +168,29 @@ void *pasvThreadHandler(void * socketId)
                 (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "list", strlen("list")) == 0))
                 )
           {
+            int isSafePath = 0;
             DYNV_VectorGenericDataType directoryInfo;
-            DYNV_VectorGeneric_Init(&directoryInfo);
-
             dynamicStringDataType theListFilePathToRead;
             cleanDynamicStringDataType(&theListFilePathToRead, 1);
-            
+
             char * theListFilePathArg;
             theListFilePathArg = getFtpCommandArg("LIST", ftpData.clients[theSocketId].pasvData.theCommandReceived);
 
             if (strlen(theListFilePathArg) > 0)
             {
-                printf("\n List path arg is : %s", theListFilePathArg);
-                
-                if (theListFilePathArg[0] == '/')
-                {
-                    setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.homePath.text, ftpData.clients[theSocketId].login.homePath.textLen);
-                    appendToDynamicStringDataType(&theListFilePathToRead, theListFilePathArg, strlen(theListFilePathArg));
-                }
-                else
-                {
-                    setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
-                    appendToDynamicStringDataType(&theListFilePathToRead, "/", 1);
-                    appendToDynamicStringDataType(&theListFilePathToRead, theListFilePathArg, strlen(theListFilePathArg));
-                }
+                isSafePath = getSafePath(&theListFilePathToRead, theListFilePathArg, &ftpData.clients[theSocketId].login);
             }
             else
             {
-                printf("\n No List path specified");
+                isSafePath = 1;
+                printf("\n No List path specified using default : %s ", ftpData.clients[theSocketId].login.absolutePath.text);
                 setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
             }
             
+            printf("\n\n****** theListFilePathToRead[%d] = %s", theListFilePathToRead.textLen, theListFilePathToRead.text);
+            fflush(0);
+            
+            DYNV_VectorGeneric_Init(&directoryInfo);
             
             //printf("directoryInfo address: %lX", &directoryInfo);
             int i;
@@ -276,6 +249,7 @@ void *pasvThreadHandler(void * socketId)
                 (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "nlst", strlen("nlst")) == 0))
                 )
           {
+            int isSafePath = 0;
             DYNV_VectorGenericDataType directoryInfo;
             DYNV_VectorGeneric_Init(&directoryInfo);
 
@@ -288,21 +262,11 @@ void *pasvThreadHandler(void * socketId)
             if (strlen(theListFilePathArg) > 0)
             {
                 printf("\n NLST path arg is : %s", theListFilePathArg);
-                
-                if (theListFilePathArg[0] == '/')
-                {
-                    setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.homePath.text, ftpData.clients[theSocketId].login.homePath.textLen);
-                    appendToDynamicStringDataType(&theListFilePathToRead, theListFilePathArg, strlen(theListFilePathArg));
-                }
-                else
-                {
-                    setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
-                    appendToDynamicStringDataType(&theListFilePathToRead, "/", 1);
-                    appendToDynamicStringDataType(&theListFilePathToRead, theListFilePathArg, strlen(theListFilePathArg));
-                }
+                isSafePath = getSafePath(&theListFilePathToRead, theListFilePathArg, &ftpData.clients[theSocketId].login);
             }
             else
             {
+                isSafePath = 1;
                 printf("\n No NLST path specified");
                 setDynamicStringDataType(&theListFilePathToRead, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
             }
@@ -359,6 +323,7 @@ void *pasvThreadHandler(void * socketId)
               ((strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "RETR", strlen("RETR")) == 0) ||
                (strncmp(ftpData.clients[theSocketId].pasvData.theCommandReceived, "retr", strlen("retr")) == 0)))
           {
+              int isSafePath = 0;
               //Set the busy flag
               ftpData.clients[theSocketId].pasvData.threadIsBusy = 1;
               
@@ -368,42 +333,20 @@ void *pasvThreadHandler(void * socketId)
               printTimeStamp();
               printf("The (%d) pasvData Command: %s",theSocketId, ftpData.clients[theSocketId].pasvData.theCommandReceived);
               int writeReturn = 0;
-              int i;
-              char theFileName[CLIENT_COMMAND_STRING_SIZE];
-              int theFileNameCursor = 0;
-              memset(theFileName, 0, CLIENT_COMMAND_STRING_SIZE);
-              
-              for (i = strlen("RETR") + 1; i < CLIENT_COMMAND_STRING_SIZE; i++)
-              {
-                  if (ftpData.clients[theSocketId].pasvData.theCommandReceived[i] == '\r' ||
-                      ftpData.clients[theSocketId].pasvData.theCommandReceived[i] == '\n' ||
-                      ftpData.clients[theSocketId].pasvData.theCommandReceived[i] == '\0') {
-                      break;
-                  }
 
-                  if (theFileNameCursor < CLIENT_COMMAND_STRING_SIZE)
-                  {
-                    theFileName[theFileNameCursor++] = ftpData.clients[theSocketId].pasvData.theCommandReceived[i];
-                  }
-              }
-              
-            dynamicStringDataType theFullFileName;
+              char * theFileName;
+              theFileName = getFtpCommandArg("RETR", ftpData.clients[theSocketId].pasvData.theCommandReceived);
+
+              dynamicStringDataType theFullFileName;
+              cleanDynamicStringDataType(&theFullFileName, 1);
             
-            if (ftpData.clients[theSocketId].pasvData.theFileNameToStor[0] == '/')
-            {
-                setDynamicStringDataType(&theFullFileName, ftpData.clients[theSocketId].login.homePath.text, ftpData.clients[theSocketId].login.homePath.textLen);
-                appendToDynamicStringDataType(&theFullFileName, theFileName, strlen(theFileName));
-            }
-            else
-            {
-                setDynamicStringDataType(&theFullFileName, ftpData.clients[theSocketId].login.absolutePath.text, ftpData.clients[theSocketId].login.absolutePath.textLen);
-                appendToDynamicStringDataType(&theFullFileName, "/", 1);
-                appendToDynamicStringDataType(&theFullFileName, theFileName, strlen(theFileName));
-            }
+              isSafePath = getSafePath(&theFullFileName, theFileName, &ftpData.clients[theSocketId].login);
 
-
-              if (FILE_IsFile(theFullFileName.text) == 0)
+              if (isSafePath == 0 ||
+                  FILE_IsFile(theFullFileName.text) == 0)
+              {
                   break;
+              }
               
               theFileSize = FILE_GetFileSizeFromPath(theFullFileName.text);
               

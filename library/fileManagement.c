@@ -418,12 +418,13 @@ char * FILE_GetOwner(char *fileName)
 {
     char *toReturn;
     struct stat info;
-    stat(fileName, &info);  // Error check omitted
+    if (stat(fileName, &info) == -1 )
+        return NULL;
+
     struct passwd *pw = getpwuid(info.st_uid);
-    //struct group  *gr = getgrgid(info.st_gid);
     
     if (pw->pw_name == 0)
-        return 0;
+        return NULL;
         
     toReturn = (char *) malloc (strlen(pw->pw_name) + 1);
     strcpy(toReturn, pw->pw_name);
@@ -435,12 +436,12 @@ char * FILE_GetGroupOwner(char *fileName)
 {
     char *toReturn;
     struct stat info;
-    stat(fileName, &info);  // Error check omitted
-    //struct passwd *pw = getpwuid(info.st_uid);
+    if (stat(fileName, &info) == -1 )
+        return NULL;
     struct group  *gr = getgrgid(info.st_gid);
     
     if (gr->gr_name == 0)
-        return 0;
+        return NULL;
     
     toReturn = (char *) malloc (strlen(gr->gr_name) + 1);
     strcpy(toReturn, gr->gr_name);

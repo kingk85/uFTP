@@ -64,8 +64,8 @@ struct passiveData
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];    
     int commandReceived;
     
-    char theFileNameToStor[CLIENT_COMMAND_STRING_SIZE];
-    int theFileNameToStorIndex;
+    dynamicStringDataType theFileNameToStor;
+    
     unsigned long int retrRestartAtByte;
     int threadIsBusy;
     
@@ -126,6 +126,7 @@ struct ftpListData
 void cleanLoginData(loginDataType *loginData, int init);
 void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init);
 void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
+int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *theHomePath);
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
