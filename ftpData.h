@@ -64,8 +64,6 @@ struct passiveData
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];    
     int commandReceived;
     
-    dynamicStringDataType theFileNameToStor;
-    
     unsigned long int retrRestartAtByte;
     int threadIsBusy;
     
@@ -92,6 +90,11 @@ struct clientData
     dynamicStringDataType renameFromFile;
     dynamicStringDataType renameToFile;
     
+    dynamicStringDataType fileToStor;
+    dynamicStringDataType fileToRetr;
+    dynamicStringDataType listPath;
+    dynamicStringDataType nlistPath;
+    
     //User authentication
     loginDataType login;
     passiveDataType pasvData;
@@ -99,6 +102,7 @@ struct clientData
 
 struct ftpData
 {
+    
     int connectedClients;
     char welcomeMessage[1024];
     int theSocket;

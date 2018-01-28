@@ -53,6 +53,7 @@ struct usersParameters
 
 struct ftpParameters
 {
+    unsigned char ftpIpAddress[4];
     int port;
     int maxClients;
     DYNV_VectorGenericDataType usersVector;

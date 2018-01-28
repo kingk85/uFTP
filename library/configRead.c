@@ -240,6 +240,29 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
         ftpParameters->port = 21;
     }
     
+    
+    searchIndex = searchParameter("FTP_SERVER_IP", parametersVector);
+    if (searchIndex != -1)
+    {
+        sscanf (((parameter_DataType *) parametersVector->Data[searchIndex])->value,"%d.%d.%d.%d",  &ftpParameters->ftpIpAddress[0],
+                                                                                                    &ftpParameters->ftpIpAddress[1],
+                                                                                                    &ftpParameters->ftpIpAddress[2],
+                                                                                                    &ftpParameters->ftpIpAddress[3]);
+        printf("\nFtp ip address: %d.%d.%d.%d", ftpParameters->ftpIpAddress[0],
+                                                ftpParameters->ftpIpAddress[1],
+                                                ftpParameters->ftpIpAddress[2],
+                                                ftpParameters->ftpIpAddress[3]);
+    }
+    else
+    {
+        ftpParameters->ftpIpAddress[0] = 127;
+        ftpParameters->ftpIpAddress[1] = 0;
+        ftpParameters->ftpIpAddress[2] = 0;
+        ftpParameters->ftpIpAddress[3] = 1;
+    }    
+    
+    
+    /* USER SETTINGS */
     userIndex = 0;
     
     memset(userX, 0, PARAMETER_SIZE_LIMIT);

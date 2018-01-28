@@ -171,14 +171,12 @@ int parseCommandPasv(ftpDataType * data, int socketId)
         printf("\nThread has been cancelled.");
     }
 
-    usleep(10000);
     pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &data->clients[socketId].clientProgressiveNumber);
-    usleep(10000);
 
-    char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",data->serverIp.ip[0], data->serverIp.ip[1], data->serverIp.ip[2], data->serverIp.ip[3], (data->clients[socketId].pasvData.passivePort / 256), (data->clients[socketId].pasvData.passivePort % 256));     
-    write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
+    //char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+    //memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+    //sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",data->serverIp.ip[0], data->serverIp.ip[1], data->serverIp.ip[2], data->serverIp.ip[3], (data->clients[socketId].pasvData.passivePort / 256), (data->clients[socketId].pasvData.passivePort % 256));
+    //write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }
 
@@ -221,6 +219,22 @@ int parseCommandAbor(ftpDataType * data, int socketId)
 
 int parseCommandList(ftpDataType * data, int socketId)
 {
+    int isSafePath = 0;
+    char *theNameToList;
+    theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived);
+    cleanDynamicStringDataType(&data->clients[socketId].listPath, 0);
+
+    if (strlen(theNameToList) > 0)
+    {
+        isSafePath = getSafePath(&data->clients[socketId].listPath, theNameToList, &data->clients[socketId].login);
+    }
+
+    if (isSafePath == 0)
+    {
+        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
+    }
+
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
@@ -232,17 +246,22 @@ int parseCommandList(ftpDataType * data, int socketId)
 
 int parseCommandNlst(ftpDataType * data, int socketId)
 {
-    pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-    memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
-    data->clients[socketId].pasvData.commandReceived = 1;
-    pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
-   return 1;
-}
+    int isSafePath = 0;
+    char *theNameToNlist;
+    theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived);
+    cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0);
 
-int parseCommandRetr(ftpDataType * data, int socketId)
-{
+    if (strlen(theNameToNlist) > 0)
+    {
+        isSafePath = getSafePath(&data->clients[socketId].nlistPath, theNameToNlist, &data->clients[socketId].login);
+    }
+
+    if (isSafePath == 0)
+    {
+        cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0);
+        setDynamicStringDataType(&data->clients[socketId].nlistPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
+    }
+    
     pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
     memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
@@ -252,22 +271,53 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     return 1;
 }
 
+int parseCommandRetr(ftpDataType * data, int socketId)
+{
+    int isSafePath = 0;
+    char *theNameToRetr;
+    theNameToRetr = getFtpCommandArg("RETR", data->clients[socketId].theCommandReceived);
+    cleanDynamicStringDataType(&data->clients[socketId].fileToRetr, 0);
+    
+    if (strlen(theNameToRetr) > 0)
+    {
+        isSafePath = getSafePath(&data->clients[socketId].fileToRetr, theNameToRetr, &data->clients[socketId].login);
+    }
+
+    if (isSafePath == 1 &&
+        FILE_IsFile(data->clients[socketId].fileToRetr.text) == 1)
+    {
+        pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
+        memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+        strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        data->clients[socketId].pasvData.commandReceived = 1;
+        pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
+        pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
 int parseCommandStor(ftpDataType * data, int socketId)
 {
     int isSafePath = 0;
     char *theNameToStor;
-    theNameToStor = getFtpCommandArg("STOR", data->clients[socketId].theCommandReceived);    
-    cleanDynamicStringDataType(&data->clients[socketId].pasvData.theFileNameToStor, 0);
+    theNameToStor = getFtpCommandArg("STOR", data->clients[socketId].theCommandReceived);
+    cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0);
     
     if (strlen(theNameToStor) > 0)
     {
-        isSafePath = getSafePath(&data->clients[socketId].pasvData.theFileNameToStor, theNameToStor, &data->clients[socketId].login);
+        isSafePath = getSafePath(&data->clients[socketId].fileToStor, theNameToStor, &data->clients[socketId].login);
     }
 
     if (isSafePath == 1)
     {
         pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-        printf("data->clients[%d].pasvData.theFileNameToStor = %s", socketId, data->clients[socketId].pasvData.theFileNameToStor.text);
+        printf("data->clients[%d].fileToStor = %s", socketId, data->clients[socketId].fileToStor.text);
         memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
         strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
         data->clients[socketId].pasvData.commandReceived = 1;
@@ -646,7 +696,9 @@ int parseCommandRnfr(clientDataType *theClientData)
     
     isSafePath = getSafePath(&theClientData->renameFromFile, theRnfrFileName, &theClientData->login);
     
-    if (isSafePath == 1)
+    if (isSafePath == 1&&
+        (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
+         FILE_IsDirectory(theClientData->renameFromFile.text) == 1))
     {
         printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
         

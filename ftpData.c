@@ -66,7 +66,6 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
     }
 }
 
-
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData)
 {
     int theLen, i;
@@ -141,7 +140,6 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
     return 1;
 }
 
-
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen)
 {
     printf("\n Appending in %s --> %s", dynamicString->text, theString);
@@ -193,7 +191,6 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
 
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 {
-
    //printf("\ngetListDataInfo address: %lX", directoryInfo);
 
     int i;
@@ -325,7 +322,6 @@ void resetPasvData(passiveDataType *pasvData, int isInitialization)
       pasvData->threadIsAlive = 0;
       memset(pasvData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(pasvData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
-      cleanDynamicStringDataType(&pasvData->theFileNameToStor, isInitialization);
       
       /* wait main for action */
       if (isInitialization != 1)
@@ -348,7 +344,12 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     memset(clientData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
     memset(clientData->theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     cleanLoginData(&clientData->login, isInitialization);
+    
     //Rename from and to data init
     cleanDynamicStringDataType(&clientData->renameFromFile, isInitialization);
     cleanDynamicStringDataType(&clientData->renameToFile, isInitialization);
+    cleanDynamicStringDataType(&clientData->fileToStor, isInitialization);
+    cleanDynamicStringDataType(&clientData->fileToRetr, isInitialization);
+    cleanDynamicStringDataType(&clientData->listPath, isInitialization);
+    cleanDynamicStringDataType(&clientData->nlistPath, isInitialization);    
 }
