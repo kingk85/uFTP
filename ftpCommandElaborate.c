@@ -101,7 +101,7 @@ int parseCommandAuth(clientDataType *theClientData)
     theAuth = getFtpCommandArg("AUTH", theClientData->theCommandReceived);    
     printTimeStamp();
     printf("The Auth is: %s", theAuth);
-    char *theResponse = "502 Auth command is not supported.\r\n";
+    char *theResponse = "502 Security extensions not implemented.\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }

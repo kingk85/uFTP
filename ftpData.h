@@ -98,6 +98,16 @@ struct clientData
     //User authentication
     loginDataType login;
     passiveDataType pasvData;
+    
+    int sockaddr_in_size, sockaddr_in_server_size;
+    struct sockaddr_in client_sockaddr_in, server_sockaddr_in;
+    
+    int clientPort;
+    char clientIpAddress[INET_ADDRSTRLEN];
+    
+    int serverPort;
+    char serverIpAddress[INET_ADDRSTRLEN];    
+    
 } typedef clientDataType;
 
 struct ftpData

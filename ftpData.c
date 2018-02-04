@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <pthread.h>
+#include <netinet/in.h>
 
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
@@ -341,6 +342,16 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     clientData->socketIsConnected = 0;
     clientData->bufferIndex = 0;
     clientData->commandIndex = 0;
+
+    clientData->sockaddr_in_size = sizeof(struct sockaddr_in);
+    clientData->sockaddr_in_server_size = sizeof(struct sockaddr_in);
+    
+    printf("\n clientData->sockaddr_in_server_size = %d", clientData->sockaddr_in_server_size);
+    
+    memset(&clientData->client_sockaddr_in, 0, clientData->sockaddr_in_size);
+    memset(&clientData->server_sockaddr_in, 0, clientData->sockaddr_in_server_size);
+    
+    memset(clientData->clientIpAddress, 0, INET_ADDRSTRLEN);
     memset(clientData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
     memset(clientData->theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     cleanLoginData(&clientData->login, isInitialization);

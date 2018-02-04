@@ -261,7 +261,7 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
         ftpParameters->ftpIpAddress[3] = 1;
     }    
     
-    
+    printf("\nFtp port wait start: %d", ftpParameters->port);
     /* USER SETTINGS */
     userIndex = 0;
     
@@ -269,11 +269,11 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
     memset(passwordX, 0, PARAMETER_SIZE_LIMIT);
     memset(homeX, 0, PARAMETER_SIZE_LIMIT);
 
-    
     DYNV_VectorGeneric_Init(&ftpParameters->usersVector);
-    
+    printf("\nFtp port xxx: %d", ftpParameters->port);
     while(1)
     {
+        printf("\nFtp port start: %d", ftpParameters->port);
         int searchUserIndex, searchPasswordIndex, searchHomeIndex;
         usersParameters_DataType userData;
 
@@ -312,7 +312,10 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
         printf("\nHomePath: %s", userData.homePath);
         
         ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
+        printf("\nFtp port end: %d", ftpParameters->port);
     }
+    
+    
 
     
     return 1;
