@@ -317,14 +317,15 @@ void *pasvThreadHandler(void * socketId)
 void runFtpServer(void)
 {
   DYNV_VectorGenericDataType configParameters;
+  fd_set rset, wset, eset, rsetAll, wsetAll, esetAll;
   static int processingSock = 0;
   static int maxSocketFD = 0;
-  DYNV_VectorGeneric_Init(&configParameters);
   
+  DYNV_VectorGeneric_Init(&configParameters);
   readConfigurationFile("./config.cfg", &configParameters);
   parseConfigurationFile(&ftpData.ftpParameters, &configParameters);
   initFtpData();
-  
+
   //Socket main creator
   ftpData.theSocket = createSocket(ftpData.ftpParameters.port);
   printTimeStamp();
@@ -333,40 +334,30 @@ void runFtpServer(void)
   printf("\nServer: Clients connected: %d", ftpData.connectedClients);
   printf("\nServer: Max Client Allowed: %d", ftpData.ftpParameters.maxClients);
 
-  
-  
+    FD_ZERO(&rset);
+    FD_ZERO(&wset);
+    FD_ZERO(&eset);
+    FD_ZERO(&rsetAll);
+    FD_ZERO(&wsetAll);
+    FD_ZERO(&esetAll);    
+    
+    FD_SET(ftpData.theSocket, &rsetAll);    
+    FD_SET(ftpData.theSocket, &wsetAll);
+    FD_SET(ftpData.theSocket, &esetAll);
+ 
+    maxSocketFD = ftpData.theSocket+1;
     
   //Endless loop ftp process
     while (1)
     {
       int selectResult, i;
       struct timeval selectMaximumLockTime;   // sleep for 1 second!
-      fd_set rset, wset, eset;
-      
       selectMaximumLockTime.tv_sec = 10;
       selectMaximumLockTime.tv_usec = 0;
 
-    //Initialize the select structure
-    FD_ZERO(&rset);
-    FD_ZERO(&wset);
-    FD_ZERO(&eset);
-    FD_SET(ftpData.theSocket, &rset);    
-    FD_SET(ftpData.theSocket, &wset);
-    FD_SET(ftpData.theSocket, &eset);
- 
-    maxSocketFD = ftpData.theSocket+1;
-
-    for (int i = 0; i <ftpData.ftpParameters.maxClients; i++)
-    {
-        if (ftpData.clients[i].socketDescriptor == 0)
-            continue;
-
-        FD_SET(ftpData.clients[i].socketDescriptor, &rset);    
-        FD_SET(ftpData.clients[i].socketDescriptor, &wset);
-        FD_SET(ftpData.clients[i].socketDescriptor, &eset);
-    }
- 
-    maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
+      rset = rsetAll;
+      wset = wsetAll;
+      eset = esetAll;
 
       //printf("\n\nSelect will wait for socket data.. ");
       if (ftpData.connectedClients < ftpData.ftpParameters.maxClients)
@@ -399,6 +390,11 @@ void runFtpServer(void)
                 ftpData.clients[processingSock].socketIsConnected = 1;
                 
                  error = fcntl(ftpData.clients[processingSock].socketDescriptor, F_SETFL, O_NONBLOCK);
+                 
+                FD_SET(ftpData.clients[processingSock].socketDescriptor, &rsetAll);    
+                FD_SET(ftpData.clients[processingSock].socketDescriptor, &wsetAll);
+                FD_SET(ftpData.clients[processingSock].socketDescriptor, &esetAll);
+                maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
                 
                 /* Get server details */
                  //ftpData.clients[processingSock].sockaddr_in_server_size = sizeof(ftpData.clients[processingSock].server_sockaddr_in);
@@ -420,13 +416,25 @@ void runFtpServer(void)
                 write(ftpData.clients[processingSock].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
             }
 	}
-	else if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &rset) || 
+        
+        if (ftpData.clients[processingSock].socketDescriptor <= 0 ||
+           ftpData.clients[processingSock].socketIsConnected == 0) 
+        {
+            continue;
+        }
+        
+	if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &rset) || 
                  FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &eset))
 	{
           //The client is not connected anymore
           if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
           {
+              
+            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &rsetAll);    
+            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &wsetAll);
+            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &esetAll);
             maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
+            
             closeSocket(processingSock);
           }
 
@@ -452,8 +460,8 @@ void runFtpServer(void)
                             if (commandProcessStatus == 0) 
                             {
                                 char * theNotSupportedString = "500 Unknown command\r\n";
-                                write(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, ftpData.clients[processingSock].bufferIndex);
-                                write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
+                                //write(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, ftpData.clients[processingSock].bufferIndex);
+                                //write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
                                 printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
                                 
                                 
@@ -661,6 +669,24 @@ static int processCommand(int processingElement)
         printf("\nTYPE I COMMAND RECEIVED");
         toReturn = parseCommandTypeI(&ftpData.clients[processingElement]);
     }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "STRU F", strlen("STRU F")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "stru f", strlen("stru f")) == 0)
+    {
+        printf("\nTYPE I COMMAND RECEIVED");
+        toReturn = parseCommandStruF(&ftpData.clients[processingElement]);
+    }    
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MODE S", strlen("TMODE S")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "mode s", strlen("mode s")) == 0)
+    {
+        printf("\nMODE S COMMAND RECEIVED");
+        toReturn = parseCommandModeS(&ftpData.clients[processingElement]);
+    }    
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "TYPE A", strlen("TYPE A")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "type a", strlen("type a")) == 0)
+    {
+        printf("\nTYPE A COMMAND RECEIVED");
+        toReturn = parseCommandTypeI(&ftpData.clients[processingElement]);
+    }    
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "PASV", strlen("PASV")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "pasv", strlen("pasv")) == 0)
     {

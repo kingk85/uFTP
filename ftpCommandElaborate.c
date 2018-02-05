@@ -153,7 +153,28 @@ int parseCommandFeat(clientDataType *theClientData)
     return 1;
 }
 
+int parseCommandTypeA(clientDataType *theClientData)
+{
+    char *theResponse = "200 TYPE is now 8-bit binary\r\n";
+    write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    return 1;
+}
+
 int parseCommandTypeI(clientDataType *theClientData)
+{
+    char *theResponse = "200 TYPE is now 8-bit binary\r\n";
+    write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    return 1;
+}
+
+int parseCommandStruF(clientDataType *theClientData)
+{
+    char *theResponse = "200 TYPE is now 8-bit binary\r\n";
+    write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    return 1;
+}
+
+int parseCommandModeS(clientDataType *theClientData)
 {
     char *theResponse = "200 TYPE is now 8-bit binary\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
@@ -383,11 +404,12 @@ int parseCommandCwd(clientDataType *theClientData)
         {
             cleanDynamicStringDataType(&theClientData->login.ftpPath, 0);
             cleanDynamicStringDataType(&theClientData->login.absolutePath, 0);
-            
+
             setDynamicStringDataType(&theClientData->login.ftpPath, thePath, strlen(thePath));
             setDynamicStringDataType(&theClientData->login.absolutePath, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
 
-            appendToDynamicStringDataType(&theClientData->login.absolutePath, thePath, strlen(thePath));            
+            if (strlen(thePath)> 1)
+                appendToDynamicStringDataType(&theClientData->login.absolutePath, thePath, strlen(thePath));            
         }
 
         if (FILE_IsDirectory(theClientData->login.absolutePath.text) == 1)
@@ -413,8 +435,7 @@ int parseCommandCwd(clientDataType *theClientData)
         }
 
         FILE_AppendToString(&theResponse, " \r\n");
-        
-   
+
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
         printTimeStamp();
         printf("\nCwd response : %s", theResponse);
