@@ -207,26 +207,45 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
     for (i = 0; i < fileAndFoldersCount; i++)
     {
         data.numberOfSubDirectories = 1; /* to Do*/
+        data.isFile = 0;
+        data.isDirectory = 0;
+        
+        //printf("\ndata.fileList[%d] = %s", i, data.fileList[i]);
         
         if (FILE_IsDirectory(data.fileList[i]) == 1)
         {
+            //printf("\nFILE_IsDirectory");
             data.isDirectory = 1;
             data.isFile = 0;
             data.fileSize = 4096;
         }
         else if (FILE_IsFile(data.fileList[i]) == 1)
         {
+            //printf("\nFILE_IsFile");
             data.isDirectory = 0;
             data.isFile = 1;
             data.fileSize = FILE_GetFileSizeFromPath(data.fileList[i]);
         }
+        
+        if (data.isDirectory == 0 && data.isFile == 0)
+        {
+            printf("\n%s Not a directory, not a file, broken link?", data.fileList[i]);
+            continue;
+        }
 
+        
         data.owner = FILE_GetOwner(data.fileList[i]);
+        //printf("\n data.owner");
+        
         data.groupOwner = FILE_GetGroupOwner(data.fileList[i]);
+        //printf("\n data.groupOwner");
+        
         data.fileNameWithPath = data.fileList[i];
         data.fileNameNoPath = FILE_GetFilenameFromPath(data.fileList[i]);
         data.inodePermissionString = FILE_GetListPermissionsString(data.fileList[i]);
+        
         data.lastModifiedData = FILE_GetLastModifiedData(data.fileList[i]);
+        //printf("\n data.lastModifiedData");
 
         memset(data.lastModifiedDataString, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);       
         
@@ -267,7 +286,8 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         printf("\ndata.fileNameNoPath = %s", data.fileNameNoPath);
         printf("\ndata.inodePermissionString = %s", data.inodePermissionString);
         printf("\ndata.lastModifiedDataString = %s", data.lastModifiedDataString);
-        */
+         */
+        
         directoryInfo->PushBack(directoryInfo, &data, sizeof(ftpListDataType));
     }
     

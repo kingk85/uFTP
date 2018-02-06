@@ -454,8 +454,7 @@ time_t FILE_GetLastModifiedData(char *path)
 {
     struct stat statbuf;
     if (stat(path, &statbuf) == -1) {
-        perror(path);
-        exit(1);
+
     }
     return statbuf.st_mtime;
 }
