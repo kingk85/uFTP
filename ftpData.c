@@ -350,14 +350,17 @@ void resetPasvData(passiveDataType *pasvData, int isInitialization)
       pasvData->threadIsAlive = 0;
       memset(pasvData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(pasvData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
-      
+
+      cleanDynamicStringDataType(&pasvData->ftpCommand.commandArgs, isInitialization);
+      cleanDynamicStringDataType(&pasvData->ftpCommand.commandOps, isInitialization);
+
       /* wait main for action */
       if (isInitialization != 1)
       {
         pthread_mutex_destroy(&pasvData->conditionMutex);
         pthread_cond_destroy(&pasvData->conditionVariable);
       }
-      
+
       pthread_mutex_init(&pasvData->conditionMutex, NULL);
       pthread_cond_init(&pasvData->conditionVariable, NULL);
 }
@@ -391,6 +394,6 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     cleanDynamicStringDataType(&clientData->listPath, isInitialization);
     cleanDynamicStringDataType(&clientData->nlistPath, isInitialization);
     
-    cleanDynamicStringDataType(&clientData->ftpCommand.command, isInitialization);
     cleanDynamicStringDataType(&clientData->ftpCommand.commandArgs, isInitialization);
+    cleanDynamicStringDataType(&clientData->ftpCommand.commandOps, isInitialization);
 }

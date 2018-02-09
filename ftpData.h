@@ -35,8 +35,8 @@ struct dynamicStringData
 
 struct ftpCommandData
 {
-    dynamicStringDataType command;
     dynamicStringDataType commandArgs;
+    dynamicStringDataType commandOps;
 } typedef ftpCommandDataType;
 
 struct loginData
@@ -77,6 +77,8 @@ struct passiveData
     /* The PASV thread will wait the signal before start */
     pthread_mutex_t conditionMutex;
     pthread_cond_t conditionVariable;
+    
+    ftpCommandDataType    ftpCommand;
     
 } typedef passiveDataType;
 

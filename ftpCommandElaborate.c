@@ -258,11 +258,19 @@ int parseCommandList(ftpDataType * data, int socketId)
      */
     
     
-    
+ 
     
     int isSafePath = 0;
     char *theNameToList;
+    
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived);
+    getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].pasvData.ftpCommand);
+ 
+    printf("\nLIST COMMAND ARG: %s", data->clients[socketId].pasvData.ftpCommand.commandArgs.text);
+    printf("\nLIST COMMAND OPS: %s", data->clients[socketId].pasvData.ftpCommand.commandOps.text);
+    
+    cleanDynamicStringDataType(&data->clients[socketId].pasvData.ftpCommand.commandArgs, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].pasvData.ftpCommand.commandOps, 0);    
     cleanDynamicStringDataType(&data->clients[socketId].listPath, 0);
 
     if (strlen(theNameToList) > 0)
@@ -893,9 +901,9 @@ char *getFtpCommandArg(char * theCommand, char *theCommandString)
     /* Skip eventual secondary arguments */
     if (toReturn[0] == '-')
     {
-        while (toReturn[0] != ' ' ||
-               toReturn[0] != '\r' ||
-               toReturn[0] != '\n' ||
+        while (toReturn[0] != ' ' &&
+               toReturn[0] != '\r' &&
+               toReturn[0] != '\n' &&
                toReturn[0] != 0)
             {
                 toReturn += 1;
@@ -977,10 +985,10 @@ int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCo
     }
     
     if (argMainIndex > 0)
-        setDynamicStringDataType(&ftpCommand->command, argMain, argMainIndex);
+        setDynamicStringDataType(&ftpCommand->commandArgs, argMain, argMainIndex);
 
     if (argSecondaryIndex > 0)
-        setDynamicStringDataType(&ftpCommand->commandArgs, argSecondary, argSecondaryIndex);
+        setDynamicStringDataType(&ftpCommand->commandOps, argSecondary, argSecondaryIndex);
         
     return 1;
     
