@@ -382,6 +382,7 @@ void runFtpServer(void)
 	if (ftpData.clients[processingSock].socketIsConnected == 0 &&
             FD_ISSET(ftpData.theSocket, &rset))
 	{
+            printf("\nChecking for new connections..");
             //Wait for sockets
             if ((ftpData.clients[processingSock].socketDescriptor = accept(ftpData.theSocket, (struct sockaddr *)&ftpData.clients[processingSock].client_sockaddr_in, (socklen_t*)&ftpData.clients[processingSock].sockaddr_in_size))!=-1)
             {
@@ -418,14 +419,17 @@ void runFtpServer(void)
 	}
         
         if (ftpData.clients[processingSock].socketDescriptor <= 0 ||
-           ftpData.clients[processingSock].socketIsConnected == 0) 
+            ftpData.clients[processingSock].socketIsConnected == 0) 
         {
             continue;
         }
         
 	if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &rset) || 
-                 FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &eset))
+            FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &eset))
 	{
+            
+          printf("\nClient r: %d, e: %d", FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &rset), FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &eset));
+            
           //The client is not connected anymore
           if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
           {
