@@ -240,6 +240,26 @@ int parseCommandAbor(ftpDataType * data, int socketId)
 
 int parseCommandList(ftpDataType * data, int socketId)
 {
+    /*
+      -1 List one file per line
+      -A List all files except "." and ".."
+      -a List all files including those whose names start with "."
+      -C List entries by columns
+      -d List directory entries instead of directory contents
+      -F Append file type indicator (one of "*", "/", "=", "@" or "|") to names
+      -h Print file sizes in human-readable format (e.g. 1K, 234M, 2G)
+      -L List files pointed to by symlinks
+      -l Use a long listing format
+      -n List numeric UIDs/GIDs instead of user/group names
+      -R List subdirectories recursively
+      -r Sort filenames in reverse order
+      -S Sort by file size
+      -t Sort by modification time 
+     */
+    
+    
+    
+    
     int isSafePath = 0;
     char *theNameToList;
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived);
@@ -864,10 +884,104 @@ char *getFtpCommandArg(char * theCommand, char *theCommandString)
 {
     char *toReturn = theCommandString + strlen(theCommand);
 
+   /* Pass spaces */ 
+    while (toReturn[0] == ' ')
+    {
+        toReturn += 1;
+    }
+
+    /* Skip eventual secondary arguments */
+    if (toReturn[0] == '-')
+    {
+        while (toReturn[0] != ' ' ||
+               toReturn[0] != '\r' ||
+               toReturn[0] != '\n' ||
+               toReturn[0] != 0)
+            {
+                toReturn += 1;
+            }
+    }
+
+    /* Pass spaces */ 
     while (toReturn[0] == ' ')
     {
         toReturn += 1;
     }
 
     return toReturn;
+}
+
+int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand)
+{
+    #define CASE_ARG_MAIN   0
+    #define CASE_ARG_SECONDARY   1
+
+    int i = 0;
+    int isSecondArg = 0;
+    char argMain[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+    char argSecondary[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+    memset (argMain, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+    memset (argSecondary, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+
+    int argMainIndex = 0;
+    int argSecondaryIndex = 0;
+
+    char *theCommandPointer = theCommandString;
+    theCommandPointer += strlen(theCommand);
+    
+    /*Remove spaces*/
+    while (theCommandPointer[0] == ' ')
+    {
+        theCommandPointer += 1;
+    }
+    
+    if (theCommandPointer[i] == '-') 
+    {
+        isSecondArg = 1;
+        theCommandPointer++;
+    }
+    
+    while (theCommandPointer[i] != '\r' &&
+           theCommandPointer[i] != '\n' &&
+           theCommandPointer[i] != 0)
+    {
+        switch(isSecondArg)
+        {
+            case CASE_ARG_MAIN:
+            {
+                if (argMainIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
+                    argMain[argMainIndex++] = theCommandPointer[i];
+                i++;
+            }
+            break;
+                
+            case CASE_ARG_SECONDARY:
+            {
+                if (theCommandPointer[i] != ' ')
+                {
+                    if (argSecondaryIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
+                        argSecondary[argSecondaryIndex++] = theCommandPointer[i];
+                    i++;
+                }
+                else 
+                {
+                    isSecondArg = 0;
+                    while (theCommandPointer[0] == ' ')
+                    {
+                        theCommandPointer += 1;
+                    }
+                }
+            }
+            break;
+        }
+    }
+    
+    if (argMainIndex > 0)
+        setDynamicStringDataType(&ftpCommand->command, argMain, argMainIndex);
+
+    if (argSecondaryIndex > 0)
+        setDynamicStringDataType(&ftpCommand->commandArgs, argSecondary, argSecondaryIndex);
+        
+    return 1;
+    
 }

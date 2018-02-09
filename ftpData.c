@@ -70,7 +70,9 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData)
 {
     int theLen, i;
-
+    char * theDirectoryNamePointer;
+    theDirectoryNamePointer = theDirectoryName;
+    
     if (theDirectoryName == NULL)
         return 0;
     
@@ -121,15 +123,20 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
         }
         
         if (theDirectoryToCheckIndex<2048)
+            {
             theDirectoryToCheck[theDirectoryToCheckIndex++] = theDirectoryName[i];
+            }
         else
             return 0; /* Directory size too long */
     }
     
     if (theDirectoryName[0] == '/')
     {
+        while (theDirectoryNamePointer[0] == '/')
+            theDirectoryNamePointer++;
+
         setDynamicStringDataType(safePath, loginData->homePath.text, loginData->homePath.textLen);
-        appendToDynamicStringDataType(safePath, theDirectoryName, strlen(theDirectoryName));
+        appendToDynamicStringDataType(safePath, theDirectoryNamePointer, strlen(theDirectoryNamePointer));
     }
     else
     {
@@ -382,5 +389,8 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     cleanDynamicStringDataType(&clientData->fileToStor, isInitialization);
     cleanDynamicStringDataType(&clientData->fileToRetr, isInitialization);
     cleanDynamicStringDataType(&clientData->listPath, isInitialization);
-    cleanDynamicStringDataType(&clientData->nlistPath, isInitialization);    
+    cleanDynamicStringDataType(&clientData->nlistPath, isInitialization);
+    
+    cleanDynamicStringDataType(&clientData->ftpCommand.command, isInitialization);
+    cleanDynamicStringDataType(&clientData->ftpCommand.commandArgs, isInitialization);
 }

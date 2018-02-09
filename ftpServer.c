@@ -614,7 +614,10 @@ static int processCommand(int processingElement)
     //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"user\", strlen(\"user\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")));
     //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"PASS\", strlen(\"PASS\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")));
     //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"pass\", strlen(\"pass\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")));
-    
+
+    cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.command, 0);
+    cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandArgs, 0);
+
     if (ftpData.clients[processingElement].login.userLoggedIn == 0 &&
         (strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) != 0 && 
          strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")) != 0 &&

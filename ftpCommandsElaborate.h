@@ -55,6 +55,7 @@ int parseCommandRnto(clientDataType *theClientData);
 
 int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom);
 char *getFtpCommandArg(char * theCommand, char *theCommandString);
+int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand);
 
 #ifdef __cplusplus
 }

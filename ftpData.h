@@ -33,6 +33,12 @@ struct dynamicStringData
     int textLen;
 } typedef dynamicStringDataType;
 
+struct ftpCommandData
+{
+    dynamicStringDataType command;
+    dynamicStringDataType commandArgs;
+} typedef ftpCommandDataType;
+
 struct loginData
 {
     int userLoggedIn;
@@ -41,6 +47,7 @@ struct loginData
     dynamicStringDataType homePath;
     dynamicStringDataType ftpPath;
     dynamicStringDataType absolutePath;
+    
 } typedef loginDataType;
 
 struct ipData
@@ -107,12 +114,11 @@ struct clientData
     
     int serverPort;
     char serverIpAddress[INET_ADDRSTRLEN];    
-    
+    ftpCommandDataType    ftpCommand;
 } typedef clientDataType;
 
 struct ftpData
 {
-    
     int connectedClients;
     char welcomeMessage[1024];
     int theSocket;
