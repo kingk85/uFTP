@@ -623,34 +623,9 @@ int notLoggedInMessage(clientDataType *theClientData)
 
 int parseCommandQuit(ftpDataType * data, int socketId)
 {
-    dynamicStringDataType theResponse;
-    cleanDynamicStringDataType(&theResponse, 1);
-    
-    
-    if (data->clients[socketId].pasvData.threadIsAlive == 1)
-    {
-        void *pReturn;
-        pthread_cancel(data->clients[socketId].pasvData.pasvThread);
-        pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
-        printf("\nQuit command received the Pasv Thread has been cancelled.");
-    }
-
-    setDynamicStringDataType(&theResponse, "221 Logout.\r\n", strlen("221 Logout.\r\n"));
-    write(data->clients[socketId].socketDescriptor, theResponse.text, theResponse.textLen);
-    
-    
-    close(data->clients[socketId].socketDescriptor);
-
-    resetClientData(&data->clients[socketId], 0);
-    resetPasvData(&data->clients[socketId].pasvData, 0);
-    //Update client connecteds
-    data->connectedClients--;
-    
-    if (data->connectedClients < 0){
-        data->connectedClients = 0;
-    }
-    
-    cleanDynamicStringDataType(&theResponse, 0);
+    char *theResponse = "221 Logout.\r\n";
+    write(data->clients[socketId].socketDescriptor, theResponse, strlen("theResponse"));
+    data->clients[socketId].closeTheClient = 1;
     return 1;
 }
 

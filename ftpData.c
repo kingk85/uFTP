@@ -372,9 +372,14 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     clientData->socketIsConnected = 0;
     clientData->bufferIndex = 0;
     clientData->commandIndex = 0;
-
+    clientData->closeTheClient = 0;
     clientData->sockaddr_in_size = sizeof(struct sockaddr_in);
     clientData->sockaddr_in_server_size = sizeof(struct sockaddr_in);
+    
+    clientData->serverIpAddressInteger[0] = 0;
+    clientData->serverIpAddressInteger[1] = 0;
+    clientData->serverIpAddressInteger[2] = 0;
+    clientData->serverIpAddressInteger[3] = 0;
     
     printf("\n clientData->sockaddr_in_server_size = %d", clientData->sockaddr_in_server_size);
     
@@ -393,7 +398,7 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     cleanDynamicStringDataType(&clientData->fileToRetr, isInitialization);
     cleanDynamicStringDataType(&clientData->listPath, isInitialization);
     cleanDynamicStringDataType(&clientData->nlistPath, isInitialization);
-    
+
     cleanDynamicStringDataType(&clientData->ftpCommand.commandArgs, isInitialization);
     cleanDynamicStringDataType(&clientData->ftpCommand.commandOps, isInitialization);
 }

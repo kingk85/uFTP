@@ -113,10 +113,12 @@ struct clientData
     
     int clientPort;
     char clientIpAddress[INET_ADDRSTRLEN];
-    
+
     int serverPort;
-    char serverIpAddress[INET_ADDRSTRLEN];    
+    char serverIpAddress[INET_ADDRSTRLEN];
+    int serverIpAddressInteger[4];
     ftpCommandDataType    ftpCommand;
+    int closeTheClient;
 } typedef clientDataType;
 
 struct ftpData
