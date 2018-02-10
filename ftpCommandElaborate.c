@@ -383,41 +383,29 @@ int parseCommandStor(ftpDataType * data, int socketId)
 
 int parseCommandCwd(clientDataType *theClientData)
 {
-    dynamicStringDataType absolutePathPrevious, ftpPathPrevious;
-    int i, thePathIndex;
-    char thePath[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(thePath, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    thePathIndex = 0;
+    dynamicStringDataType absolutePathPrevious, ftpPathPrevious, theSafePath;
+    int isSafePath;
+    char *thePath;
     char *theResponse;
-    
+
     cleanDynamicStringDataType(&absolutePathPrevious, 1);
     cleanDynamicStringDataType(&ftpPathPrevious, 1);
-    
-    setDynamicStringDataType(&absolutePathPrevious, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-    setDynamicStringDataType(&ftpPathPrevious, theClientData->login.ftpPath.text, theClientData->login.ftpPath.textLen);
-    
-    for (i = strlen("CWD")+1; i < theClientData->commandIndex; i++)
+    cleanDynamicStringDataType(&theSafePath, 1);
+
+    thePath = getFtpCommandArg("CWD", theClientData->theCommandReceived);
+
+    if (strlen(thePath) > 0)
     {
-        if (theClientData->theCommandReceived[i] == '\r' ||
-            theClientData->theCommandReceived[i] == '\0' ||
-            theClientData->theCommandReceived[i] == '\n')
-            {
-            break;
-            }
-        
-        if (thePathIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER)
-        {
-            thePath[thePathIndex++] = theClientData->theCommandReceived[i];
-        }
+        isSafePath = getSafePath(&theSafePath, thePath, &theClientData->login);
     }
 
-    printTimeStamp();
-    printf("\n The Path requested for CWD IS: %s", thePath);
-    fflush(0);
-
-    if (thePathIndex > 0)
+    if (isSafePath == 1)
     {
-        if (thePath[0] != '/')
+        printf("\n The Path requested for CWD IS: %s", theSafePath.text);
+        setDynamicStringDataType(&absolutePathPrevious, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
+        setDynamicStringDataType(&ftpPathPrevious, theClientData->login.ftpPath.text, theClientData->login.ftpPath.textLen);
+        
+        if (theSafePath.text[0] != '/')
         {
             if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] != '/')
                 appendToDynamicStringDataType(&theClientData->login.absolutePath, "/", 1);
@@ -425,19 +413,19 @@ int parseCommandCwd(clientDataType *theClientData)
             if (theClientData->login.ftpPath.text[theClientData->login.ftpPath.textLen-1] != '/')
                 appendToDynamicStringDataType(&theClientData->login.ftpPath, "/", 1);
 
-            appendToDynamicStringDataType(&theClientData->login.absolutePath, thePath, strlen(thePath));
-            appendToDynamicStringDataType(&theClientData->login.ftpPath, thePath, strlen(thePath));
+            appendToDynamicStringDataType(&theClientData->login.absolutePath, theSafePath.text, strlen(theSafePath.text));
+            appendToDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, strlen(theSafePath.text));
         }
-        else if (thePath[0] == '/')
+        else if (theSafePath.text[0] == '/')
         {
             cleanDynamicStringDataType(&theClientData->login.ftpPath, 0);
             cleanDynamicStringDataType(&theClientData->login.absolutePath, 0);
 
-            setDynamicStringDataType(&theClientData->login.ftpPath, thePath, strlen(thePath));
+            setDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, strlen(theSafePath.text));
             setDynamicStringDataType(&theClientData->login.absolutePath, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
 
-            if (strlen(thePath)> 1)
-                appendToDynamicStringDataType(&theClientData->login.absolutePath, thePath, strlen(thePath));            
+            if (strlen(theSafePath.text)> 1)
+                appendToDynamicStringDataType(&theClientData->login.absolutePath, theSafePath.text, strlen(theSafePath.text));            
         }
 
         if (FILE_IsDirectory(theClientData->login.absolutePath.text) == 1)
@@ -472,14 +460,17 @@ int parseCommandCwd(clientDataType *theClientData)
         
         cleanDynamicStringDataType(&absolutePathPrevious, 0);
         cleanDynamicStringDataType(&ftpPathPrevious, 0);
-        fflush(0);
+        cleanDynamicStringDataType(&theSafePath, 0);
         free(theResponse);
         return 1;
     }
     else
     {
+        cleanDynamicStringDataType(&absolutePathPrevious, 0);
+        cleanDynamicStringDataType(&ftpPathPrevious, 0);
+        cleanDynamicStringDataType(&theSafePath, 0);
         return 0;
-    }    
+    }
 }
 
 int parseCommandRest(clientDataType *theClientData)
