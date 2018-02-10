@@ -624,7 +624,7 @@ int notLoggedInMessage(clientDataType *theClientData)
 int parseCommandQuit(ftpDataType * data, int socketId)
 {
     char *theResponse = "221 Logout.\r\n";
-    write(data->clients[socketId].socketDescriptor, theResponse, strlen("theResponse"));
+    write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
     data->clients[socketId].closeTheClient = 1;
     return 1;
 }
