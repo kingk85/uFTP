@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <netdb.h>
+#include <errno.h>
 
 
 /* FTP LIBS */
@@ -415,6 +416,7 @@ void runFtpServer(void)
                 
 
                 write(ftpData.clients[processingSock].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
+                continue;
             }
 	}
         
@@ -433,14 +435,19 @@ void runFtpServer(void)
           //The client is not connected anymore
           if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
           {
-              
             FD_CLR(ftpData.clients[processingSock].socketDescriptor, &rsetAll);    
             FD_CLR(ftpData.clients[processingSock].socketDescriptor, &wsetAll);
             FD_CLR(ftpData.clients[processingSock].socketDescriptor, &esetAll);
             maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
-            
             closeSocket(processingSock);
           }
+          
+          
+        if (ftpData.clients[processingSock].bufferIndex < 0)
+        {
+        printf("\nErrno = %d", errno);
+        perror("Error: ");
+        }
 
           //Some commands has been received
           if (ftpData.clients[processingSock].bufferIndex > 0)
@@ -484,6 +491,8 @@ void runFtpServer(void)
             usleep(100);
             memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
           }
+
+              
       }
     }
   }
