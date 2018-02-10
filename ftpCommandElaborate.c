@@ -401,7 +401,7 @@ int parseCommandCwd(clientDataType *theClientData)
 
     if (isSafePath == 1)
     {
-        printf("\n The Path requested for CWD IS: %s", theSafePath.text);
+        printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
         setDynamicStringDataType(&ftpPathPrevious, theClientData->login.ftpPath.text, theClientData->login.ftpPath.textLen);
         
@@ -413,19 +413,30 @@ int parseCommandCwd(clientDataType *theClientData)
             if (theClientData->login.ftpPath.text[theClientData->login.ftpPath.textLen-1] != '/')
                 appendToDynamicStringDataType(&theClientData->login.ftpPath, "/", 1);
 
-            appendToDynamicStringDataType(&theClientData->login.absolutePath, theSafePath.text, strlen(theSafePath.text));
-            appendToDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, strlen(theSafePath.text));
+            appendToDynamicStringDataType(&theClientData->login.absolutePath, theSafePath.text, theSafePath.textLen);
+            appendToDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, theSafePath.textLen);
         }
         else if (theSafePath.text[0] == '/')
         {
             cleanDynamicStringDataType(&theClientData->login.ftpPath, 0);
             cleanDynamicStringDataType(&theClientData->login.absolutePath, 0);
 
-            setDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, strlen(theSafePath.text));
+            setDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, theSafePath.textLen);
             setDynamicStringDataType(&theClientData->login.absolutePath, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
 
-            if (strlen(theSafePath.text)> 1)
-                appendToDynamicStringDataType(&theClientData->login.absolutePath, theSafePath.text, strlen(theSafePath.text));            
+            if (strlen(theSafePath.text)> 0)
+            {
+                char *theDirPointer = theSafePath.text;
+                
+                if (theClientData->login.absolutePath[theClientData->login.absolutePath.textLen-1] == '/')
+                {
+                    while(theDirPointer[0] == '/')
+                        theDirPointer++;
+                }
+                
+                if (strlen(theDirPointer) > 0)
+                    appendToDynamicStringDataType(&theClientData->login.absolutePath, theDirPointer, strlen(theDirPointer));
+            }
         }
 
         if (FILE_IsDirectory(theClientData->login.absolutePath.text) == 1)
