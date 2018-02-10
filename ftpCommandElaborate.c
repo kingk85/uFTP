@@ -428,7 +428,7 @@ int parseCommandCwd(clientDataType *theClientData)
             {
                 char *theDirPointer = theSafePath.text;
                 
-                if (theClientData->login.absolutePath[theClientData->login.absolutePath.textLen-1] == '/')
+                if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] == '/')
                 {
                     while(theDirPointer[0] == '/')
                         theDirPointer++;
