@@ -416,7 +416,6 @@ void runFtpServer(void)
                 
 
                 write(ftpData.clients[processingSock].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
-                continue;
             }
 	}
         
