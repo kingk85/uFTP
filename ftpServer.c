@@ -438,11 +438,10 @@ void runFtpServer(void)
             FD_CLR(ftpData.clients[processingSock].socketDescriptor, &rsetAll);    
             FD_CLR(ftpData.clients[processingSock].socketDescriptor, &wsetAll);
             FD_CLR(ftpData.clients[processingSock].socketDescriptor, &esetAll);
-            maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
             closeSocket(processingSock);
+            maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
           }
-          
-          
+
         if (ftpData.clients[processingSock].bufferIndex < 0)
         {
         printf("\nErrno = %d", errno);
