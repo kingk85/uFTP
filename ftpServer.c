@@ -575,6 +575,7 @@ static int createSocket(int port)
 static void closeSocket(int processingSocket)
 {
     //Close the socket
+    shutdown(ftpData.clients[processingSocket].socketDescriptor, SHUT_RDWR);
     close(ftpData.clients[processingSocket].socketDescriptor);
 
     resetClientData(&ftpData.clients[processingSocket], 0);
