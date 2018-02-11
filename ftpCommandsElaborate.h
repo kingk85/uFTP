@@ -76,7 +76,7 @@ int parseCommandCwd(clientDataType *theClientData);
 int parseCommandRest(clientDataType *theClientData);
 int parseCommandCdup(clientDataType *theClientData);
 int parseCommandDele(clientDataType *theClientData);
-
+int parseCommandOpts(clientDataType *theClientData);
 int parseCommandRnfr(clientDataType *theClientData);
 int parseCommandRnto(clientDataType *theClientData);
 

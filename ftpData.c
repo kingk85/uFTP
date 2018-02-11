@@ -302,7 +302,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         %Z	Timezone name or abbreviation	CDT
         %%	A % sign	%
          */
-        /*
+        /*        
         printf("\n\ndata.numberOfSubDirectories = %d", data.numberOfSubDirectories);
         printf("\ndata.isDirectory = %d", data.isDirectory);
         printf("\ndata.isFile = %d", data.isFile);
@@ -310,10 +310,10 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         printf("\ndata.owner = %s", data.owner);
         printf("\ndata.groupOwner = %s", data.groupOwner);
         printf("\ndata.fileNameWithPath = %s", data.fileNameWithPath);
-        printf("\ndata.fileNameNoPath = %s", data.fileNameNoPath);
+        printf("\ndata.fileNameNoPath = %s (%d)", data.fileNameNoPath, strlen(data.fileNameNoPath));
         printf("\ndata.inodePermissionString = %s", data.inodePermissionString);
         printf("\ndata.lastModifiedDataString = %s", data.lastModifiedDataString);
-         */
+        */
         
         directoryInfo->PushBack(directoryInfo, &data, sizeof(ftpListDataType));
     }

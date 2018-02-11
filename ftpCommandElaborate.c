@@ -197,7 +197,7 @@ int parseCommandFeat(clientDataType *theClientData)
     211 End.
      */
 
-    char *theResponse = "211-Extensions supported:\r\n PASV\r\n211 End.\r\n";
+    char *theResponse = "211-Extensions supported:\r\n PASV\r\nUTF8\r\n211 End.\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }
@@ -615,6 +615,16 @@ int parseCommandMkd(clientDataType *theClientData)
 
     cleanDynamicStringDataType(&theResponse, 0);
     cleanDynamicStringDataType(&mkdFileName, 0);    
+    return 1;
+}
+
+int parseCommandOpts(clientDataType *theClientData)
+{
+    char *theCommand;
+    theCommand = getFtpCommandArg("OPTS", theClientData->theCommandReceived);
+    printf("\nThe command received: %s", theCommand);
+    char *theResponse = "200 OK\r\n";
+    write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }
 

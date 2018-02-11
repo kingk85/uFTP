@@ -220,7 +220,7 @@ void *pasvThreadHandler(void * socketId)
                 ,((ftpListDataType *) directoryInfo.Data[i])->fileSize
                 ,((((ftpListDataType *) directoryInfo.Data[i])->lastModifiedDataString) == NULL? "Uknown" : (((ftpListDataType *) directoryInfo.Data[i])->lastModifiedDataString))
                 ,((((ftpListDataType *) directoryInfo.Data[i])->fileNameNoPath) == NULL? "Uknown" : (((ftpListDataType *) directoryInfo.Data[i])->fileNameNoPath)));
-                //printf("%s", theBufferWrite);
+                 printf("%s", theBufferWrite);
                  write(ftpData.clients[theSocketId].pasvData.passiveSocketConnection, theBufferWrite, strlen(theBufferWrite));
             }
 
@@ -869,6 +869,12 @@ static int processCommand(int processingElement)
         printf("\nDELE command received");
         toReturn = parseCommandDele(&ftpData.clients[processingElement]);
     }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "OPTS", strlen("OPTS")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "opts", strlen("opts")) == 0)
+    {
+        printf("\nOPTS command received");
+        toReturn = parseCommandOpts(&ftpData.clients[processingElement]);
+    }    
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MTDM", strlen("MTDM")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "mtdm", strlen("mtdm")) == 0)
     {
