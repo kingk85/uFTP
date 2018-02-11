@@ -1,8 +1,28 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * The MIT License
+ *
+ * Copyright 2018 Ugo Cirmignani.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
+
+
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -45,6 +65,35 @@ int parseCommandUser(clientDataType *theClientData)
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
         return 1;
     }
+}
+
+
+/* Elaborate the User login command */
+int parseCommandSite(clientDataType *theClientData)
+{
+    char *theCommand;
+    theCommand = getFtpCommandArg("SITE", theClientData->theCommandReceived);
+    
+    printTimeStamp();
+    printf("\ntheCommand:%s", theCommand);
+    if(strncmp(theCommand, "CHMOD", strlen("CHMOD")) == 0 ||
+       strncmp(theCommand, "chmod", strlen("chmod")) == 0)
+    {
+        setPermissions(theCommand, theClientData->login.absolutePath.text);
+        char *theResponse = "200 Permissions changed\r\n";
+        write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    }
+    else
+    {
+        char *theResponse = "500 unknown extension\r\n";
+        write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
+    }
+    
+    
+    
+    //site chmod 777 test
+    //200 Permissions changed on test
+    //500 SITE ciao is an unknown extension
 }
 
 int parseCommandPass(ftpDataType * data, int socketId)
@@ -969,4 +1018,68 @@ int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCo
         
     return 1;
     
+}
+
+int setPermissions(char * permissionsCommand, char * basePath)
+{
+    #define STATUS_INCREASE 0
+    #define STATUS_PERMISSIONS 1
+    #define STATUS_LOCAL_PATH 2
+    
+    int permissionsCommandCursor = 0;
+
+    int status = STATUS_INCREASE;
+    char thePermissionString[1024];
+    char theLocalPath[1024];
+    char theFinalCommand[2048];
+    memset(theLocalPath, 0, 1024);
+    memset(thePermissionString, 0, 1024);
+    memset(theFinalCommand, 0, 2048);
+    int thePermissionStringCursor = 0, theLocalPathCursor = 0;
+    
+    while (permissionsCommand[permissionsCommandCursor] != '\r' &&
+           permissionsCommand[permissionsCommandCursor] != '\n' &&
+           permissionsCommand[permissionsCommandCursor] != '\0')
+    {
+        switch (status)
+        {
+            case STATUS_INCREASE:
+                if (permissionsCommandCursor == strlen("chmod"))
+                {
+                    status = STATUS_PERMISSIONS;
+                }
+            break;
+            
+            case STATUS_PERMISSIONS:
+                if (permissionsCommand[permissionsCommandCursor] == ' ')
+                {
+                    status = STATUS_LOCAL_PATH;
+                    break;
+                }
+                if (thePermissionStringCursor < 1024 )
+                    thePermissionString[thePermissionStringCursor++] = permissionsCommand[permissionsCommandCursor];
+            break;
+            
+            case STATUS_LOCAL_PATH:
+                    if (theLocalPathCursor < 1024)
+                        theLocalPath[theLocalPathCursor++] = permissionsCommand[permissionsCommandCursor];
+            break;
+        }
+
+        permissionsCommandCursor++;
+    }
+    
+    printf("\n thePermissionString = %s ", thePermissionString);
+    printf("\n theLocalPathCursor = %s ", theLocalPath);
+
+    if (basePath[strlen(basePath)-1] != '/')
+        sprintf(theFinalCommand, "chmod %s %s/%s", thePermissionString, basePath, theLocalPath);
+    else
+        sprintf(theFinalCommand, "chmod %s %s%s", thePermissionString, basePath, theLocalPath);
+    
+    printf("\n theFinalCommand = %s ", theFinalCommand);
+    
+    system(theFinalCommand);
+    
+    return 1;
 }

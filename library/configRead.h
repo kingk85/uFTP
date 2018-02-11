@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2018 ugo.
+ * Copyright 2018 Ugo Cirmignani.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,13 +20,6 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- */
-
-/* 
- * File:   configRead.h
- * Author: ugo
- *
- * Created on 24 gennaio 2018, 14.11
  */
 
 #ifndef CONFIGREAD_H
@@ -56,6 +49,8 @@ struct ftpParameters
     int ftpIpAddress[4];
     int port;
     int maxClients;
+    int daemonModeOn;
+    int singleInstanceModeOn;
     DYNV_VectorGenericDataType usersVector;
 } typedef ftpParameters_DataType;
 

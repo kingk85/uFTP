@@ -1,8 +1,28 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * The MIT License
+ *
+ * Copyright 2018 Ugo Cirmignani.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
+
+
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -26,7 +46,7 @@
 #include "library/fileManagement.h"
 #include "library/logFunctions.h"
 #include "library/configRead.h"
-
+#include "library/daemon.h"
 
 /* Catch Signal Handler functio */
 void signal_callback_handler(int signum){
@@ -317,35 +337,56 @@ void *pasvThreadHandler(void * socketId)
 
 void runFtpServer(void)
 {
-  DYNV_VectorGenericDataType configParameters;
-  fd_set rset, wset, eset, rsetAll, wsetAll, esetAll;
-  static int processingSock = 0;
-  static int maxSocketFD = 0;
-  
-  DYNV_VectorGeneric_Init(&configParameters);
-  readConfigurationFile("./config.cfg", &configParameters);
-  parseConfigurationFile(&ftpData.ftpParameters, &configParameters);
-  initFtpData();
-
-  //Socket main creator
-  ftpData.theSocket = createSocket(ftpData.ftpParameters.port);
-  printTimeStamp();
-  printf("uFTP server starting..");
-  printf("\nServer port: %d", ftpData.ftpParameters.port);
-  printf("\nServer: Clients connected: %d", ftpData.connectedClients);
-  printf("\nServer: Max Client Allowed: %d", ftpData.ftpParameters.maxClients);
-
-  FD_ZERO(&rset);
-  FD_ZERO(&wset);
-  FD_ZERO(&eset);
-  FD_ZERO(&rsetAll);
-  FD_ZERO(&wsetAll);
-  FD_ZERO(&esetAll);    
+    DYNV_VectorGenericDataType configParameters;
+    fd_set rset, wset, eset, rsetAll, wsetAll, esetAll;
+    static int processingSock = 0;
+    static int maxSocketFD = 0;
     
-  FD_SET(ftpData.theSocket, &rsetAll);    
-  FD_SET(ftpData.theSocket, &wsetAll);
-  FD_SET(ftpData.theSocket, &esetAll);
- 
+    DYNV_VectorGeneric_Init(&configParameters);
+    readConfigurationFile("./config.cfg", &configParameters);
+    parseConfigurationFile(&ftpData.ftpParameters, &configParameters);
+    
+    if (ftpData.ftpParameters.singleInstanceModeOn == 1)
+    {
+        int returnCode = isProcessAlreadyRunning();
+        printf("\nreturnCode : %d", returnCode);
+        if (returnCode == 1)
+        {
+            printf("\nThe process is already running..");
+            exit(0);
+        }
+    }
+
+    /* Fork the process daemon mode */
+    if (ftpData.ftpParameters.daemonModeOn == 1)
+    {
+        daemonize("uFTP");
+    }
+
+    initFtpData();
+
+    //Socket main creator
+    ftpData.theSocket = createSocket(ftpData.ftpParameters.port);
+    printTimeStamp();
+    printf("uFTP server starting..");
+    printf("\nServer port: %d", ftpData.ftpParameters.port);
+    printf("\nServer: Clients connected: %d", ftpData.connectedClients);
+    printf("\nServer: Max Client Allowed: %d", ftpData.ftpParameters.maxClients);
+    
+    
+    
+
+    FD_ZERO(&rset);
+    FD_ZERO(&wset);
+    FD_ZERO(&eset);
+    FD_ZERO(&rsetAll);
+    FD_ZERO(&wsetAll);
+    FD_ZERO(&esetAll);    
+
+    FD_SET(ftpData.theSocket, &rsetAll);    
+    FD_SET(ftpData.theSocket, &wsetAll);
+    FD_SET(ftpData.theSocket, &esetAll);
+
     maxSocketFD = ftpData.theSocket+1;
     
   //Endless loop ftp process
@@ -360,7 +401,6 @@ void runFtpServer(void)
       wset = wsetAll;
       eset = esetAll;
 
-      //printf("\n\nSelect will wait for socket data.. ");
       if (ftpData.connectedClients < ftpData.ftpParameters.maxClients)
       {
            printf("\nServer: Clients connected: %d", ftpData.connectedClients);
@@ -380,9 +420,10 @@ void runFtpServer(void)
 
       for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
       {
-          
           if (ftpData.clients[processingSock].closeTheClient == 1)
           {
+              printf("\nQUIT FLAG SET!\n");
+              
             if (ftpData.clients[processingSock].pasvData.threadIsAlive == 1)
             {
                 void *pReturn;
@@ -402,7 +443,6 @@ void runFtpServer(void)
             maxSocketFD = getMaximumSocketFd(ftpData.theSocket, &ftpData) + 1;
             continue;
           }
-          
           
 	if (ftpData.clients[processingSock].socketIsConnected == 0 &&
             FD_ISSET(ftpData.theSocket, &rset))
@@ -452,7 +492,7 @@ void runFtpServer(void)
             else
             {
                 printf("\nErrno = %d", errno);
-                perror("Error: ");
+                //perror("Error: ");
 
                 /*
                 int readen = 0;
@@ -556,7 +596,7 @@ void runFtpServer(void)
   closeSocket(ftpData.theSocket);
   printTimeStamp();
   printf("Server: Closed.");
-  
+
   ftpData.clients[processingSock].socketIsConnected = 0;
   return;
 }
@@ -692,7 +732,9 @@ static int processCommand(int processingElement)
         (strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) != 0 && 
          strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")) != 0 &&
          strncmp(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")) != 0 &&
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")) != 0))
+         strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")) != 0 &&
+         strncmp(ftpData.clients[processingElement].theCommandReceived, "QUIT", strlen("QUIT")) != 0 &&
+         strncmp(ftpData.clients[processingElement].theCommandReceived, "quit", strlen("quit")) != 0))
         {
             toReturn = notLoggedInMessage(&ftpData.clients[processingElement]);
             return 1;
@@ -711,6 +753,12 @@ static int processCommand(int processingElement)
     {
         printf("\nPASS COMMAND RECEIVED");
         toReturn = parseCommandPass(&ftpData, processingElement);
+    }
+    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "SITE", strlen("SITE")) == 0 ||
+            strncmp(ftpData.clients[processingElement].theCommandReceived, "site", strlen("site")) == 0)
+    {
+        printf("\nSITE COMMAND RECEIVED");
+        toReturn = parseCommandSite(&ftpData.clients[processingElement]);
     }
     else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) == 0 ||
             strncmp(ftpData.clients[processingElement].theCommandReceived, "auth", strlen("auth")) == 0)

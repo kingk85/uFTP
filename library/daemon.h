@@ -22,18 +22,19 @@
  * THE SOFTWARE.
  */
 
+#ifndef DAEMON_H
+#define DAEMON_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "ftpServer.h"
-#include <signal.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+int isProcessAlreadyRunning(void);
+void daemonize(const char *cmd);
 
-int main(int argc, char** argv) 
-{
-    signal(SIGPIPE, signal_callback_handler);
-
-    runFtpServer();
-    return (EXIT_SUCCESS);
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* DAEMON_H */
 
