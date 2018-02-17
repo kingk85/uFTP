@@ -202,7 +202,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
    while (i < data->ftpParameters.maxClients)
    {
        
-       if (randomicPort == data->clients[i].pasvData.passivePort)
+       if (randomicPort == data->clients[i].workerData.connectionPort)
        {
         printf("randomicPort already in use = %d", randomicPort);
         randomicPort = ((rand() + socketPosition + i + randomizeInteger) % (10000 - 50000)) + 10000;
@@ -214,7 +214,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
        }
    }
    
-   data->clients[socketPosition].pasvData.passivePort = randomicPort;
+   data->clients[socketPosition].workerData.connectionPort = randomicPort;
 }
 
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
@@ -355,39 +355,46 @@ void deleteListDataInfoVector(void *TheElementToDelete)
     free(data->fileNameWithPath);
 }
 
-void resetPasvData(passiveDataType *pasvData, int isInitialization)
+void resetWorkerData(workerDataType *workerData, int isInitialization)
 {
-      pasvData->passivePort = 0;
-      pasvData->threadIsBusy = 0;
-      pasvData->passiveModeOn = 0;
-      pasvData->passiveSocketIsConnected = 0;
-      pasvData->commandIndex = 0;
-      pasvData->passiveSocket = 0;
-      pasvData->passiveSocketConnection = 0;
-      pasvData->bufferIndex = 0;
-      pasvData->commandReceived = 0;
-      pasvData->retrRestartAtByte = 0;
-      pasvData->threadIsAlive = 0;
-      memset(pasvData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-      memset(pasvData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
+      workerData->connectionPort = 0;
+      workerData->threadIsBusy = 0;
+      workerData->passiveModeOn = 0;
+      workerData->socketIsConnected = 0;
+      workerData->commandIndex = 0;
+      workerData->passiveListeningSocket = 0;
+      workerData->socketConnection = 0;
+      workerData->bufferIndex = 0;
+      workerData->commandReceived = 0;
+      workerData->retrRestartAtByte = 0;
+      workerData->threadIsAlive = 0;
+      
+      workerData->activeModeOn = 0;
+      workerData->passiveModeOn = 0;      
 
-      cleanDynamicStringDataType(&pasvData->ftpCommand.commandArgs, isInitialization);
-      cleanDynamicStringDataType(&pasvData->ftpCommand.commandOps, isInitialization);
+      workerData->activeIpAddressIndex = 0;
+
+      memset(workerData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(workerData->activeIpAddress, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(workerData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
+
+      cleanDynamicStringDataType(&workerData->ftpCommand.commandArgs, isInitialization);
+      cleanDynamicStringDataType(&workerData->ftpCommand.commandOps, isInitialization);
 
       /* wait main for action */
       if (isInitialization != 1)
       {
-        pthread_mutex_destroy(&pasvData->conditionMutex);
-        pthread_cond_destroy(&pasvData->conditionVariable);
+        pthread_mutex_destroy(&workerData->conditionMutex);
+        pthread_cond_destroy(&workerData->conditionVariable);
       }
 
-      pthread_mutex_init(&pasvData->conditionMutex, NULL);
-      pthread_cond_init(&pasvData->conditionVariable, NULL);
+      pthread_mutex_init(&workerData->conditionMutex, NULL);
+      pthread_cond_init(&workerData->conditionVariable, NULL);
 }
 
 void resetClientData(clientDataType *clientData, int isInitialization)
 {
-    clientData->socketDescriptor = 0;
+    clientData->socketDescriptor = -1;
     clientData->socketCommandReceived = 0;
     clientData->socketIsConnected = 0;
     clientData->bufferIndex = 0;
@@ -401,7 +408,6 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     clientData->serverIpAddressInteger[2] = 0;
     clientData->serverIpAddressInteger[3] = 0;
     
-    printf("\n clientData->sockaddr_in_server_size = %d", clientData->sockaddr_in_server_size);
     
     memset(&clientData->client_sockaddr_in, 0, clientData->sockaddr_in_size);
     memset(&clientData->server_sockaddr_in, 0, clientData->sockaddr_in_server_size);
@@ -421,4 +427,8 @@ void resetClientData(clientDataType *clientData, int isInitialization)
 
     cleanDynamicStringDataType(&clientData->ftpCommand.commandArgs, isInitialization);
     cleanDynamicStringDataType(&clientData->ftpCommand.commandOps, isInitialization);
+    
+    
+    clientData->connectionTimeStamp = 0;
+    clientData->lastActivityTimeStamp = 0;
 }

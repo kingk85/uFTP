@@ -62,6 +62,7 @@ int parseCommandModeS(clientDataType *theClientData);
 int parseCommandTypeA(clientDataType *theClientData);
 int parseCommandAbor(ftpDataType * data, int socketId);
 int parseCommandPasv(ftpDataType * data, int socketId);
+int parseCommandPort(ftpDataType * data, int socketId);
 int parseCommandList(ftpDataType * data, int socketId);
 int parseCommandNlst(ftpDataType * data, int socketId);
 int parseCommandRetr(ftpDataType * data, int socketId);

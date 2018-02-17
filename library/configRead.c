@@ -289,6 +289,17 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
             ftpParameters->singleInstanceModeOn = 1;
     }
     
+    
+    
+    ftpParameters->maximumIdleInactivity = 0;
+    searchIndex = searchParameter("IDLE_MAX_TIMEOUT", parametersVector);
+    if (searchIndex != -1)
+    {
+        ftpParameters->maximumIdleInactivity = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+    }    
+    printf("\nftpParameters->maximumIdleInactivity: %d", ftpParameters->maximumIdleInactivity);
+    
+    
     printf("\nFtp singleInstanceModeOn: %d", ftpParameters->singleInstanceModeOn);
     printf("\nFtp daemonModeOn: %d", ftpParameters->daemonModeOn);
 

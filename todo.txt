@@ -1,2 +1,0 @@
--Handle non standard char filenames
--File stor stuck sometimes

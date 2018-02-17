@@ -45,9 +45,10 @@
 
 void runFtpServer(void);
 int createPassiveSocket(int port);
+int createActiveSocket(int port, char *ipAddress);
 
-void *pasvThreadHandler(void * socketId);
-void pasvThreadHandlerCleanup(void *socketId);
+void *connectionWorkerHandle(void * socketId);
+void workerCleanup(void *socketId);
 
 void signal_callback_handler(int signum);
 

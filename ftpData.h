@@ -81,32 +81,35 @@ struct ipData
     int ip[4];
 } typedef ipDataType;
 
-struct passiveData
+struct workerData
 {
     int threadIsAlive;
-    int passivePort;
+    int connectionPort;
     int passiveModeOn;
-    pthread_t pasvThread;
-    int passiveSocket;
-    int passiveSocketConnection;
-    int passiveSocketIsConnected;
+    int activeModeOn;
+
+    pthread_t workerThread;
+    int passiveListeningSocket;
+    int socketConnection;
+    int socketIsConnected;
     int bufferIndex;
     char buffer[CLIENT_BUFFER_STRING_SIZE];
+
+    int activeIpAddressIndex;
+    char activeIpAddress[CLIENT_BUFFER_STRING_SIZE];
     
     int commandIndex;
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];    
     int commandReceived;
-    
+
     unsigned long int retrRestartAtByte;
     int threadIsBusy;
-    
+
     /* The PASV thread will wait the signal before start */
     pthread_mutex_t conditionMutex;
     pthread_cond_t conditionVariable;
-    
     ftpCommandDataType    ftpCommand;
-    
-} typedef passiveDataType;
+} typedef workerDataType;
 
 struct clientData
 {
@@ -132,7 +135,7 @@ struct clientData
     
     //User authentication
     loginDataType login;
-    passiveDataType pasvData;
+    workerDataType workerData;
     
     int sockaddr_in_size, sockaddr_in_server_size;
     struct sockaddr_in client_sockaddr_in, server_sockaddr_in;
@@ -145,6 +148,9 @@ struct clientData
     int serverIpAddressInteger[4];
     ftpCommandDataType    ftpCommand;
     int closeTheClient;
+
+    unsigned long long int connectionTimeStamp;
+    unsigned long long int lastActivityTimeStamp;
 } typedef clientDataType;
 
 struct ftpData
@@ -182,7 +188,7 @@ void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *t
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
 void deleteListDataInfoVector(void *TheElementToDelete);
-void resetPasvData(passiveDataType *pasvData, int isInitialization);
+void resetWorkerData(workerDataType *pasvData, int isInitialization);
 void resetClientData(clientDataType *clientData, int isInitialization);
 #ifdef __cplusplus
 }

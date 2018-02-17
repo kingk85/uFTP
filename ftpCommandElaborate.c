@@ -67,7 +67,6 @@ int parseCommandUser(clientDataType *theClientData)
     }
 }
 
-
 /* Elaborate the User login command */
 int parseCommandSite(clientDataType *theClientData)
 {
@@ -233,22 +232,50 @@ int parseCommandModeS(clientDataType *theClientData)
 int parseCommandPasv(ftpDataType * data, int socketId)
 {
     /* Create worker thread */
-    if (data->clients[socketId].pasvData.threadIsAlive == 1)
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         void *pReturn;
-        pthread_cancel(data->clients[socketId].pasvData.pasvThread);
-        pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
+        pthread_cancel(data->clients[socketId].workerData.workerThread);
+        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
         printf("\nThread has been cancelled.");
     }
+    data->clients[socketId].workerData.passiveModeOn = 1;
+    data->clients[socketId].workerData.activeModeOn = 0;    
 
-    pthread_create(&data->clients[socketId].pasvData.pasvThread, NULL, pasvThreadHandler, (void *) &data->clients[socketId].clientProgressiveNumber);
+    pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
 
-    //char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    //memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    //sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n",data->serverIp.ip[0], data->serverIp.ip[1], data->serverIp.ip[2], data->serverIp.ip[3], (data->clients[socketId].pasvData.passivePort / 256), (data->clients[socketId].pasvData.passivePort % 256));
-    //write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
     return 1;
 }
+
+int parseCommandPort(ftpDataType * data, int socketId)
+{
+    char *theIpAndPort;
+    int ipAddressBytes[4];
+    int portBytes[2];
+    theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived);    
+    sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
+    printf("\ntheIpAndPort: %s", theIpAndPort);
+    data->clients[socketId].workerData.connectionPort = (portBytes[0]*256)+portBytes[1];
+    sprintf(data->clients[socketId].workerData.activeIpAddress, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
+    printf("\ndata->clients[socketId].workerData.connectionPort: %d", data->clients[socketId].workerData.connectionPort);
+    printf("\ndata->clients[socketId].workerData.activeIpAddress: %s", data->clients[socketId].workerData.activeIpAddress);
+
+    /* Create worker thread */
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
+    {
+        void *pReturn;
+        pthread_cancel(data->clients[socketId].workerData.workerThread);
+        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        printf("\nThread has been cancelled.");
+    }
+    data->clients[socketId].workerData.passiveModeOn = 0;
+    data->clients[socketId].workerData.activeModeOn = 1;    
+
+    pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+
+    return 1;
+}
+
 
 int parseCommandAbor(ftpDataType * data, int socketId)
 {
@@ -261,12 +288,12 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     226 Since you see this ABOR must've succeeded
     */
 
-    if (data->clients[socketId].pasvData.threadIsAlive == 1 &&
-        data->clients[socketId].pasvData.threadIsBusy == 1)
+    if (data->clients[socketId].workerData.threadIsAlive == 1 &&
+        data->clients[socketId].workerData.threadIsBusy == 1)
     {
         void *pReturn;
-        pthread_cancel(data->clients[socketId].pasvData.pasvThread);
-        pthread_join(data->clients[socketId].pasvData.pasvThread, &pReturn);
+        pthread_cancel(data->clients[socketId].workerData.workerThread);
+        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
         printf("\nThread has been cancelled due to ABOR request.");
         
         memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
@@ -313,13 +340,13 @@ int parseCommandList(ftpDataType * data, int socketId)
     char *theNameToList;
     
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived);
-    getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].pasvData.ftpCommand);
+    getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand);
  
-    printf("\nLIST COMMAND ARG: %s", data->clients[socketId].pasvData.ftpCommand.commandArgs.text);
-    printf("\nLIST COMMAND OPS: %s", data->clients[socketId].pasvData.ftpCommand.commandOps.text);
+    printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
     
-    cleanDynamicStringDataType(&data->clients[socketId].pasvData.ftpCommand.commandArgs, 0);
-    cleanDynamicStringDataType(&data->clients[socketId].pasvData.ftpCommand.commandOps, 0);    
+    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0);    
     cleanDynamicStringDataType(&data->clients[socketId].listPath, 0);
 
     if (strlen(theNameToList) > 0)
@@ -333,12 +360,12 @@ int parseCommandList(ftpDataType * data, int socketId)
         setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
     }
 
-    pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-    memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
-    data->clients[socketId].pasvData.commandReceived = 1;
-    pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+    pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
+    memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+    strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+    data->clients[socketId].workerData.commandReceived = 1;
+    pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
+    pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
    return 1;
 }
 
@@ -360,12 +387,12 @@ int parseCommandNlst(ftpDataType * data, int socketId)
         setDynamicStringDataType(&data->clients[socketId].nlistPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
     }
     
-    pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-    memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
-    data->clients[socketId].pasvData.commandReceived = 1;
-    pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+    pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
+    memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+    strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+    data->clients[socketId].workerData.commandReceived = 1;
+    pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
+    pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
     return 1;
 }
 
@@ -384,12 +411,12 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     if (isSafePath == 1 &&
         FILE_IsFile(data->clients[socketId].fileToRetr.text) == 1)
     {
-        pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
-        memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-        strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
-        data->clients[socketId].pasvData.commandReceived = 1;
-        pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-        pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+        pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
+        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+        strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        data->clients[socketId].workerData.commandReceived = 1;
+        pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
+        pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
         return 1;
     }
     else
@@ -414,13 +441,13 @@ int parseCommandStor(ftpDataType * data, int socketId)
 
     if (isSafePath == 1)
     {
-        pthread_mutex_lock(&data->clients[socketId].pasvData.conditionMutex);
+        pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
         printf("data->clients[%d].fileToStor = %s", socketId, data->clients[socketId].fileToStor.text);
-        memset(data->clients[socketId].pasvData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-        strcpy(data->clients[socketId].pasvData.theCommandReceived, data->clients[socketId].theCommandReceived);
-        data->clients[socketId].pasvData.commandReceived = 1;
-        pthread_mutex_unlock(&data->clients[socketId].pasvData.conditionMutex);
-        pthread_cond_signal(&data->clients[socketId].pasvData.conditionVariable);
+        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+        strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        data->clients[socketId].workerData.commandReceived = 1;
+        pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
+        pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
     }
     else
     {
@@ -575,7 +602,7 @@ int parseCommandRest(clientDataType *theClientData)
     
     FILE_AppendToString(&theResponse, theSize);
     FILE_AppendToString(&theResponse, " \r\n");
-    theClientData->pasvData.retrRestartAtByte = atoll(theSize);
+    theClientData->workerData.retrRestartAtByte = atoll(theSize);
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));    
     free(theResponse);
     

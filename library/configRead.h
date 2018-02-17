@@ -52,6 +52,7 @@ struct ftpParameters
     int daemonModeOn;
     int singleInstanceModeOn;
     DYNV_VectorGenericDataType usersVector;
+    int maximumIdleInactivity;
 } typedef ftpParameters_DataType;
 
 int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
