@@ -177,7 +177,6 @@ int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVect
             }
             break;
             
-            
             case STATE_STORE:
             {
             parameter_DataType parameter;

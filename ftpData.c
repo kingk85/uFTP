@@ -394,6 +394,22 @@ void resetWorkerData(workerDataType *workerData, int isInitialization)
 
 void resetClientData(clientDataType *clientData, int isInitialization)
 {
+    if (isInitialization != 0)
+    {
+        if (clientData->workerData.threadIsAlive == 1)
+        {
+            void *pReturn;
+            pthread_cancel(clientData->workerData.workerThread);
+            pthread_join(clientData->workerData.workerThread, &pReturn);
+            printf("\nThread has been cancelled.");
+        }
+        else
+        {
+            void *pReturn;
+            pthread_join(clientData->workerData.workerThread, &pReturn);
+        }
+    }
+    
     clientData->socketDescriptor = -1;
     clientData->socketCommandReceived = 0;
     clientData->socketIsConnected = 0;
@@ -431,4 +447,6 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     
     clientData->connectionTimeStamp = 0;
     clientData->lastActivityTimeStamp = 0;
+
+    
 }
