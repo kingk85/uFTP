@@ -161,7 +161,12 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
     else
     {
         setDynamicStringDataType(safePath, loginData->absolutePath.text, loginData->absolutePath.textLen);
-        appendToDynamicStringDataType(safePath, "/", 1);
+
+        if (loginData->absolutePath.text[loginData->absolutePath.textLen-1] != '/')
+        {
+            appendToDynamicStringDataType(safePath, "/", 1);
+        }
+        
         appendToDynamicStringDataType(safePath, theDirectoryName, strlen(theDirectoryName));
     }
     

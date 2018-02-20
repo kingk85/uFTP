@@ -171,7 +171,15 @@ void *connectionWorkerHandle(void * socketId)
             FILE *theStorFile;
             char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+            
             theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
+            if (theStorFile == NULL)
+            {
+            perror("Can't open the file");    
+            strcpy(theResponse, "550 Unable to write the file\r\n");
+            write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+            break;
+            }
             
             printf("\nftpData.clients[theSocketId].theFileNameToStor: %s", ftpData.clients[theSocketId].fileToStor.text);
             printf("\nftpData.clients[theSocketId].login.absolutePath.text: %s", ftpData.clients[theSocketId].login.absolutePath.text);
@@ -329,7 +337,15 @@ void *connectionWorkerHandle(void * socketId)
 
               ftpData.clients[theSocketId].workerData.retrRestartAtByte = 0;
               printf("\nPasv (%d) writeReturn data: %d",theSocketId, writeReturn);
-             
+              
+              if (writenSize == -1)
+              {
+                memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+                sprintf(theResponse, "550 unable to open the file for reading\r\n");
+                writeReturn =  write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+                break;
+              }
+              
               memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
               sprintf(theResponse, "226-File successfully transferred\r\n226 done\r\n");
               writeReturn =  write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));

@@ -933,7 +933,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     if (retrFP == NULL)
     {
         fclose(retrFP);
-        return toReturn;
+        return -1;
     }
 
     theFileSize = FILE_GetFileSize(retrFP);
