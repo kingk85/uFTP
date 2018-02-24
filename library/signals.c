@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2018 Ugo Cirmignani.
+ * Copyright 2018 Ugo Cirmignani
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,15 +22,17 @@
  * THE SOFTWARE.
  */
 
-
-#include <stdio.h>
-#include <stdlib.h>
-#include "ftpServer.h"
+#include <signal.h>
+#include "../ftpServer.h"
 
 
-int main(int argc, char** argv) 
-{
-    runFtpServer();
-    return (EXIT_SUCCESS);
+/* Catch Signal Handler functio */
+void signal_callback_handler(int signum){
+
+        printf("Caught signal SIGPIPE %d\n",signum);
 }
 
+void signalHandlerInstall(void)
+{
+    signal(SIGPIPE, signal_callback_handler);
+}

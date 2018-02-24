@@ -36,8 +36,8 @@ start:
 end:
 	@echo Build process end
 
-uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o
-	@$(CC) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o -o $(OUTPATH)uFTP -lpthread
+uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o
+	@$(CC) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o -o $(OUTPATH)uFTP -lpthread
 
 daemon.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)daemon.c -o $(LIBPATH)daemon.o
@@ -50,6 +50,9 @@ configRead.o: dynamicVectors.o fileManagement.o
 
 fileManagement.o:
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)fileManagement.c -o $(LIBPATH)fileManagement.o
+
+signals.o:
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)signals.c -o $(LIBPATH)signals.o
 
 logFunctions.o:
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)logFunctions.c -o $(LIBPATH)logFunctions.o

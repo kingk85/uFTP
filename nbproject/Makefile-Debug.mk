@@ -43,6 +43,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/library/dynamicVectors.o \
 	${OBJECTDIR}/library/fileManagement.o \
 	${OBJECTDIR}/library/logFunctions.o \
+	${OBJECTDIR}/library/signals.o \
 	${OBJECTDIR}/uFTP.o
 
 
@@ -109,6 +110,11 @@ ${OBJECTDIR}/library/logFunctions.o: library/logFunctions.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
 	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/logFunctions.o library/logFunctions.c
+
+${OBJECTDIR}/library/signals.o: library/signals.c
+	${MKDIR} -p ${OBJECTDIR}/library
+	${RM} "$@.d"
+	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/signals.o library/signals.c
 
 ${OBJECTDIR}/uFTP.o: uFTP.c
 	${MKDIR} -p ${OBJECTDIR}

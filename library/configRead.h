@@ -28,9 +28,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 #include "dynamicVectors.h"
 
+#define DEFAULT_CONFIGURATION_FILENAME      "/etc/uftpd.cfg"
+#define LOCAL_CONFIGURATION_FILENAME        "./uftpd.cfg"
+
+    
+/* Data structures */
 struct parameter
 {
     char* name;
@@ -55,10 +60,15 @@ struct ftpParameters
     int maximumIdleInactivity;
 } typedef ftpParameters_DataType;
 
-int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
-int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector);
+
+/*Public functions */
 int searchUser(char *name, DYNV_VectorGenericDataType *usersVector);
-int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector);
+void configurationRead(ftpParameters_DataType *ftpParameters);
+
+/* Private Functions */
+static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector);
+static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector);
+static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
 
 #ifdef __cplusplus
 }

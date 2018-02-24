@@ -22,8 +22,6 @@
  * THE SOFTWARE.
  */
 
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,9 +32,58 @@
 
 #define PARAMETER_SIZE_LIMIT        1024
 
-int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector)
-{
 
+/* Public Functions */
+int searchUser(char *name, DYNV_VectorGenericDataType *usersVector)
+{
+    int returnCode = -1;
+    int i = 0;
+
+    for (i = 0; i <usersVector->Size; i++)
+    {
+        if (strcmp(name, ((usersParameters_DataType *) usersVector->Data[i])->name) == 0)
+        {
+            return i;
+        }
+    }
+
+    return returnCode;
+}
+
+void configurationRead(ftpParameters_DataType *ftpParameters)
+{
+    int returnCode = 0;
+    DYNV_VectorGenericDataType configParameters;
+    DYNV_VectorGeneric_Init(&configParameters);
+
+    if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
+    {
+        printf("\nReading configuration from \n -> %s", LOCAL_CONFIGURATION_FILENAME);
+        returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters);
+    }
+    else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME) == 1)
+    {
+        printf("\nReading configuration from \n -> %s", DEFAULT_CONFIGURATION_FILENAME);
+        returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters);
+    }
+
+    if (returnCode == 1) 
+    {
+        parseConfigurationFile(ftpParameters, &configParameters);
+    }
+    else
+    {
+        printf("\nError: could not read the configuration file located at: \n -> %s or at \n -> %s", DEFAULT_CONFIGURATION_FILENAME, LOCAL_CONFIGURATION_FILENAME);
+        exit(1);
+    }
+
+    return;
+}
+
+
+/*Private functions*/
+static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector)
+{
     #define STATE_START              0
     #define STATE_NAME               1
     #define STATE_VALUE              2
@@ -76,17 +123,17 @@ int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVect
                 /* 1st char is a sharp comment case */
                 else if (theFileContent[i] == '#')
                 {
-                state = STATE_TO_NEW_LINE;
-                i++;
+                    state = STATE_TO_NEW_LINE;
+                    i++;
                 }
                 /* Name Start */
                 else
                 {
-                state = STATE_NAME;
+                    state = STATE_NAME;
                 }
             }
             break;
-            
+
             case STATE_NAME:
             {
                 /* Not allowed chars in the name */
@@ -122,7 +169,7 @@ int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVect
                 }
             }
             break;
-            
+
             case STATE_VALUE:
             {
                 /* Skip not allowed values */
@@ -136,17 +183,19 @@ int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVect
                 else if (theFileContent[i] == '"')
                 {
                     i++;
-                    
+
                     if (allowSpacesInValue == 0)
                         allowSpacesInValue = 1;
                     else
                         allowSpacesInValue = 0;
-                }                
+                }    
                 else if (theFileContent[i] == '\n')
                 {
                     /* Value stored proceed to save */
-                    if (valueIndex > 0)
+                    if (valueIndex > 0) 
+                    {
                         state = STATE_STORE;
+                    }
                     else if (valueIndex == 0) /* No void value allowed*/
                     {
                         memset(name, 0, PARAMETER_SIZE_LIMIT);
@@ -171,7 +220,7 @@ int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVect
                 /* Wait until a new line is found */
                 if (theFileContent[i] == '\n')
                 {
-                state = STATE_START;
+                    state = STATE_START;
                 }
                 i++;
             }
@@ -179,33 +228,48 @@ int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVect
             
             case STATE_STORE:
             {
-            parameter_DataType parameter;
-            parameter.name = malloc(nameIndex+1);
-            parameter.value = malloc(valueIndex+1);
-            strcpy(parameter.name, name);
-            strcpy(parameter.value, value);
-            parameter.name[nameIndex]  = '\0';
-            parameter.value[valueIndex] = '\0';
-            memset(name, 0, PARAMETER_SIZE_LIMIT);
-            memset(value, 0, PARAMETER_SIZE_LIMIT);
-            nameIndex = 0;
-            valueIndex = 0;
-            state = STATE_START;
-            printf("\nParameter read: %s = %s", parameter.name, parameter.value);
-            parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
+                parameter_DataType parameter;
+                parameter.name = malloc(nameIndex+1);
+                parameter.value = malloc(valueIndex+1);
+                strcpy(parameter.name, name);
+                strcpy(parameter.value, value);
+                parameter.name[nameIndex]  = '\0';
+                parameter.value[valueIndex] = '\0';
+                memset(name, 0, PARAMETER_SIZE_LIMIT);
+                memset(value, 0, PARAMETER_SIZE_LIMIT);
+                nameIndex = 0;
+                valueIndex = 0;
+                state = STATE_START;
+                //printf("\nParameter read: %s = %s", parameter.name, parameter.value);
+                parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
             }
             break;
-
          }
-
-
     }
     
-    return 1;
+    /* che if there is a value to store */
+    if (state == STATE_VALUE &&
+        valueIndex > 0)
+    {
+        parameter_DataType parameter;
+        parameter.name = malloc(nameIndex+1);
+        parameter.value = malloc(valueIndex+1);
+        strcpy(parameter.name, name);
+        strcpy(parameter.value, value);
+        parameter.name[nameIndex]  = '\0';
+        parameter.value[valueIndex] = '\0';
+        memset(name, 0, PARAMETER_SIZE_LIMIT);
+        memset(value, 0, PARAMETER_SIZE_LIMIT);
+        nameIndex = 0;
+        valueIndex = 0;
+        //printf("\nParameter read: %s = %s", parameter.name, parameter.value);
+        parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
+    }
 
+    return 1;
 }
 
-int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector)
+static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector)
 {
     int returnCode = -1;
     int i = 0;
@@ -221,48 +285,39 @@ int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector)
     return returnCode;
 }
 
-int searchUser(char *name, DYNV_VectorGenericDataType *usersVector)
+static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector)
 {
-    int returnCode = -1;
-    int i = 0;
+    int searchIndex, userIndex;
 
-    for (i = 0; i <usersVector->Size; i++)
-    {
-        if (strcmp(name, ((usersParameters_DataType *) usersVector->Data[i])->name) == 0)
-        {
-            return i;
-        }
-    }
-
-    return returnCode;
-}
-
-int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector)
-{
-    int searchIndex;
-    int userIndex;
-    char userX[PARAMETER_SIZE_LIMIT], passwordX[PARAMETER_SIZE_LIMIT], homeX[PARAMETER_SIZE_LIMIT];
+    char    userX[PARAMETER_SIZE_LIMIT], 
+            passwordX[PARAMETER_SIZE_LIMIT], 
+            homeX[PARAMETER_SIZE_LIMIT];
+    
+    printf("\nReading configuration settings..");
     
     searchIndex = searchParameter("MAXIMUM_ALLOWED_FTP_CONNECTION", parametersVector);
     if (searchIndex != -1)
     {
         ftpParameters->maxClients = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
-        printf("\nFtp maximum allowed clients: %d", ftpParameters->maxClients);
+        printf("\nMAXIMUM_ALLOWED_FTP_CONNECTION: %d", ftpParameters->maxClients);
     }
     else
     {
         ftpParameters->maxClients = 10;
+        printf("\nMAXIMUM_ALLOWED_FTP_CONNECTION parameter not found in the configuration file, using the default value: %d", ftpParameters->maxClients);
     }
     
     searchIndex = searchParameter("FTP_PORT", parametersVector);
     if (searchIndex != -1)
     {
         ftpParameters->port = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
-        printf("\nFtp port: %d", ftpParameters->port);
+        printf("\nFTP_PORT: %d", ftpParameters->port);
+        
     }
     else
     {
         ftpParameters->port = 21;
+        printf("\nFTP_PORT parameter not found in the configuration file, using the default value: %d", ftpParameters->maxClients);
     }
     
     
@@ -275,6 +330,12 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
             
         if(strcmp(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "TRUE") == 0)
             ftpParameters->daemonModeOn = 1;
+        
+        printf("\nDAEMON_MODE value: %d", ftpParameters->daemonModeOn);
+    }
+    else
+    {
+        printf("\nDAEMON_MODE parameter not found in the configuration file, using the default value: %d", ftpParameters->daemonModeOn);
     }
     
     ftpParameters->singleInstanceModeOn = 0;
@@ -287,21 +348,22 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
         if(strcmp(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "TRUE") == 0)
             ftpParameters->singleInstanceModeOn = 1;
     }
-    
-    
-    
-    ftpParameters->maximumIdleInactivity = 0;
+    else
+    {
+        printf("\nSINGLE_INSTANCE parameter not found in the configuration file, using the default value: %d", ftpParameters->singleInstanceModeOn);
+    }
+
+    ftpParameters->maximumIdleInactivity = 3600;
     searchIndex = searchParameter("IDLE_MAX_TIMEOUT", parametersVector);
     if (searchIndex != -1)
     {
         ftpParameters->maximumIdleInactivity = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
-    }    
-    printf("\nftpParameters->maximumIdleInactivity: %d", ftpParameters->maximumIdleInactivity);
-    
-    
-    printf("\nFtp singleInstanceModeOn: %d", ftpParameters->singleInstanceModeOn);
-    printf("\nFtp daemonModeOn: %d", ftpParameters->daemonModeOn);
-
+        printf("\nIDLE_MAX_TIMEOUT value: %d", ftpParameters->maximumIdleInactivity);
+    }
+    else
+    {
+        printf("\nIDLE_MAX_TIMEOUT parameter not found in the configuration file, using the default value: %d", ftpParameters->maximumIdleInactivity);
+    }
 
     searchIndex = searchParameter("FTP_SERVER_IP", parametersVector);
     if (searchIndex != -1)
@@ -310,32 +372,29 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
                                                                                                     &ftpParameters->ftpIpAddress[1],
                                                                                                     &ftpParameters->ftpIpAddress[2],
                                                                                                     &ftpParameters->ftpIpAddress[3]);
-        printf("\nFtp ip address: %d.%d.%d.%d", ftpParameters->ftpIpAddress[0],
-                                                ftpParameters->ftpIpAddress[1],
-                                                ftpParameters->ftpIpAddress[2],
-                                                ftpParameters->ftpIpAddress[3]);
+        printf("\nFTP_SERVER_IP value: %d.%d.%d.%d",    ftpParameters->ftpIpAddress[0],
+                                                        ftpParameters->ftpIpAddress[1],
+                                                        ftpParameters->ftpIpAddress[2],
+                                                        ftpParameters->ftpIpAddress[3]);
     }
     else
     {
         ftpParameters->ftpIpAddress[0] = 127;
         ftpParameters->ftpIpAddress[1] = 0;
         ftpParameters->ftpIpAddress[2] = 0;
-        ftpParameters->ftpIpAddress[3] = 1;
+        ftpParameters->ftpIpAddress[3] = 1;       
+        printf("\nFTP_SERVER_IP parameter not found in the configuration file, listening on all available networks");
     }    
     
-    printf("\nFtp port wait start: %d", ftpParameters->port);
     /* USER SETTINGS */
     userIndex = 0;
-    
     memset(userX, 0, PARAMETER_SIZE_LIMIT);
     memset(passwordX, 0, PARAMETER_SIZE_LIMIT);
     memset(homeX, 0, PARAMETER_SIZE_LIMIT);
 
     DYNV_VectorGeneric_Init(&ftpParameters->usersVector);
-    printf("\nFtp port xxx: %d", ftpParameters->port);
     while(1)
     {
-        printf("\nFtp port start: %d", ftpParameters->port);
         int searchUserIndex, searchPasswordIndex, searchHomeIndex;
         usersParameters_DataType userData;
 
@@ -368,17 +427,13 @@ int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGen
         userData.password[strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value)] = '\0';
         userData.homePath[strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value)] = '\0';
 
-        printf("\n\nAdding user");
+        printf("\nUser parameter found");
         printf("\nName: %s", userData.name);
         printf("\nPassword: %s", userData.password);
         printf("\nHomePath: %s", userData.homePath);
-        
-        ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
-        printf("\nFtp port end: %d", ftpParameters->port);
-    }
-    
-    
 
-    
+        ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
+    }
+
     return 1;
 }

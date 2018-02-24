@@ -29,6 +29,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>     
@@ -47,12 +48,8 @@
 #include "library/logFunctions.h"
 #include "library/configRead.h"
 #include "library/daemon.h"
+#include "library/signals.h"
 
-/* Catch Signal Handler functio */
-void signal_callback_handler(int signum){
-
-        printf("Caught signal SIGPIPE %d\n",signum);
-}
 
 static ftpDataType ftpData;
 
@@ -366,15 +363,13 @@ void *connectionWorkerHandle(void * socketId)
 
 void runFtpServer(void)
 {
-    DYNV_VectorGenericDataType configParameters;
     fd_set rset, wset, eset, rsetAll, wsetAll, esetAll;
     static int processingSock = 0;
     static int maxSocketFD = 0;
     
-    DYNV_VectorGeneric_Init(&configParameters);
-    readConfigurationFile("./config.cfg", &configParameters);
-    parseConfigurationFile(&ftpData.ftpParameters, &configParameters);
-    
+    /*Read the configuration file */
+    configurationRead(&ftpData.ftpParameters);
+
     if (ftpData.ftpParameters.singleInstanceModeOn == 1)
     {
         int returnCode = isProcessAlreadyRunning();
@@ -385,15 +380,15 @@ void runFtpServer(void)
             exit(0);
         }
     }
-
     /* Fork the process daemon mode */
     if (ftpData.ftpParameters.daemonModeOn == 1)
     {
         daemonize("uFTP");
     }
 
+    signalHandlerInstall();
     initFtpData();
-
+    
     //Socket main creator
     ftpData.theSocket = createSocket(ftpData.ftpParameters.port);
     printTimeStamp();

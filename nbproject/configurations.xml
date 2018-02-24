@@ -9,6 +9,7 @@
         <itemPath>library/dynamicVectors.h</itemPath>
         <itemPath>library/fileManagement.h</itemPath>
         <itemPath>library/logFunctions.h</itemPath>
+        <itemPath>library/signals.h</itemPath>
       </logicalFolder>
       <itemPath>library/daemon.h</itemPath>
       <itemPath>ftpCommandsElaborate.h</itemPath>
@@ -29,14 +30,15 @@
         <itemPath>library/dynamicVectors.c</itemPath>
         <itemPath>library/fileManagement.c</itemPath>
         <itemPath>library/logFunctions.c</itemPath>
+        <itemPath>library/signals.c</itemPath>
       </logicalFolder>
       <itemPath>MakeFileGeneric</itemPath>
-      <itemPath>config.cfg</itemPath>
       <itemPath>ftpCommandElaborate.c</itemPath>
       <itemPath>ftpData.c</itemPath>
       <itemPath>ftpServer.c</itemPath>
       <itemPath>todo.txt</itemPath>
       <itemPath>uFTP.c</itemPath>
+      <itemPath>uftpd.cfg</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
                    displayName="Test Files"
@@ -76,8 +78,6 @@
       </compileType>
       <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="config.cfg" ex="false" tool="3" flavor2="0">
-      </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="ftpCommandsElaborate.h" ex="false" tool="3" flavor2="0">
@@ -112,9 +112,15 @@
       </item>
       <item path="library/logFunctions.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="library/signals.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/signals.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="todo.txt" ex="false" tool="3" flavor2="0">
       </item>
       <item path="uFTP.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="uftpd.cfg" ex="false" tool="3" flavor2="0">
       </item>
     </conf>
     <conf name="Release" type="1">
@@ -139,8 +145,6 @@
       </compileType>
       <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="config.cfg" ex="false" tool="3" flavor2="0">
-      </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="ftpCommandsElaborate.h" ex="false" tool="3" flavor2="0">
@@ -175,9 +179,15 @@
       </item>
       <item path="library/logFunctions.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="library/signals.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/signals.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="todo.txt" ex="false" tool="3" flavor2="0">
       </item>
       <item path="uFTP.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="uftpd.cfg" ex="false" tool="3" flavor2="0">
       </item>
     </conf>
   </confs>

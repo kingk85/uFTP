@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2018 Ugo Cirmignani.
+ * Copyright 2018 Ugo Cirmignani
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,15 +22,26 @@
  * THE SOFTWARE.
  */
 
+/* 
+ * File:   signals.h
+ * Author: ugo
+ *
+ * Created on 24 febbraio 2018, 19.15
+ */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "ftpServer.h"
+#ifndef SIGNALS_H
+#define SIGNALS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int main(int argc, char** argv) 
-{
-    runFtpServer();
-    return (EXIT_SUCCESS);
+void signalHandlerInstall(void);
+void signal_callback_handler(int signum);
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* SIGNALS_H */
 
