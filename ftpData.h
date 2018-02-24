@@ -168,9 +168,12 @@ struct ftpListData
 {
     char *fileNameWithPath;
     char *fileNameNoPath;
+    char *linkPath;
+    char *finalStringPath;
     int numberOfSubDirectories;
     int isDirectory;
     int isFile;
+    int isLink;
     char *owner;
     char *groupOwner;
     int fileSize;

@@ -30,6 +30,8 @@
 #include <time.h>
 #include <pthread.h>
 #include <netinet/in.h>
+#include <unistd.h>
+
 
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
@@ -224,16 +226,11 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
 
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 {
-   //printf("\ngetListDataInfo address: %lX", directoryInfo);
-
     int i;
     int fileAndFoldersCount = 0;
     ftpListDataType data;
     
     data.fileList = NULL;
-    
-    //printf("\nThePath = %s", thePath);
-    
     FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0);
     
     for (i = 0; i < fileAndFoldersCount; i++)
@@ -242,45 +239,58 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         data.isFile = 0;
         data.isDirectory = 0;
         
-        //printf("\ndata.fileList[%d] = %s", i, data.fileList[i]);
-        
         if (FILE_IsDirectory(data.fileList[i]) == 1)
         {
-            //printf("\nFILE_IsDirectory");
             data.isDirectory = 1;
             data.isFile = 0;
+            data.isLink = 0;
             data.fileSize = 4096;
         }
         else if (FILE_IsFile(data.fileList[i]) == 1)
         {
-            //printf("\nFILE_IsFile");
             data.isDirectory = 0;
             data.isFile = 1;
+            data.isLink = 0;
             data.fileSize = FILE_GetFileSizeFromPath(data.fileList[i]);
         }
-        
         if (data.isDirectory == 0 && data.isFile == 0)
         {
             printf("\n%s Not a directory, not a file, broken link?", data.fileList[i]);
             continue;
         }
 
-        
         data.owner = FILE_GetOwner(data.fileList[i]);
-        //printf("\n data.owner");
-        
         data.groupOwner = FILE_GetGroupOwner(data.fileList[i]);
-        //printf("\n data.groupOwner");
-        
         data.fileNameWithPath = data.fileList[i];
         data.fileNameNoPath = FILE_GetFilenameFromPath(data.fileList[i]);
         data.inodePermissionString = FILE_GetListPermissionsString(data.fileList[i]);
-        
         data.lastModifiedData = FILE_GetLastModifiedData(data.fileList[i]);
-        //printf("\n data.lastModifiedData");
+        data.linkPath = NULL;
+        
+        if (strlen(data.fileNameNoPath) > 0)
+        {
+            data.finalStringPath = (char *) malloc (strlen(data.fileNameNoPath));
+            strcpy(data.finalStringPath, data.fileNameNoPath);
+        }
+        
+        if (data.inodePermissionString != NULL &&
+            strlen(data.inodePermissionString) > 0 &&
+            data.inodePermissionString[0] == 'l')
+            {
+                int len = 0;
+                data.isLink = 1;
+                data.linkPath = (char *) malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char));
+                if ((len = readlink (data.fileList[i], data.linkPath, CLIENT_COMMAND_STRING_SIZE)) > 0)
+                {
+                    data.linkPath[len] = 0;
+                    //printf("\n %s IS A LINK! -> %s", data.fileList[i], data.linkPath);
+                    ; //ok
+                    FILE_AppendToString(&data.finalStringPath, " -> ");
+                    FILE_AppendToString(&data.finalStringPath, data.linkPath);
+                }
+            }
 
         memset(data.lastModifiedDataString, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);       
-        
         strftime(data.lastModifiedDataString, 80, "%b %d %Y", localtime(&data.lastModifiedData));
 
         /*
@@ -307,18 +317,6 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         %Z	Timezone name or abbreviation	CDT
         %%	A % sign	%
          */
-        /*        
-        printf("\n\ndata.numberOfSubDirectories = %d", data.numberOfSubDirectories);
-        printf("\ndata.isDirectory = %d", data.isDirectory);
-        printf("\ndata.isFile = %d", data.isFile);
-        printf("\ndata.fileSize = %d", data.fileSize);
-        printf("\ndata.owner = %s", data.owner);
-        printf("\ndata.groupOwner = %s", data.groupOwner);
-        printf("\ndata.fileNameWithPath = %s", data.fileNameWithPath);
-        printf("\ndata.fileNameNoPath = %s (%d)", data.fileNameNoPath, strlen(data.fileNameNoPath));
-        printf("\ndata.inodePermissionString = %s", data.inodePermissionString);
-        printf("\ndata.lastModifiedDataString = %s", data.lastModifiedDataString);
-        */
         
         directoryInfo->PushBack(directoryInfo, &data, sizeof(ftpListDataType));
     }
@@ -341,23 +339,14 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 void deleteListDataInfoVector(void *TheElementToDelete)
 {
     ftpListDataType *data = (ftpListDataType *)TheElementToDelete;
-    /*
-    printf("\nDeleteListData Address of TheElementToDelete = %lX", TheElementToDelete);
-    printf("\n\nDeleting element\ndata.numberOfSubDirectories = %d", data->numberOfSubDirectories);
-    printf("\ndata.isDirectory = %d", data->isDirectory);
-    printf("\ndata.isFile = %d", data->isFile);
-    printf("\ndata.fileSize = %d", data->fileSize);
-    printf("\ndata.owner = %s", data->owner);
-    printf("\ndata.groupOwner = %s", data->groupOwner);
-    printf("\ndata.fileNameWithPath = %s", data->fileNameWithPath);
-    printf("\ndata.fileNameNoPath = %s", data->fileNameNoPath);
-    printf("\ndata.inodePermissionString = %s", data->inodePermissionString);
-    printf("\ndata.lastModifiedDataString = %s", data->lastModifiedDataString);    
-    */
+
     free(data->owner);
     free(data->groupOwner);
     free(data->inodePermissionString);
     free(data->fileNameWithPath);
+    free(data->finalStringPath);
+    if (data->linkPath != NULL)
+        free(data->linkPath);
 }
 
 void resetWorkerData(workerDataType *workerData, int isInitialization)

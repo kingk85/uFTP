@@ -54,8 +54,6 @@ void signal_callback_handler(int signum){
         printf("Caught signal SIGPIPE %d\n",signum);
 }
 
-#define SERVER_PORT     21
-
 static ftpDataType ftpData;
 
 static int createSocket(int port);
@@ -226,8 +224,8 @@ void *connectionWorkerHandle(void * socketId)
             strcpy(theResponse, "150 Accepted data connection\r\n");
             write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
             
-            char theBufferWrite[1024];
-            memset(theBufferWrite, 0, 1024);
+            char theBufferWrite[4096];
+            memset(theBufferWrite, 0, 4096);
             sprintf(theBufferWrite, "total %d\r\n", directoryInfo.Size);
             write(ftpData.clients[theSocketId].workerData.socketConnection, theBufferWrite, strlen(theBufferWrite));
             //printf("%s", theBufferWrite);
@@ -241,10 +239,11 @@ void *connectionWorkerHandle(void * socketId)
                 ,((((ftpListDataType *) directoryInfo.Data[i])->groupOwner) == NULL? "Uknown" : (((ftpListDataType *) directoryInfo.Data[i])->groupOwner))
                 ,((ftpListDataType *) directoryInfo.Data[i])->fileSize
                 ,((((ftpListDataType *) directoryInfo.Data[i])->lastModifiedDataString) == NULL? "Uknown" : (((ftpListDataType *) directoryInfo.Data[i])->lastModifiedDataString))
-                ,((((ftpListDataType *) directoryInfo.Data[i])->fileNameNoPath) == NULL? "Uknown" : (((ftpListDataType *) directoryInfo.Data[i])->fileNameNoPath)));
-                 //printf("%s", theBufferWrite);
+                ,((((ftpListDataType *) directoryInfo.Data[i])->finalStringPath) == NULL? "Uknown" : (((ftpListDataType *) directoryInfo.Data[i])->finalStringPath)));
+                printf("\n%s", theBufferWrite);
                  write(ftpData.clients[theSocketId].workerData.socketConnection, theBufferWrite, strlen(theBufferWrite));
             }
+            
 
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             sprintf(theResponse, "226 %d matches total\r\n", directoryInfo.Size);

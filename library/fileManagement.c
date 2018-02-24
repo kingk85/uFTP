@@ -407,39 +407,35 @@ char * FILE_GetFilenameFromPath(char * FileName)
 }
 
 char * FILE_GetListPermissionsString(char *file) {
-    struct stat st;
+    struct stat st, stl;
     char *modeval = malloc(sizeof(char) * 10 + 1);
-    if(stat(file, &st) == 0) {
+    if(stat(file, &st) == 0) 
+    {
         mode_t perm = st.st_mode;
+        modeval[0] = (S_ISDIR(st.st_mode)) ? 'd' : '-';
+        modeval[1] = (perm & S_IRUSR) ? 'r' : '-';
+        modeval[2] = (perm & S_IWUSR) ? 'w' : '-';
+        modeval[3] = (perm & S_IXUSR) ? 'x' : '-';
+        modeval[4] = (perm & S_IRGRP) ? 'r' : '-';
+        modeval[5] = (perm & S_IWGRP) ? 'w' : '-';
+        modeval[6] = (perm & S_IXGRP) ? 'x' : '-';
+        modeval[7] = (perm & S_IROTH) ? 'r' : '-';
+        modeval[8] = (perm & S_IWOTH) ? 'w' : '-';
+        modeval[9] = (perm & S_IXOTH) ? 'x' : '-';
+        modeval[10] = '\0';
         
-    modeval[0] = (S_ISDIR(st.st_mode)) ? 'd' : '-';
-    modeval[0] = ((perm & S_IFMT) == S_IFLNK) ? 'L' : modeval[0];
-    modeval[1] = (perm & S_IRUSR) ? 'r' : '-';
-    modeval[2] = (perm & S_IWUSR) ? 'w' : '-';
-    modeval[3] = (perm & S_IXUSR) ? 'x' : '-';
-    modeval[4] = (perm & S_IRGRP) ? 'r' : '-';
-    modeval[5] = (perm & S_IWGRP) ? 'w' : '-';
-    modeval[6] = (perm & S_IXGRP) ? 'x' : '-';
-    modeval[7] = (perm & S_IROTH) ? 'r' : '-';
-    modeval[8] = (perm & S_IWOTH) ? 'w' : '-';
-    modeval[9] = (perm & S_IXOTH) ? 'x' : '-';
-    modeval[10] = '\0';
-    //printf("\n\n");   
-    //printf( (S_ISDIR(st.st_mode)) ? "d" : "-");
-   // printf( (fileStat.st_mode & S_IRUSR) ? "r" : "-");
-   // printf( (fileStat.st_mode & S_IWUSR) ? "w" : "-");
-   // printf( (fileStat.st_mode & S_IXUSR) ? "x" : "-");
-   // printf( (fileStat.st_mode & S_IRGRP) ? "r" : "-");
-   // printf( (fileStat.st_mode & S_IWGRP) ? "w" : "-");
-   // printf( (fileStat.st_mode & S_IXGRP) ? "x" : "-");
-   // printf( (fileStat.st_mode & S_IROTH) ? "r" : "-");
-   // printf( (fileStat.st_mode & S_IWOTH) ? "w" : "-");
-   // printf( (fileStat.st_mode & S_IXOTH) ? "x" : "-");
-        return modeval;     
+        if(lstat(file, &stl) == 0)
+        {
+            if (S_ISLNK(stl.st_mode)) 
+                modeval[0] = 'l'; // is a link
+        }
+           
     }
     else {
-        return 0;
-    }   
+        return NULL;
+    }
+    
+    return modeval;
 }
 
 char * FILE_GetOwner(char *fileName)
