@@ -230,11 +230,17 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
     int fileAndFoldersCount = 0;
     ftpListDataType data;
     
-    data.fileList = NULL;
     FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0);
     
     for (i = 0; i < fileAndFoldersCount; i++)
     {
+        data.owner = NULL;
+        data.groupOwner = NULL;
+        data.inodePermissionString = NULL;
+        data.fileNameWithPath = NULL;
+        data.finalStringPath = NULL;
+        data.linkPath = NULL;       
+
         data.numberOfSubDirectories = 1; /* to Do*/
         data.isFile = 0;
         data.isDirectory = 0;
@@ -255,7 +261,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         }
         if (data.isDirectory == 0 && data.isFile == 0)
         {
-            printf("\n%s Not a directory, not a file, broken link?", data.fileList[i]);
+            printf("\nNot a directory, not a file, broken link");
             continue;
         }
 
@@ -265,11 +271,10 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         data.fileNameNoPath = FILE_GetFilenameFromPath(data.fileList[i]);
         data.inodePermissionString = FILE_GetListPermissionsString(data.fileList[i]);
         data.lastModifiedData = FILE_GetLastModifiedData(data.fileList[i]);
-        data.linkPath = NULL;
-        
+
         if (strlen(data.fileNameNoPath) > 0)
         {
-            data.finalStringPath = (char *) malloc (strlen(data.fileNameNoPath));
+            data.finalStringPath = (char *) malloc (strlen(data.fileNameNoPath)+1);
             strcpy(data.finalStringPath, data.fileNameNoPath);
         }
         
@@ -283,8 +288,6 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
                 if ((len = readlink (data.fileList[i], data.linkPath, CLIENT_COMMAND_STRING_SIZE)) > 0)
                 {
                     data.linkPath[len] = 0;
-                    //printf("\n %s IS A LINK! -> %s", data.fileList[i], data.linkPath);
-                    ; //ok
                     FILE_AppendToString(&data.finalStringPath, " -> ");
                     FILE_AppendToString(&data.finalStringPath, data.linkPath);
                 }
@@ -340,13 +343,58 @@ void deleteListDataInfoVector(void *TheElementToDelete)
 {
     ftpListDataType *data = (ftpListDataType *)TheElementToDelete;
 
-    free(data->owner);
-    free(data->groupOwner);
-    free(data->inodePermissionString);
-    free(data->fileNameWithPath);
-    free(data->finalStringPath);
+    
+    
+    
+    if (data->owner != NULL)
+    {
+        printf("\nDeleting data->owner:%s", data->owner);
+        fflush(0);
+        free(data->owner);
+    }
+    printf("\nDone");
+    fflush(0);
+    
+    if (data->groupOwner != NULL)
+    {
+        printf("\nDeleting data->groupOwner:%s", data->groupOwner);
+        fflush(0);
+        free(data->groupOwner);
+    }
+        printf("\nDone");
+    fflush(0);
+    if (data->inodePermissionString != NULL)
+    {
+        printf("\nDeleting data->inodePermissionString:%s", data->inodePermissionString);
+        fflush(0);
+        free(data->inodePermissionString);
+    }
+        printf("\nDone");
+    fflush(0);
+    if (data->fileNameWithPath != NULL)
+    {
+        printf("\nDeleting data->fileNameWithPath:%s", data->fileNameWithPath);
+        fflush(0);
+        free(data->fileNameWithPath);
+    }
+        printf("\nDone");
+    fflush(0);
+    if (data->finalStringPath != NULL)
+    {
+        printf("\nDeleting data->finalStringPath:%s", data->finalStringPath);
+        fflush(0);
+        free(data->finalStringPath);
+    }
+    printf("\nDone");
+    fflush(0);
     if (data->linkPath != NULL)
+    {
+        printf("\nDeleting data->linkPath:%s", data->linkPath);
+        fflush(0);
         free(data->linkPath);
+    }
+    printf("\nDone");
+    fflush(0);
 }
 
 void resetWorkerData(workerDataType *workerData, int isInitialization)

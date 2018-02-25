@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include <stdio.h>
 #include <signal.h>
 #include "../ftpServer.h"
 

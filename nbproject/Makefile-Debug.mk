@@ -39,6 +39,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/ftpData.o \
 	${OBJECTDIR}/ftpServer.o \
 	${OBJECTDIR}/library/configRead.o \
+	${OBJECTDIR}/library/connection.o \
 	${OBJECTDIR}/library/daemon.o \
 	${OBJECTDIR}/library/dynamicVectors.o \
 	${OBJECTDIR}/library/fileManagement.o \
@@ -90,6 +91,11 @@ ${OBJECTDIR}/library/configRead.o: library/configRead.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
 	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/configRead.o library/configRead.c
+
+${OBJECTDIR}/library/connection.o: library/connection.c
+	${MKDIR} -p ${OBJECTDIR}/library
+	${RM} "$@.d"
+	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/connection.o library/connection.c
 
 ${OBJECTDIR}/library/daemon.o: library/daemon.c
 	${MKDIR} -p ${OBJECTDIR}/library

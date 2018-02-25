@@ -126,22 +126,17 @@ void DYNV_VectorGeneric_SoftPopBack(DYNV_VectorGenericDataType *TheVector)
 
 void DYNV_VectorGeneric_Destroy(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(void *TheElementToDelete))
 {
-    
-    
-    //printf("\nDestroy Address of TheVector = %lX", TheVector);
     int i;
     for (i = 0; i < TheVector->Size; i++)
     {
-    DeleteElementFunction((void *) TheVector->Data[i]);
-    free(TheVector->Data[i]);
+        DeleteElementFunction((void *) TheVector->Data[i]);
+        free(TheVector->Data[i]);
     }
 
     free(TheVector->Data);
     free(TheVector->ElementSize);
-
     TheVector->Data = NULL;
     TheVector->ElementSize = NULL;
-
     TheVector->Size = 0;
 }
 

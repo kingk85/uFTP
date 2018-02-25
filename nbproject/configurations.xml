@@ -6,6 +6,7 @@
                    projectFiles="true">
       <logicalFolder name="library" displayName="library" projectFiles="true">
         <itemPath>library/configRead.h</itemPath>
+        <itemPath>library/connection.h</itemPath>
         <itemPath>library/dynamicVectors.h</itemPath>
         <itemPath>library/fileManagement.h</itemPath>
         <itemPath>library/logFunctions.h</itemPath>
@@ -26,6 +27,7 @@
                    projectFiles="true">
       <logicalFolder name="library" displayName="library" projectFiles="true">
         <itemPath>library/configRead.c</itemPath>
+        <itemPath>library/connection.c</itemPath>
         <itemPath>library/daemon.c</itemPath>
         <itemPath>library/dynamicVectors.c</itemPath>
         <itemPath>library/fileManagement.c</itemPath>
@@ -49,7 +51,6 @@
                    displayName="Important Files"
                    projectFiles="false"
                    kind="IMPORTANT_FILES_FOLDER">
-      <itemPath>MakeSimple</itemPath>
       <itemPath>Makefile</itemPath>
     </logicalFolder>
   </logicalFolder>
@@ -95,6 +96,10 @@
       <item path="library/configRead.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/configRead.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="library/connection.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/connection.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="library/daemon.c" ex="false" tool="0" flavor2="0">
       </item>
@@ -162,6 +167,10 @@
       <item path="library/configRead.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/configRead.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="library/connection.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/connection.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="library/daemon.c" ex="false" tool="0" flavor2="0">
       </item>

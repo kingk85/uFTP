@@ -89,7 +89,7 @@ int parseCommandSite(clientDataType *theClientData)
     }
     
     
-    
+    return 1;
     //site chmod 777 test
     //200 Permissions changed on test
     //500 SITE ciao is an unknown extension

@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2018 Ugo Cirmignani.
+ * Copyright 2018 ugo.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,53 +22,28 @@
  * THE SOFTWARE.
  */
 
-#ifndef CONFIGREAD_H
-#define CONFIGREAD_H
+/* 
+ * File:   connection.h
+ * Author: ugo
+ *
+ * Created on 25 febbraio 2018, 18.43
+ */
+
+#ifndef CONNECTION_H
+#define CONNECTION_H
+
+#include "../ftpData.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "dynamicVectors.h"
-
-#define DEFAULT_CONFIGURATION_FILENAME      "/etc/uftpd.cfg"
-#define LOCAL_CONFIGURATION_FILENAME        "./uftpd.cfg"
-
-    
-/* Data structures */
-struct parameter
-{
-    char* name;
-    char* value;
-} typedef parameter_DataType;
-
-struct usersParameters
-{
-    char* name;
-    char* password;
-    char* homePath;    
-} typedef usersParameters_DataType;
-
-struct ftpParameters
-{
-    int ftpIpAddress[4];
-    int port;
-    int maxClients;
-    int daemonModeOn;
-    int singleInstanceModeOn;
-    DYNV_VectorGenericDataType usersVector;
-    int maximumIdleInactivity;
-} typedef ftpParameters_DataType;
-
-
-/*Public functions */
-int searchUser(char *name, DYNV_VectorGenericDataType *usersVector);
-void configurationRead(ftpParameters_DataType *ftpParameters);
-
+int getMaximumSocketFd(int mainSocket, ftpDataType * data);
+int createSocket(ftpDataType * ftpData);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CONFIGREAD_H */
+#endif /* CONNECTION_H */
 

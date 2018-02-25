@@ -153,12 +153,17 @@ struct clientData
     unsigned long long int lastActivityTimeStamp;
 } typedef clientDataType;
 
+struct ConnectionParameters
+{
+    int theMainSocket;
+} typedef ConnectionData_DataType;
+
+
 struct ftpData
 {
     int connectedClients;
-
     char welcomeMessage[1024];
-    int theSocket;
+    ConnectionData_DataType connectionData;
     clientDataType *clients;
     ipDataType serverIp;
     ftpParameters_DataType ftpParameters;
