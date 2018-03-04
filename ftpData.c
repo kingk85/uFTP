@@ -36,6 +36,7 @@
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
 #include "ftpData.h"
+#include "library/configRead.h"
 #include "library/fileManagement.h"
 
 void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init)

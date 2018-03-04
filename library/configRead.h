@@ -30,40 +30,17 @@ extern "C" {
 #endif
 
 #include "dynamicVectors.h"
+#include "../ftpData.h"
 
 #define DEFAULT_CONFIGURATION_FILENAME      "/etc/uftpd.cfg"
 #define LOCAL_CONFIGURATION_FILENAME        "./uftpd.cfg"
-
     
-/* Data structures */
-struct parameter
-{
-    char* name;
-    char* value;
-} typedef parameter_DataType;
-
-struct usersParameters
-{
-    char* name;
-    char* password;
-    char* homePath;    
-} typedef usersParameters_DataType;
-
-struct ftpParameters
-{
-    int ftpIpAddress[4];
-    int port;
-    int maxClients;
-    int daemonModeOn;
-    int singleInstanceModeOn;
-    DYNV_VectorGenericDataType usersVector;
-    int maximumIdleInactivity;
-} typedef ftpParameters_DataType;
-
 
 /*Public functions */
+void initFtpData(ftpDataType *ftpData);
 int searchUser(char *name, DYNV_VectorGenericDataType *usersVector);
 void configurationRead(ftpParameters_DataType *ftpParameters);
+void applyConfiguration(ftpParameters_DataType *ftpParameters);
 
 
 #ifdef __cplusplus

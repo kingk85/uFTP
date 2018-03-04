@@ -40,6 +40,12 @@ extern "C" {
 
 int getMaximumSocketFd(int mainSocket, ftpDataType * data);
 int createSocket(ftpDataType * ftpData);
+void fdInit(ftpDataType * ftpData);
+
+void checkClientConnectionTimeout(ftpDataType * ftpData);
+void closeSocket(ftpDataType * ftpData, int processingSocket);
+void closeClient(ftpDataType * ftpData, int processingSocket);
+int selectWait(ftpDataType * ftpData);
 
 #ifdef __cplusplus
 }

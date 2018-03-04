@@ -40,8 +40,9 @@
 #ifndef FTPDATA_H
 #define FTPDATA_H
 
+#include <netinet/in.h>
 #include "library/dynamicVectors.h"
-#include "library/configRead.h"
+
 
 #define CLIENT_COMMAND_STRING_SIZE                  2048
 #define CLIENT_BUFFER_STRING_SIZE                   2048
@@ -53,6 +54,31 @@
 extern "C" {
 #endif
 
+/* Data structures */
+struct parameter
+{
+    char* name;
+    char* value;
+} typedef parameter_DataType;
+
+struct usersParameters
+{
+    char* name;
+    char* password;
+    char* homePath;    
+} typedef usersParameters_DataType;
+
+struct ftpParameters
+{
+    int ftpIpAddress[4];
+    int port;
+    int maxClients;
+    int daemonModeOn;
+    int singleInstanceModeOn;
+    DYNV_VectorGenericDataType usersVector;
+    int maximumIdleInactivity;
+} typedef ftpParameters_DataType;
+    
 struct dynamicStringData
 {
     char * text;
@@ -155,9 +181,9 @@ struct clientData
 
 struct ConnectionParameters
 {
-    int theMainSocket;
+    int theMainSocket, maxSocketFD;
+    fd_set rset, wset, eset, rsetAll, wsetAll, esetAll;
 } typedef ConnectionData_DataType;
-
 
 struct ftpData
 {

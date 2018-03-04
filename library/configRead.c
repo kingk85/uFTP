@@ -27,8 +27,10 @@
 #include <string.h>
 
 #include "configRead.h"
+#include "../ftpData.h"
 #include "dynamicVectors.h"
 #include "fileManagement.h"
+#include "daemon.h"
 
 #define PARAMETER_SIZE_LIMIT        1024
 
@@ -85,6 +87,52 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
     }
 
     return;
+}
+
+void applyConfiguration(ftpParameters_DataType *ftpParameters)
+{
+    if (ftpParameters->singleInstanceModeOn == 1)
+    {
+        int returnCode = isProcessAlreadyRunning();
+        if (returnCode == 1)
+        {
+            printf("\nThe process is already running..");
+            exit(0);
+        }
+    }
+
+    /* Fork the process daemon mode */
+    if (ftpParameters->daemonModeOn == 1)
+    {
+        daemonize("uFTP");
+    }
+}
+
+
+void initFtpData(ftpDataType *ftpData)
+{
+ int i;
+ ftpData->connectedClients = 0;
+ ftpData->clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData->ftpParameters.maxClients);
+ 
+ ftpData->serverIp.ip[0] = 127;
+ ftpData->serverIp.ip[1] = 0;
+ ftpData->serverIp.ip[2] = 0;
+ ftpData->serverIp.ip[3] = 1;
+
+ memset(ftpData->welcomeMessage, 0, 1024);
+ strcpy(ftpData->welcomeMessage, "220 Hello\r\n");
+ 
+  //Client data reset to zero
+  for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
+  {
+      resetWorkerData(&ftpData->clients[i].workerData, 1);
+      resetClientData(&ftpData->clients[i], 1);
+      ftpData->clients[i].clientProgressiveNumber = i;
+  }
+
+ return;
+
 }
 
 

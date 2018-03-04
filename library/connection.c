@@ -28,9 +28,15 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 #include "../ftpData.h"
 #include "connection.h"
+#include <unistd.h>
+#include <pthread.h>
+
+
+
 
 /* Return the higher socket available*/
 int getMaximumSocketFd(int mainSocket, ftpDataType * ftpData)
@@ -77,4 +83,95 @@ int createSocket(ftpDataType * ftpData)
   errorCode = listen(sock, ftpData->ftpParameters.maxClients + 1);
  
   return sock;
+}
+
+void fdInit(ftpDataType * ftpData)
+{
+    FD_ZERO(&ftpData->connectionData.rset);
+    FD_ZERO(&ftpData->connectionData.wset);
+    FD_ZERO(&ftpData->connectionData.eset);
+    FD_ZERO(&ftpData->connectionData.rsetAll);
+    FD_ZERO(&ftpData->connectionData.wsetAll);
+    FD_ZERO(&ftpData->connectionData.esetAll);    
+
+    FD_SET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.rsetAll);    
+    FD_SET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.wsetAll);
+    FD_SET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.esetAll);
+}
+
+void closeSocket(ftpDataType * ftpData, int processingSocket)
+{
+    //Close the socket
+    shutdown(ftpData->clients[processingSocket].socketDescriptor, SHUT_RDWR);
+    close(ftpData->clients[processingSocket].socketDescriptor);
+
+    resetClientData(&ftpData->clients[processingSocket], 0);
+    resetWorkerData(&ftpData->clients[processingSocket].workerData, 0);
+    
+    //Update client connecteds
+    ftpData->connectedClients--;
+    if (ftpData->connectedClients < 0) 
+    {
+        ftpData->connectedClients = 0;
+    }
+
+    printf("Client id: %d disconnected", processingSocket);
+    printf("\nServer: Clients connected:%d", ftpData->connectedClients);
+    return;
+}
+
+void closeClient(ftpDataType * ftpData, int processingSocket)
+{
+    printf("\nQUIT FLAG SET!\n");
+
+    if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
+    {
+        void *pReturn;
+        pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
+        pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
+        printf("\nQuit command received the Pasv Thread has been cancelled.");
+    }
+
+    FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    
+    FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.wsetAll);
+    FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.esetAll);
+
+    closeSocket(ftpData, processingSocket);
+
+    ftpData->connectionData.maxSocketFD = ftpData->connectionData.theMainSocket+1;
+    ftpData->connectionData.maxSocketFD = getMaximumSocketFd(ftpData->connectionData.theMainSocket, ftpData) + 1;
+    return;
+}
+
+void checkClientConnectionTimeout(ftpDataType * ftpData)
+{
+    int processingSock;
+    for (processingSock = 0; processingSock < ftpData->ftpParameters.maxClients; processingSock++)
+    {
+        /* No connection active*/
+        if (ftpData->clients[processingSock].socketDescriptor < 0 ||
+            ftpData->clients[processingSock].socketIsConnected == 0) 
+            {
+                continue;
+            }
+
+        /* Max idle time check, close the connection if time is elapsed */
+        if (ftpData->ftpParameters.maximumIdleInactivity != 0 &&
+            (int)time(NULL) - ftpData->clients[processingSock].lastActivityTimeStamp > ftpData->ftpParameters.maximumIdleInactivity)
+            {
+                ftpData->clients[processingSock].closeTheClient = 1;
+            }
+    }
+}
+
+int selectWait(ftpDataType * ftpData)
+{
+    struct timeval selectMaximumLockTime;
+    selectMaximumLockTime.tv_sec = 10;
+    selectMaximumLockTime.tv_usec = 0;
+
+    ftpData->connectionData.rset = ftpData->connectionData.rsetAll;
+    ftpData->connectionData.wset = ftpData->connectionData.wsetAll;
+    ftpData->connectionData.eset = ftpData->connectionData.esetAll;
+    return select(ftpData->connectionData.maxSocketFD, &ftpData->connectionData.rset, NULL, &ftpData->connectionData.eset, &selectMaximumLockTime);
 }

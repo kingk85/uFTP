@@ -41,18 +41,17 @@
 #include "ftpServer.h"
 #include "ftpData.h"
 #include "ftpCommandsElaborate.h"
+
 #include "library/fileManagement.h"
 #include "library/logFunctions.h"
 #include "library/configRead.h"
-#include "library/daemon.h"
 #include "library/signals.h"
 #include "library/connection.h"
 
+ftpDataType ftpData;
 
-static ftpDataType ftpData;
 
-static void closeSocket(int processingSocket);
-static void initFtpData(void);
+
 static int processCommand(int processingElement);
 
 void workerCleanup(void *socketId)
@@ -339,285 +338,207 @@ void *connectionWorkerHandle(void * socketId)
 void runFtpServer(void)
 {
     /* Needed for Select*/
-    fd_set rset, wset, eset, rsetAll, wsetAll, esetAll;
-    static int processingSock = 0, maxSocketFD = 0;
+    static int processingSock = 0;
+
+    /* Handle signals */
+    signalHandlerInstall();
 
     /*Read the configuration file */
     configurationRead(&ftpData.ftpParameters);
 
-    if (ftpData.ftpParameters.singleInstanceModeOn == 1)
-    {
-        int returnCode = isProcessAlreadyRunning();
-        printf("\nreturnCode : %d", returnCode);
-        if (returnCode == 1)
-        {
-            printf("\nThe process is already running..");
-            exit(0);
-        }
-    }
+    /* apply the readen configuration */
+    applyConfiguration(&ftpData.ftpParameters);
 
-    /* Fork the process daemon mode */
-    if (ftpData.ftpParameters.daemonModeOn == 1)
-    {
-        daemonize("uFTP");
-    }
+    /* initialize the ftp data structure */
+    initFtpData(&ftpData);
 
-    signalHandlerInstall();
-    initFtpData();
-    
     //Socket main creator
     ftpData.connectionData.theMainSocket = createSocket(&ftpData);
     printf("\nuFTP server starting..");
 
-    FD_ZERO(&rset);
-    FD_ZERO(&wset);
-    FD_ZERO(&eset);
-    FD_ZERO(&rsetAll);
-    FD_ZERO(&wsetAll);
-    FD_ZERO(&esetAll);    
+    /* init fd set needed for select */
+    fdInit(&ftpData);
 
-    FD_SET(ftpData.connectionData.theMainSocket, &rsetAll);    
-    FD_SET(ftpData.connectionData.theMainSocket, &wsetAll);
-    FD_SET(ftpData.connectionData.theMainSocket, &esetAll);
+    ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
 
-    maxSocketFD = ftpData.connectionData.theMainSocket+1;
-    
   //Endless loop ftp process
     while (1)
     {
-      int selectResult, i;
-      struct timeval selectMaximumLockTime;   // sleep for 1 second!
-      selectMaximumLockTime.tv_sec = 10;
-      selectMaximumLockTime.tv_usec = 0;
-
-      rset = rsetAll;
-      wset = wsetAll;
-      eset = esetAll;
-
-
-        printf("\nServer: Clients connected: %d", ftpData.connectedClients);
-        selectResult = select(maxSocketFD, &rset, NULL, &eset, &selectMaximumLockTime);
-
-
-    if (selectResult == 0)
-    {
-    printf("select() timed out!\n");
-
-      for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
-      {
-        if (ftpData.clients[processingSock].socketDescriptor < 0 ||
-            ftpData.clients[processingSock].socketIsConnected == 0) 
+        /* Check for socket activity, if timeout check maximum idle timeout */
+        if (selectWait(&ftpData) == 0)
         {
-            continue;
+            checkClientConnectionTimeout(&ftpData);
         }
-          if (ftpData.ftpParameters.maximumIdleInactivity != 0 &&
-              (int)time(NULL) - ftpData.clients[processingSock].lastActivityTimeStamp > ftpData.ftpParameters.maximumIdleInactivity)
+
+        /*Main loop handle client commands */
+        for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
+        {
+            /* close the connection if quit flag has been set */
+            if (ftpData.clients[processingSock].closeTheClient == 1)
             {
-              printf("\nTIME %d\n", (int)time(NULL));
-              printf("\nftpData.clients[processingSock].lastActivityTimeStamp %d\n", ftpData.clients[processingSock].lastActivityTimeStamp);
-              printf("\nIDLE TIME %d\n", ((int)time(NULL) - ftpData.clients[processingSock].lastActivityTimeStamp));
-              printf("\nIDLE TIMEOUT, SETTING THE QUIT FLAG!\n");
-              ftpData.clients[processingSock].closeTheClient = 1;
+                closeClient(&ftpData, processingSock);
+                continue;
             }
-          else
+
+          if (FD_ISSET(ftpData.connectionData.theMainSocket, &ftpData.connectionData.rset))
+          {
+              int socketIndex, availableSocketIndex;
+              availableSocketIndex = -1;
+
+              for (socketIndex = 0; socketIndex < ftpData.ftpParameters.maxClients; socketIndex++)
+              {
+                  if (ftpData.clients[socketIndex].socketDescriptor < 0 &&
+                      ftpData.clients[socketIndex].socketIsConnected == 0 ) 
+                  {
+                      availableSocketIndex = socketIndex;
+                      break;
+                  }
+              }
+
+              if (availableSocketIndex != -1)
+              {
+                  if ((ftpData.clients[availableSocketIndex].socketDescriptor = accept(ftpData.connectionData.theMainSocket, (struct sockaddr *)&ftpData.clients[availableSocketIndex].client_sockaddr_in, (socklen_t*)&ftpData.clients[availableSocketIndex].sockaddr_in_size))!=-1)
+                  {
+                      int error;
+                      ftpData.connectedClients++;
+                      ftpData.clients[availableSocketIndex].socketIsConnected = 1;
+
+                       error = fcntl(ftpData.clients[availableSocketIndex].socketDescriptor, F_SETFL, O_NONBLOCK);
+
+                      FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &ftpData.connectionData.rsetAll);    
+                      FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &ftpData.connectionData.wsetAll);
+                      FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &ftpData.connectionData.esetAll);
+                      ftpData.connectionData.maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData) + 1;
+
+                      error = getsockname(ftpData.clients[availableSocketIndex].socketDescriptor, (struct sockaddr *)&ftpData.clients[availableSocketIndex].server_sockaddr_in, (socklen_t*)&ftpData.clients[availableSocketIndex].sockaddr_in_server_size);
+                      inet_ntop(AF_INET, &(ftpData.clients[availableSocketIndex].server_sockaddr_in.sin_addr), ftpData.clients[availableSocketIndex].serverIpAddress, INET_ADDRSTRLEN);
+                      printf("\n Server IP: %s", ftpData.clients[availableSocketIndex].serverIpAddress);
+                      printf("Server: New client connected with id: %d", availableSocketIndex);
+                      printf("\nServer: Clients connected: %d", ftpData.connectedClients);
+                      sscanf (ftpData.clients[availableSocketIndex].serverIpAddress,"%d.%d.%d.%d",  &ftpData.clients[availableSocketIndex].serverIpAddressInteger[0],
+                                                                                              &ftpData.clients[availableSocketIndex].serverIpAddressInteger[1],
+                                                                                              &ftpData.clients[availableSocketIndex].serverIpAddressInteger[2],
+                                                                                              &ftpData.clients[availableSocketIndex].serverIpAddressInteger[3]);
+
+                      error = inet_ntop(AF_INET, &(ftpData.clients[availableSocketIndex].client_sockaddr_in.sin_addr), ftpData.clients[availableSocketIndex].clientIpAddress, INET_ADDRSTRLEN);
+                      printf("\n Client IP: %s", ftpData.clients[availableSocketIndex].clientIpAddress);
+                      ftpData.clients[availableSocketIndex].clientPort = (int) ntohs(ftpData.clients[availableSocketIndex].client_sockaddr_in.sin_port);      
+                      printf("\nClient port is: %d\n", ftpData.clients[availableSocketIndex].clientPort);
+
+                      ftpData.clients[availableSocketIndex].connectionTimeStamp = (int)time(NULL);
+                      ftpData.clients[availableSocketIndex].lastActivityTimeStamp = (int)time(NULL);
+                      write(ftpData.clients[availableSocketIndex].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
+                  }
+                  else
+                  {
+                      printf("\nErrno = %d", errno);
+                  }
+              }
+              else
+              {
+                  int socketRefuseFd, socketRefuse_in_size;
+                  socketRefuse_in_size = sizeof(struct sockaddr_in);
+                  struct sockaddr_in socketRefuse_sockaddr_in;
+                  if ((socketRefuseFd = accept(ftpData.connectionData.theMainSocket, (struct sockaddr *)&socketRefuse_sockaddr_in, (socklen_t*)&socketRefuse_in_size))!=-1)
+                  {
+                      char *messageToWrite = "530 Server reached the maximum number of connection, please try later.\r\n";
+                      write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
+                      shutdown(socketRefuseFd, SHUT_RDWR);
+                      close(socketRefuseFd);
+                  }
+                  else
+                  {
+                      printf("\nErrno = %d", errno);
+                  }
+              }
+          }
+
+          if (ftpData.clients[processingSock].socketDescriptor < 0 ||
+              ftpData.clients[processingSock].socketIsConnected == 0) 
+          {
+              continue;
+          }
+
+          if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rset) || 
+              FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset))
+          {
+
+            printf("\nClient r: %d, e: %d", FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rset), FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset));
+
+            //The client is not connected anymore
+            if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
             {
-              printf("\nIDLE TIME %d\n", ((int)time(NULL) - ftpData.clients[processingSock].lastActivityTimeStamp));
+
+              FD_CLR(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rsetAll);    
+              FD_CLR(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.wsetAll);
+              FD_CLR(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.esetAll);
+
+              closeSocket(&ftpData, processingSock);
+
+              printf("\nSocket is closed!\n");
+
+              ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
+              ftpData.connectionData.maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData) + 1;
             }
+
+          if (ftpData.clients[processingSock].bufferIndex < 0)
+          {
+          printf("\nErrno = %d", errno);
+          perror("Error: ");
+          }
+
+            //Some commands has been received
+            if (ftpData.clients[processingSock].bufferIndex > 0)
+            {
+              int i = 0;
+              int commandProcessStatus = 0;
+              for (i = 0; i < ftpData.clients[processingSock].bufferIndex; i++)
+              {
+                  if (ftpData.clients[processingSock].commandIndex < CLIENT_COMMAND_STRING_SIZE)
+                  {
+                      if (ftpData.clients[processingSock].buffer[i] != '\r' && ftpData.clients[processingSock].buffer[i] != '\n')
+                      {
+                          ftpData.clients[processingSock].theCommandReceived[ftpData.clients[processingSock].commandIndex++] = ftpData.clients[processingSock].buffer[i];
+                      }
+
+                      if (ftpData.clients[processingSock].buffer[i] == '\n') 
+                          {
+                              ftpData.clients[processingSock].socketCommandReceived = 1;
+                              commandProcessStatus = processCommand(processingSock);
+                              //Echo unrecognized commands
+                              if (commandProcessStatus == 0) 
+                              {
+                                  char * theNotSupportedString = "500 Unknown command\r\n";
+                                  //write(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, ftpData.clients[processingSock].bufferIndex);
+                                  //write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
+                                  printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
+                              }
+                              else
+                              {
+                                  ftpData.clients[processingSock].lastActivityTimeStamp = (int)time(NULL);
+                              }
+                          }
+                  }
+                  else
+                  {
+                      //Command overflow can't be processed
+                      ftpData.clients[processingSock].commandIndex = 0;
+                      memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+                      //Write some error message to the client
+                      break;
+                  }
+              }
+              usleep(100);
+              memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+            }
+        }
       }
-    }
-
-      for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
-      {
-          if (ftpData.clients[processingSock].closeTheClient == 1)
-          {
-              printf("\nQUIT FLAG SET!\n");
-              
-            if (ftpData.clients[processingSock].workerData.threadIsAlive == 1)
-            {
-                void *pReturn;
-                pthread_cancel(ftpData.clients[processingSock].workerData.workerThread);
-                pthread_join(ftpData.clients[processingSock].workerData.workerThread, &pReturn);
-                printf("\nQuit command received the Pasv Thread has been cancelled.");
-            }
-
-            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &rsetAll);    
-            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &wsetAll);
-            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &esetAll);
-
-            closeSocket(processingSock);
-            printf("\nSocket is closed!\n");
-            
-            maxSocketFD = ftpData.connectionData.theMainSocket+1;
-            maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData) + 1;
-            continue;
-          }
-
-	if (FD_ISSET(ftpData.connectionData.theMainSocket, &rset))
-	{
-            int socketIndex, availableSocketIndex;
-            availableSocketIndex = -1;
-
-            for (socketIndex = 0; socketIndex < ftpData.ftpParameters.maxClients; socketIndex++)
-            {
-                if (ftpData.clients[socketIndex].socketDescriptor < 0 &&
-                    ftpData.clients[socketIndex].socketIsConnected == 0 ) 
-                {
-                    availableSocketIndex = socketIndex;
-                    break;
-                }
-            }
-
-            if (availableSocketIndex != -1)
-            {
-                if ((ftpData.clients[availableSocketIndex].socketDescriptor = accept(ftpData.connectionData.theMainSocket, (struct sockaddr *)&ftpData.clients[availableSocketIndex].client_sockaddr_in, (socklen_t*)&ftpData.clients[availableSocketIndex].sockaddr_in_size))!=-1)
-                {
-                    int error;
-                    ftpData.connectedClients++;
-                    ftpData.clients[availableSocketIndex].socketIsConnected = 1;
-
-                     error = fcntl(ftpData.clients[availableSocketIndex].socketDescriptor, F_SETFL, O_NONBLOCK);
-
-                    FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &rsetAll);    
-                    FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &wsetAll);
-                    FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &esetAll);
-                    maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData) + 1;
-
-                    error = getsockname(ftpData.clients[availableSocketIndex].socketDescriptor, (struct sockaddr *)&ftpData.clients[availableSocketIndex].server_sockaddr_in, (socklen_t*)&ftpData.clients[availableSocketIndex].sockaddr_in_server_size);
-                    inet_ntop(AF_INET, &(ftpData.clients[availableSocketIndex].server_sockaddr_in.sin_addr), ftpData.clients[availableSocketIndex].serverIpAddress, INET_ADDRSTRLEN);
-                    printf("\n Server IP: %s", ftpData.clients[availableSocketIndex].serverIpAddress);
-                    printf("Server: New client connected with id: %d", availableSocketIndex);
-                    printf("\nServer: Clients connected: %d", ftpData.connectedClients);
-                    sscanf (ftpData.clients[availableSocketIndex].serverIpAddress,"%d.%d.%d.%d",  &ftpData.clients[availableSocketIndex].serverIpAddressInteger[0],
-                                                                                            &ftpData.clients[availableSocketIndex].serverIpAddressInteger[1],
-                                                                                            &ftpData.clients[availableSocketIndex].serverIpAddressInteger[2],
-                                                                                            &ftpData.clients[availableSocketIndex].serverIpAddressInteger[3]);
-
-                    error = inet_ntop(AF_INET, &(ftpData.clients[availableSocketIndex].client_sockaddr_in.sin_addr), ftpData.clients[availableSocketIndex].clientIpAddress, INET_ADDRSTRLEN);
-                    printf("\n Client IP: %s", ftpData.clients[availableSocketIndex].clientIpAddress);
-                    ftpData.clients[availableSocketIndex].clientPort = (int) ntohs(ftpData.clients[availableSocketIndex].client_sockaddr_in.sin_port);      
-                    printf("\nClient port is: %d\n", ftpData.clients[availableSocketIndex].clientPort);
-
-
-                    ftpData.clients[availableSocketIndex].connectionTimeStamp = (int)time(NULL);
-                    ftpData.clients[availableSocketIndex].lastActivityTimeStamp = (int)time(NULL);
-
-
-                    write(ftpData.clients[availableSocketIndex].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
-                }
-                else
-                {
-                    printf("\nErrno = %d", errno);
-                }
-            }
-            else
-            {
-                int socketRefuseFd, socketRefuse_in_size;
-                socketRefuse_in_size = sizeof(struct sockaddr_in);
-                struct sockaddr_in socketRefuse_sockaddr_in;
-                if ((socketRefuseFd = accept(ftpData.connectionData.theMainSocket, (struct sockaddr *)&socketRefuse_sockaddr_in, (socklen_t*)&socketRefuse_in_size))!=-1)
-                {
-                    char *messageToWrite = "530 Server reached the maximum number of connection, please try later.\r\n";
-                    write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
-                    shutdown(socketRefuseFd, SHUT_RDWR);
-                    close(socketRefuseFd);
-                }
-                else
-                {
-                    printf("\nErrno = %d", errno);
-                }
-            }
-	}
-
-        if (ftpData.clients[processingSock].socketDescriptor < 0 ||
-            ftpData.clients[processingSock].socketIsConnected == 0) 
-        {
-            continue;
-        }
-        
-	if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &rset) || 
-            FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &eset))
-	{
-            
-          printf("\nClient r: %d, e: %d", FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &rset), FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &eset));
-            
-          //The client is not connected anymore
-          if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
-          {
-            
-            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &rsetAll);    
-            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &wsetAll);
-            FD_CLR(ftpData.clients[processingSock].socketDescriptor, &esetAll);
-
-            closeSocket(processingSock);
-            
-            printf("\nSocket is closed!\n");
-            
-            maxSocketFD = ftpData.connectionData.theMainSocket+1;
-            maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData) + 1;
-          }
-
-        if (ftpData.clients[processingSock].bufferIndex < 0)
-        {
-        printf("\nErrno = %d", errno);
-        perror("Error: ");
-        }
-
-          //Some commands has been received
-          if (ftpData.clients[processingSock].bufferIndex > 0)
-          {
-            int i = 0;
-            int commandProcessStatus = 0;
-            for (i = 0; i < ftpData.clients[processingSock].bufferIndex; i++)
-            {
-                if (ftpData.clients[processingSock].commandIndex < CLIENT_COMMAND_STRING_SIZE)
-                {
-                    if (ftpData.clients[processingSock].buffer[i] != '\r' && ftpData.clients[processingSock].buffer[i] != '\n')
-                    {
-                        ftpData.clients[processingSock].theCommandReceived[ftpData.clients[processingSock].commandIndex++] = ftpData.clients[processingSock].buffer[i];
-                    }
-
-                    if (ftpData.clients[processingSock].buffer[i] == '\n') 
-                        {
-                            ftpData.clients[processingSock].socketCommandReceived = 1;
-                            commandProcessStatus = processCommand(processingSock);
-                            //Echo unrecognized commands
-                            if (commandProcessStatus == 0) 
-                            {
-                                char * theNotSupportedString = "500 Unknown command\r\n";
-                                //write(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, ftpData.clients[processingSock].bufferIndex);
-                                //write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
-                                printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
-                            }
-                            else
-                            {
-                                ftpData.clients[processingSock].lastActivityTimeStamp = (int)time(NULL);
-                            }
-                        }
-                }
-                else
-                {
-                    //Command overflow can't be processed
-                    ftpData.clients[processingSock].commandIndex = 0;
-                    memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-                    //Write some error message to the client
-                    break;
-                }
-            }
-            usleep(100);
-            memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-          }
-
-              
-      }
-    }
   }
-  
-  //Server Close
-  closeSocket(ftpData.connectionData.theMainSocket);
-  printTimeStamp();
-  printf("Server: Closed.");
 
-  ftpData.clients[processingSock].socketIsConnected = 0;
+  //Server Close
+  shutdown(ftpData.connectionData.theMainSocket, SHUT_RDWR);
+  close(ftpData.connectionData.theMainSocket);
+
   return;
 }
 
@@ -632,12 +553,6 @@ void runFtpServer(void)
   temp.sin_addr.s_addr = INADDR_ANY;
   temp.sin_port = htons(port);
 
-  
-
-   // flags = fcntl(sock, F_GETFL, 0);
-   // flags &= ~O_NONBLOCK;
-   // returnCode =  fcntl(sock, F_SETFL, flags);
-  
   
   int reuse = 1;
    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
@@ -656,7 +571,6 @@ void runFtpServer(void)
   return sock;
 }
 
- 
 int createActiveSocket(int port, char *ipAddress)
 {
   int sockfd;
@@ -703,52 +617,6 @@ int createActiveSocket(int port, char *ipAddress)
   return sockfd;
 }
  
-static void closeSocket(int processingSocket)
-{
-    //Close the socket
-    shutdown(ftpData.clients[processingSocket].socketDescriptor, SHUT_RDWR);
-    close(ftpData.clients[processingSocket].socketDescriptor);
-
-    resetClientData(&ftpData.clients[processingSocket], 0);
-    resetWorkerData(&ftpData.clients[processingSocket].workerData, 0);
-    
-    //Update client connecteds
-    ftpData.connectedClients--;
-    if (ftpData.connectedClients < 0) 
-    {
-        ftpData.connectedClients = 0;
-    }
-    printTimeStamp();
-    printf("Client id: %d disconnected", processingSocket);
-    printf("\nServer: Clients connected:%d", ftpData.connectedClients);
-    return;
-}
-
-static void initFtpData(void)
-{
- int i;
- ftpData.connectedClients = 0;
- ftpData.clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData.ftpParameters.maxClients);
- 
- ftpData.serverIp.ip[0] = 127;
- ftpData.serverIp.ip[1] = 0;
- ftpData.serverIp.ip[2] = 0;
- ftpData.serverIp.ip[3] = 1;
-
- memset(ftpData.welcomeMessage, 0, 1024);
- strcpy(ftpData.welcomeMessage, "220 Hello\r\n");
- 
-  //Client data reset to zero
-  for (i = 0; i < ftpData.ftpParameters.maxClients; i++)
-  {
-      resetWorkerData(&ftpData.clients[i].workerData, 1);
-      resetClientData(&ftpData.clients[i], 1);
-      ftpData.clients[i].clientProgressiveNumber = i;
-  }
-
- return;
-}
-
 static int processCommand(int processingElement)
 {
     int toReturn = 0;
