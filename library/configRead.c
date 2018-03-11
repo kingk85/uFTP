@@ -380,10 +380,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     searchIndex = searchParameter("DAEMON_MODE", parametersVector);
     if (searchIndex != -1)
     {
-        if(strcmp(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "true") == 0)
-            ftpParameters->daemonModeOn = 1;
-            
-        if(strcmp(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "TRUE") == 0)
+        if(compareStringCaseInsensitive(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "true", strlen("true")) == 1)
             ftpParameters->daemonModeOn = 1;
         
         printf("\nDAEMON_MODE value: %d", ftpParameters->daemonModeOn);
@@ -397,11 +394,9 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     searchIndex = searchParameter("SINGLE_INSTANCE", parametersVector);
     if (searchIndex != -1)
     {
-        if(strcmp(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "true") == 0)
+        if(compareStringCaseInsensitive(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "true", strlen("true")) == 1)
             ftpParameters->singleInstanceModeOn = 1;
-            
-        if(strcmp(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "TRUE") == 0)
-            ftpParameters->singleInstanceModeOn = 1;
+
     }
     else
     {
@@ -469,7 +464,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
             printf("\n BREAK ");
             break;
         }
-        
+
         userData.name = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1);
         userData.password = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1);
         userData.homePath = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value) + 1);
