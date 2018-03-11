@@ -22,13 +22,6 @@
  * THE SOFTWARE.
  */
 
-/* 
- * File:   signals.h
- * Author: ugo
- *
- * Created on 24 febbraio 2018, 19.15
- */
-
 #ifndef SIGNALS_H
 #define SIGNALS_H
 

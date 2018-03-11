@@ -23,20 +23,6 @@
  */
 
 
-
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/* 
- * File:   ftpServer.h
- * Author: ugo
- *
- * Created on 7 ottobre 2017, 17.37
- */
-
 #ifndef FTPSERVER_H
 #define FTPSERVER_H
 
@@ -44,8 +30,7 @@
 
 
 void runFtpServer(void);
-int createPassiveSocket(int port);
-int createActiveSocket(int port, char *ipAddress);
+
 
 void *connectionWorkerHandle(void * socketId);
 void workerCleanup(void *socketId);

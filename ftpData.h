@@ -23,20 +23,6 @@
  */
 
 
-
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-/* 
- * File:   ftpData.h
- * Author: ugo
- *
- * Created on 8 ottobre 2017, 13.14
- */
-
 #ifndef FTPDATA_H
 #define FTPDATA_H
 
@@ -224,6 +210,8 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
 void deleteListDataInfoVector(void *TheElementToDelete);
 void resetWorkerData(workerDataType *pasvData, int isInitialization);
 void resetClientData(clientDataType *clientData, int isInitialization);
+int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
+int isCharInString(char *theString, int stringLen, char theChar);
 #ifdef __cplusplus
 }
 #endif

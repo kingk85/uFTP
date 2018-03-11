@@ -50,8 +50,6 @@
 
 ftpDataType ftpData;
 
-
-
 static int processCommand(int processingElement);
 
 void workerCleanup(void *socketId)
@@ -327,7 +325,6 @@ void *connectionWorkerHandle(void * socketId)
         break;
     }
 
- 
   pthread_exit((void *)1);
   pthread_cleanup_pop(0);
   pthread_exit((void *)2);
@@ -338,7 +335,7 @@ void *connectionWorkerHandle(void * socketId)
 void runFtpServer(void)
 {
     /* Needed for Select*/
-    static int processingSock = 0;
+    static int processingSock = 0, returnCode = 0;
 
     /* Handle signals */
     signalHandlerInstall();
@@ -346,7 +343,7 @@ void runFtpServer(void)
     /*Read the configuration file */
     configurationRead(&ftpData.ftpParameters);
 
-    /* apply the readen configuration */
+    /* apply the reden configuration */
     applyConfiguration(&ftpData.ftpParameters);
 
     /* initialize the ftp data structure */
@@ -359,12 +356,13 @@ void runFtpServer(void)
     /* init fd set needed for select */
     fdInit(&ftpData);
 
+    /* the maximum socket fd is now the main socket descriptor */
     ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
 
   //Endless loop ftp process
     while (1)
     {
-        /* Check for socket activity, if timeout check maximum idle timeout */
+        /* waits for socket activity, if no activity then checks for client socket timeouts */
         if (selectWait(&ftpData) == 0)
         {
             checkClientConnectionTimeout(&ftpData);
@@ -380,82 +378,13 @@ void runFtpServer(void)
                 continue;
             }
 
-          if (FD_ISSET(ftpData.connectionData.theMainSocket, &ftpData.connectionData.rset))
+            /* Check if there are client pending connections, accept the connection if possible otherwise reject */  
+            returnCode = evaluateClientSocketConnection(&ftpData);
+
+            /* no data to check client is not connected, continue to check other clients */
+          if (isClientConnected(&ftpData, processingSock) == 0) 
           {
-              int socketIndex, availableSocketIndex;
-              availableSocketIndex = -1;
-
-              for (socketIndex = 0; socketIndex < ftpData.ftpParameters.maxClients; socketIndex++)
-              {
-                  if (ftpData.clients[socketIndex].socketDescriptor < 0 &&
-                      ftpData.clients[socketIndex].socketIsConnected == 0 ) 
-                  {
-                      availableSocketIndex = socketIndex;
-                      break;
-                  }
-              }
-
-              if (availableSocketIndex != -1)
-              {
-                  if ((ftpData.clients[availableSocketIndex].socketDescriptor = accept(ftpData.connectionData.theMainSocket, (struct sockaddr *)&ftpData.clients[availableSocketIndex].client_sockaddr_in, (socklen_t*)&ftpData.clients[availableSocketIndex].sockaddr_in_size))!=-1)
-                  {
-                      int error;
-                      ftpData.connectedClients++;
-                      ftpData.clients[availableSocketIndex].socketIsConnected = 1;
-
-                       error = fcntl(ftpData.clients[availableSocketIndex].socketDescriptor, F_SETFL, O_NONBLOCK);
-
-                      FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &ftpData.connectionData.rsetAll);    
-                      FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &ftpData.connectionData.wsetAll);
-                      FD_SET(ftpData.clients[availableSocketIndex].socketDescriptor, &ftpData.connectionData.esetAll);
-                      ftpData.connectionData.maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData) + 1;
-
-                      error = getsockname(ftpData.clients[availableSocketIndex].socketDescriptor, (struct sockaddr *)&ftpData.clients[availableSocketIndex].server_sockaddr_in, (socklen_t*)&ftpData.clients[availableSocketIndex].sockaddr_in_server_size);
-                      inet_ntop(AF_INET, &(ftpData.clients[availableSocketIndex].server_sockaddr_in.sin_addr), ftpData.clients[availableSocketIndex].serverIpAddress, INET_ADDRSTRLEN);
-                      printf("\n Server IP: %s", ftpData.clients[availableSocketIndex].serverIpAddress);
-                      printf("Server: New client connected with id: %d", availableSocketIndex);
-                      printf("\nServer: Clients connected: %d", ftpData.connectedClients);
-                      sscanf (ftpData.clients[availableSocketIndex].serverIpAddress,"%d.%d.%d.%d",  &ftpData.clients[availableSocketIndex].serverIpAddressInteger[0],
-                                                                                              &ftpData.clients[availableSocketIndex].serverIpAddressInteger[1],
-                                                                                              &ftpData.clients[availableSocketIndex].serverIpAddressInteger[2],
-                                                                                              &ftpData.clients[availableSocketIndex].serverIpAddressInteger[3]);
-
-                      error = inet_ntop(AF_INET, &(ftpData.clients[availableSocketIndex].client_sockaddr_in.sin_addr), ftpData.clients[availableSocketIndex].clientIpAddress, INET_ADDRSTRLEN);
-                      printf("\n Client IP: %s", ftpData.clients[availableSocketIndex].clientIpAddress);
-                      ftpData.clients[availableSocketIndex].clientPort = (int) ntohs(ftpData.clients[availableSocketIndex].client_sockaddr_in.sin_port);      
-                      printf("\nClient port is: %d\n", ftpData.clients[availableSocketIndex].clientPort);
-
-                      ftpData.clients[availableSocketIndex].connectionTimeStamp = (int)time(NULL);
-                      ftpData.clients[availableSocketIndex].lastActivityTimeStamp = (int)time(NULL);
-                      write(ftpData.clients[availableSocketIndex].socketDescriptor, ftpData.welcomeMessage, strlen(ftpData.welcomeMessage));
-                  }
-                  else
-                  {
-                      printf("\nErrno = %d", errno);
-                  }
-              }
-              else
-              {
-                  int socketRefuseFd, socketRefuse_in_size;
-                  socketRefuse_in_size = sizeof(struct sockaddr_in);
-                  struct sockaddr_in socketRefuse_sockaddr_in;
-                  if ((socketRefuseFd = accept(ftpData.connectionData.theMainSocket, (struct sockaddr *)&socketRefuse_sockaddr_in, (socklen_t*)&socketRefuse_in_size))!=-1)
-                  {
-                      char *messageToWrite = "530 Server reached the maximum number of connection, please try later.\r\n";
-                      write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
-                      shutdown(socketRefuseFd, SHUT_RDWR);
-                      close(socketRefuseFd);
-                  }
-                  else
-                  {
-                      printf("\nErrno = %d", errno);
-                  }
-              }
-          }
-
-          if (ftpData.clients[processingSock].socketDescriptor < 0 ||
-              ftpData.clients[processingSock].socketIsConnected == 0) 
-          {
+              /* socket is not conneted */
               continue;
           }
 
@@ -463,29 +392,21 @@ void runFtpServer(void)
               FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset))
           {
 
-            printf("\nClient r: %d, e: %d", FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rset), FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset));
-
             //The client is not connected anymore
             if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
             {
-
-              FD_CLR(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rsetAll);    
-              FD_CLR(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.wsetAll);
-              FD_CLR(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.esetAll);
-
+              fdRemove(&ftpData, processingSock);
               closeSocket(&ftpData, processingSock);
-
-              printf("\nSocket is closed!\n");
-
-              ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
-              ftpData.connectionData.maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData) + 1;
+              ftpData.connectionData.maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData);
+              printf("\nA client has been disconnected!\n");
             }
 
-          if (ftpData.clients[processingSock].bufferIndex < 0)
-          {
-          printf("\nErrno = %d", errno);
-          perror("Error: ");
-          }
+            //Debug print errors
+            if (ftpData.clients[processingSock].bufferIndex < 0)
+            {
+                printf("\nErrno = %d", errno);
+                perror("Error: ");
+            }
 
             //Some commands has been received
             if (ftpData.clients[processingSock].bufferIndex > 0)
@@ -509,8 +430,7 @@ void runFtpServer(void)
                               if (commandProcessStatus == 0) 
                               {
                                   char * theNotSupportedString = "500 Unknown command\r\n";
-                                  //write(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, ftpData.clients[processingSock].bufferIndex);
-                                  //write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
+                                  write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
                                   printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
                               }
                               else
@@ -522,9 +442,11 @@ void runFtpServer(void)
                   else
                   {
                       //Command overflow can't be processed
+                      char * theNotSupportedString = "500 Unknown command\r\n";
                       ftpData.clients[processingSock].commandIndex = 0;
                       memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
                       //Write some error message to the client
+                      write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
                       break;
                   }
               }
@@ -542,320 +464,201 @@ void runFtpServer(void)
   return;
 }
 
- int createPassiveSocket(int port)
-{
-  int sock, returnCode, flags;
-  struct sockaddr_in temp;
-
-  //Socket creation
-  sock = socket(AF_INET, SOCK_STREAM, 0);
-  temp.sin_family = AF_INET;
-  temp.sin_addr.s_addr = INADDR_ANY;
-  temp.sin_port = htons(port);
-
-  
-  int reuse = 1;
-   if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
-
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-       perror("setsockopt(SO_REUSEPORT) failed");
-
-
-  //Bind socket
-  returnCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
-
-  //Number of client allowed
-  returnCode = listen(sock, 1);
-
-  return sock;
-}
-
-int createActiveSocket(int port, char *ipAddress)
-{
-  int sockfd;
-  struct sockaddr_in serv_addr;
-  struct hostent *hostnm;    /* server host name information        */
-  
-  memset(&serv_addr, 0, sizeof(struct sockaddr_in)); 
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(port); 
-  if(inet_pton(AF_INET, ipAddress, &serv_addr.sin_addr)<=0)
-  {
-      printf("\n inet_pton error occured\n");
-      return -1;
-  } 
-
-  if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-  {
-      printf("\n Error : Could not create socket \n");
-      return -1;
-  }
-  else
-  {
-      printf("\n sockfd = %d \n", sockfd);
-  }
-  
-  
-  int reuse = 1;
-   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
-
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-       perror("setsockopt(SO_REUSEPORT) failed");
-  
-  
-
-  if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-  {
-     printf("\n Error : Connect Failed \n");
-     return -1;
-  }
-
-  printf("\n Connection socket %d is going to start ip: %s:%d \n",sockfd, ipAddress, port);
-
-  return sockfd;
-}
- 
 static int processCommand(int processingElement)
 {
     int toReturn = 0;
     printTimeStamp();
     printf ("Command received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
    
-    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"USER\", strlen(\"USER\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")));
-    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"user\", strlen(\"user\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")));
-    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"PASS\", strlen(\"PASS\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")));
-    //printf ("\nstrncmp(ftpData.clients[processingElement].theCommandReceived, \"pass\", strlen(\"pass\")) %d", strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")));
-
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandArgs, 0);
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandOps, 0);
 
     if (ftpData.clients[processingElement].login.userLoggedIn == 0 &&
-        (strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) != 0 && 
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")) != 0 &&
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")) != 0 &&
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")) != 0 &&
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "QUIT", strlen("QUIT")) != 0 &&
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "quit", strlen("quit")) != 0) &&
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) != 0 &&
-         strncmp(ftpData.clients[processingElement].theCommandReceived, "auth", strlen("auth")) != 0)
+        (compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) != 1 &&
+         compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")) != 1 &&
+         compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "QUIT", strlen("QUIT")) != 1 &&
+         compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) != 1))
         {
             toReturn = notLoggedInMessage(&ftpData.clients[processingElement]);
+            ftpData.clients[processingElement].commandIndex = 0;
+            memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
             return 1;
         }
-    
-    
+
     //Process Command
-    if(strncmp(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) == 0 || 
-       strncmp(ftpData.clients[processingElement].theCommandReceived, "user", strlen("user")) == 0)
+    if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) == 1)
     {
         printf("\nUSER COMMAND RECEIVED");
         toReturn = parseCommandUser(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "pass", strlen("pass")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")) == 1)
     {
         printf("\nPASS COMMAND RECEIVED");
         toReturn = parseCommandPass(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "SITE", strlen("SITE")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "site", strlen("site")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "SITE", strlen("SITE")) == 1)
     {
         printf("\nSITE COMMAND RECEIVED");
         toReturn = parseCommandSite(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "auth", strlen("auth")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) == 1)
     {
         printf("\nAUTH COMMAND RECEIVED");
         toReturn = parseCommandAuth(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "PWD", strlen("PWD")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "pwd", strlen("pwd")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PWD", strlen("PWD")) == 1)
     {
         printf("\nPWD COMMAND RECEIVED");
         toReturn = parseCommandPwd(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "SYST", strlen("SYST")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "syst", strlen("syst")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "SYST", strlen("SYST")) == 1)
     {
         printf("\nSYST COMMAND RECEIVED");
         toReturn = parseCommandSyst(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "FEAT", strlen("FEAT")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "feat", strlen("feat")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "FEAT", strlen("FEAT")) == 1)
     {
         printf("\nFEAT COMMAND RECEIVED");
         toReturn = parseCommandFeat(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "TYPE I", strlen("TYPE I")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "type i", strlen("type i")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "TYPE I", strlen("TYPE I")) == 1)
     {
         printf("\nTYPE I COMMAND RECEIVED");
         toReturn = parseCommandTypeI(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "STRU F", strlen("STRU F")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "stru f", strlen("stru f")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "STRU F", strlen("STRU F")) == 1)
     {
         printf("\nTYPE I COMMAND RECEIVED");
         toReturn = parseCommandStruF(&ftpData.clients[processingElement]);
     }    
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MODE S", strlen("TMODE S")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "mode s", strlen("mode s")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "MODE S", strlen("MODE S")) == 1)
     {
         printf("\nMODE S COMMAND RECEIVED");
         toReturn = parseCommandModeS(&ftpData.clients[processingElement]);
     }    
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "TYPE A", strlen("TYPE A")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "type a", strlen("type a")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "TYPE A", strlen("TYPE A")) == 1)
     {
         printf("\nTYPE A COMMAND RECEIVED");
         toReturn = parseCommandTypeI(&ftpData.clients[processingElement]);
     }    
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "PASV", strlen("PASV")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "pasv", strlen("pasv")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PASV", strlen("PASV")) == 1)
     {
         printf("\nPASV COMMAND RECEIVED");
         setRandomicPort(&ftpData, processingElement);
         toReturn = parseCommandPasv(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "PORT", strlen("PORT")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "port", strlen("port")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PORT", strlen("PORT")) == 1)
     {
         printf("\nPORT COMMAND RECEIVED");
         toReturn = parseCommandPort(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "LIST", strlen("LIST")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "list", strlen("list")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "LIST", strlen("LIST")) == 1)
     {
         printf("\nLIST COMMAND RECEIVED");
         toReturn = parseCommandList(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "CWD", strlen("CWD")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "cwd", strlen("cwd")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CWD", strlen("CWD")) == 1)
     {
         printf("\nCWD COMMAND RECEIVED");
         toReturn = parseCommandCwd(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "CDUP", strlen("CDUP")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "cdup", strlen("cdup")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CDUP", strlen("CDUP")) == 1)
     {
         printf("\nCDUP COMMAND RECEIVED");
         toReturn = parseCommandCdup(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "REST", strlen("REST")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "rest", strlen("rest")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "REST", strlen("REST")) == 1)
     {
         printf("\nREST COMMAND RECEIVED");
         toReturn = parseCommandRest(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RETR", strlen("RETR")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "retr", strlen("retr")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "RETR", strlen("RETR")) == 1)
     {
         printf("\nRETR COMMAND RECEIVED");
         toReturn = parseCommandRetr(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "STOR", strlen("STOR")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "stor", strlen("stor")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "STOR", strlen("STOR")) == 1)
     {
         printf("\nSTOR COMMAND RECEIVED");
         toReturn = parseCommandStor(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MKD", strlen("MKD")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "mkd", strlen("mkd")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "MKD", strlen("MKD")) == 1)
     {
         printf("\nMKD command received");
         toReturn = parseCommandMkd(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "ABOR", strlen("ABOR")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "abor", strlen("abor")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "ABOR", strlen("ABOR")) == 1)
     {
         printf("\nABOR command received");
         toReturn = parseCommandAbor(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "DELE", strlen("DELE")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "dele", strlen("dele")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "DELE", strlen("DELE")) == 1)
     {
         printf("\nDELE command received");
         toReturn = parseCommandDele(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "OPTS", strlen("OPTS")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "opts", strlen("opts")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "OPTS", strlen("OPTS")) == 1)
     {
         printf("\nOPTS command received");
         toReturn = parseCommandOpts(&ftpData.clients[processingElement]);
     }    
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "MTDM", strlen("MTDM")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "mtdm", strlen("mtdm")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "MTDM", strlen("MTDM")) == 1)
     {
         printf("\nMTDM command received");
         //To implement
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "NLST", strlen("NLST")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "nlst", strlen("nlst")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "NLST", strlen("NLST")) == 1)
     {
         printf("\nNLST command received");
         toReturn = parseCommandNlst(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "PORT", strlen("PORT")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "port", strlen("port")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PORT", strlen("PORT")) == 1)
     {
         printf("\nPORT command received");
         //To implement
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "QUIT", strlen("QUIT")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "quit", strlen("quit")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "QUIT", strlen("QUIT")) == 1)
     {
         printf("\nQUIT command received");
         toReturn = parseCommandQuit(&ftpData, processingElement);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RMD", strlen("RMD")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "rmd", strlen("rmd")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "RMD", strlen("RMD")) == 1)
     {
         printf("\nRMD command received");
         toReturn = parseCommandRmd(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RNFR", strlen("RNFR")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "rnfr", strlen("rnfr")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "RNFR", strlen("RNFR")) == 1)
     {
         printf("\nRNFR command received");
         toReturn = parseCommandRnfr(&ftpData.clients[processingElement]);
 
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "RNTO", strlen("RNTO")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "rnto", strlen("rnto")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "RNTO", strlen("RNTO")) == 1)
     {
         printf("\nRNTO command received");
         toReturn = parseCommandRnto(&ftpData.clients[processingElement]);
     }    
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "SIZE", strlen("SIZE")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "size", strlen("size")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "SIZE", strlen("SIZE")) == 1)
     {
         printf("\nSIZE command received");
         toReturn = parseCommandSize(&ftpData.clients[processingElement]);
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "APPE", strlen("APPE")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "appe", strlen("appe")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "APPE", strlen("APPE")) == 1)
     {
         printf("\nAPPE command received");
         //To implement
     }
-    else if(strncmp(ftpData.clients[processingElement].theCommandReceived, "NOOP", strlen("NOOP")) == 0 ||
-            strncmp(ftpData.clients[processingElement].theCommandReceived, "noop", strlen("noop")) == 0)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "NOOP", strlen("NOOP")) == 1)
     {
         printf("\nNOOP command received");
         toReturn = parseCommandNoop(&ftpData.clients[processingElement]);
     }
     else
     {
-        //Parse unsupported command
-        
+        ; //Parse unsupported command not needed
     }
 
     ftpData.clients[processingElement].commandIndex = 0;
     memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-
     return toReturn;
 }
-

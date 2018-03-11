@@ -50,15 +50,12 @@ int parseCommandUser(clientDataType *theClientData)
     char *theName;
     theName = getFtpCommandArg("USER", theClientData->theCommandReceived);
 
-    printTimeStamp();
-    printf("The Name: %s", theName);
-
     if (strlen(theName) >= 1)
     {
         char *theResponse = "331 User ok, Waiting for the password.\r\n";
         setDynamicStringDataType(&theClientData->login.name, theName, strlen(theName));
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
-        printf("\nUSER COMMAND OK, USERNAME IS: %s", theClientData->login.name.text);
+        //printf("\nUSER COMMAND OK, USERNAME IS: %s", theClientData->login.name.text);
         return 1;
     }
     else
@@ -75,10 +72,7 @@ int parseCommandSite(clientDataType *theClientData)
     char *theCommand;
     theCommand = getFtpCommandArg("SITE", theClientData->theCommandReceived);
     
-    printTimeStamp();
-    printf("\ntheCommand:%s", theCommand);
-    if(strncmp(theCommand, "CHMOD", strlen("CHMOD")) == 0 ||
-       strncmp(theCommand, "chmod", strlen("chmod")) == 0)
+    if(compareStringCaseInsensitive(theCommand, "CHMOD", strlen("CHMOD")) == 1)
     {
         setPermissions(theCommand, theClientData->login.absolutePath.text);
         char *theResponse = "200 Permissions changed\r\n";
@@ -89,21 +83,18 @@ int parseCommandSite(clientDataType *theClientData)
         char *theResponse = "500 unknown extension\r\n";
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     }
-    
-    
-    return 1;
+
     //site chmod 777 test
     //200 Permissions changed on test
-    //500 SITE ciao is an unknown extension
+    //500 SITE ciao is an unknown extension    
+ 
+    return 1;
 }
 
 int parseCommandPass(ftpDataType * data, int socketId)
 {
     char *thePass;
     thePass = getFtpCommandArg("PASS", data->clients[socketId].theCommandReceived);
-    
-    printTimeStamp();
-    printf("The Pass is: %s", thePass);
 
     if (strlen(thePass) >= 1)
     {
@@ -115,7 +106,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
         {
             char *theResponse = "430 Invalid username or password\r\n";
             write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
-            printf("\nLogin Error recorded no such username or password");
+           //printf("\nLogin Error recorded no such username or password");
         }
         else
         {
@@ -129,12 +120,12 @@ int parseCommandPass(ftpDataType * data, int socketId)
             write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
             printTimeStamp();
             
-            printf("PASS COMMAND OK, PASSWORD IS: %s", data->clients[socketId].login.password.text);
-            printf("\nheClientData->login.homePath: %s", data->clients[socketId].login.homePath.text);
-            printf("\nheClientData->login.ftpPath: %s", data->clients[socketId].login.ftpPath.text);
-            printf("\nheClientData->login.absolutePath: %s", data->clients[socketId].login.absolutePath.text);
+            //printf("PASS COMMAND OK, PASSWORD IS: %s", data->clients[socketId].login.password.text);
+            //printf("\nheClientData->login.homePath: %s", data->clients[socketId].login.homePath.text);
+            //printf("\nheClientData->login.ftpPath: %s", data->clients[socketId].login.ftpPath.text);
+            //printf("\nheClientData->login.absolutePath: %s", data->clients[socketId].login.absolutePath.text);
         }
-        
+
        return 1;
     }
     else
@@ -147,10 +138,10 @@ int parseCommandPass(ftpDataType * data, int socketId)
 
 int parseCommandAuth(clientDataType *theClientData)
 {
-    char *theAuth;
-    theAuth = getFtpCommandArg("AUTH", theClientData->theCommandReceived);    
-    printTimeStamp();
-    printf("The Auth is: %s", theAuth);
+    //char *theAuth;
+    //theAuth = getFtpCommandArg("AUTH", theClientData->theCommandReceived);    
+    //printTimeStamp();
+    //printf("The Auth is: %s", theAuth);
     char *theResponse = "502 Security extensions not implemented.\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
@@ -239,7 +230,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
         void *pReturn;
         pthread_cancel(data->clients[socketId].workerData.workerThread);
         pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        printf("\nThread has been cancelled.");
+        //printf("\nThread has been cancelled.");
     }
     else
     {
@@ -261,11 +252,11 @@ int parseCommandPort(ftpDataType * data, int socketId)
     int portBytes[2];
     theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived);    
     sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
-    printf("\ntheIpAndPort: %s", theIpAndPort);
+    //printf("\ntheIpAndPort: %s", theIpAndPort);
     data->clients[socketId].workerData.connectionPort = (portBytes[0]*256)+portBytes[1];
     sprintf(data->clients[socketId].workerData.activeIpAddress, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
-    printf("\ndata->clients[socketId].workerData.connectionPort: %d", data->clients[socketId].workerData.connectionPort);
-    printf("\ndata->clients[socketId].workerData.activeIpAddress: %s", data->clients[socketId].workerData.activeIpAddress);
+    //printf("\ndata->clients[socketId].workerData.connectionPort: %d", data->clients[socketId].workerData.connectionPort);
+    //printf("\ndata->clients[socketId].workerData.activeIpAddress: %s", data->clients[socketId].workerData.activeIpAddress);
 
     /* Create worker thread */
     if (data->clients[socketId].workerData.threadIsAlive == 1)
@@ -273,7 +264,7 @@ int parseCommandPort(ftpDataType * data, int socketId)
         void *pReturn;
         pthread_cancel(data->clients[socketId].workerData.workerThread);
         pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        printf("\nThread has been cancelled.");
+        //printf("\nThread has been cancelled.");
     }
     else
     {
@@ -306,7 +297,7 @@ int parseCommandAbor(ftpDataType * data, int socketId)
         void *pReturn;
         pthread_cancel(data->clients[socketId].workerData.workerThread);
         pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        printf("\nThread has been cancelled due to ABOR request.");
+        //printf("\nThread has been cancelled due to ABOR request.");
         
         memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
         sprintf(theResponse, "426 ABORT\r\n");     
@@ -345,17 +336,14 @@ int parseCommandList(ftpDataType * data, int socketId)
       -t Sort by modification time 
      */
     
-    
- 
-    
     int isSafePath = 0;
     char *theNameToList;
     
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived);
     getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand);
  
-    printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
-    printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+   // printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+   // printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
     
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0);
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0);    
@@ -454,7 +442,7 @@ int parseCommandStor(ftpDataType * data, int socketId)
     if (isSafePath == 1)
     {
         pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
-        printf("data->clients[%d].fileToStor = %s", socketId, data->clients[socketId].fileToStor.text);
+        //printf("data->clients[%d].fileToStor = %s", socketId, data->clients[socketId].fileToStor.text);
         memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
         strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
         data->clients[socketId].workerData.commandReceived = 1;
@@ -529,7 +517,7 @@ int parseCommandCwd(clientDataType *theClientData)
 
         if (FILE_IsDirectory(theClientData->login.absolutePath.text) == 1)
         {
-            printf("\nDirectory ok found, theClientData->login.ftpPath.text = %s", theClientData->login.ftpPath.text);
+            //printf("\nDirectory ok found, theClientData->login.ftpPath.text = %s", theClientData->login.ftpPath.text);
             int theSizeToMalloc = strlen("250 OK. Current directory is ")+theClientData->login.ftpPath.textLen+1;
             theResponse = (char *) malloc (theSizeToMalloc);
             memset(theResponse, 0, theSizeToMalloc);
@@ -538,7 +526,7 @@ int parseCommandCwd(clientDataType *theClientData)
         }
         else
         {
-            printf("\n%s does not exist", theClientData->login.absolutePath.text);
+            //printf("\n%s does not exist", theClientData->login.absolutePath.text);
             setDynamicStringDataType(&theClientData->login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
             setDynamicStringDataType(&theClientData->login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
             int theSizeToMalloc = strlen("550 Can't change directory to  : No such file or directory")+10+strlen(theClientData->login.ftpPath.text);
@@ -553,9 +541,9 @@ int parseCommandCwd(clientDataType *theClientData)
 
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
         printTimeStamp();
-        printf("\nCwd response : %s", theResponse);
-        printf("\nUSER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
-        printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
+        //printf("\nCwd response : %s", theResponse);
+        //printf("\nUSER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
+        //printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
         
         cleanDynamicStringDataType(&absolutePathPrevious, 0);
         cleanDynamicStringDataType(&ftpPathPrevious, 0);
@@ -608,9 +596,6 @@ int parseCommandRest(clientDataType *theClientData)
         }
     }
 
-    printTimeStamp();
-    printf(" REST set to: %s", theSize);
-    fflush(0);
     
     FILE_AppendToString(&theResponse, theSize);
     FILE_AppendToString(&theResponse, " \r\n");
@@ -627,7 +612,7 @@ int parseCommandMkd(clientDataType *theClientData)
     char *theDirectoryFilename;
     dynamicStringDataType theResponse;
     dynamicStringDataType mkdFileName;
-    
+
     theDirectoryFilename = getFtpCommandArg("MKD", theClientData->theCommandReceived);
     
     cleanDynamicStringDataType(&theResponse, 1);
@@ -638,7 +623,7 @@ int parseCommandMkd(clientDataType *theClientData)
     if (isSafePath == 1)
     {
         int returnStatus;
-        printf("\nThe directory to make is: %s", mkdFileName.text);
+        //printf("\nThe directory to make is: %s", mkdFileName.text);
         returnStatus = mkdir(mkdFileName.text, S_IRWXU | S_IRWXG | S_IRWXO);
         setDynamicStringDataType(&theResponse, "257 \"", strlen("257 \""));
         appendToDynamicStringDataType(&theResponse, theDirectoryFilename, strlen(theDirectoryFilename));
@@ -659,9 +644,9 @@ int parseCommandMkd(clientDataType *theClientData)
 
 int parseCommandOpts(clientDataType *theClientData)
 {
-    char *theCommand;
-    theCommand = getFtpCommandArg("OPTS", theClientData->theCommandReceived);
-    printf("\nThe command received: %s", theCommand);
+    //char *theCommand;
+    //theCommand = getFtpCommandArg("OPTS", theClientData->theCommandReceived);
+    //printf("\nThe command received: %s", theCommand);
     char *theResponse = "200 OK\r\n";
     write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
     return 1;
@@ -684,7 +669,7 @@ int parseCommandDele(clientDataType *theClientData)
     
     if (isSafePath == 1)
     {
-        printf("\nThe file to delete is: %s", deleFileName.text);
+        //printf("\nThe file to delete is: %s", deleFileName.text);
         returnStatus = remove(deleFileName.text);
         setDynamicStringDataType(&theResponse, "250 Deleted ", strlen("250 Deleted "));
         appendToDynamicStringDataType(&theResponse, theFileToDelete, strlen(theFileToDelete));
@@ -744,7 +729,7 @@ int parseCommandRmd(clientDataType *theClientData)
     
     if (isSafePath == 1)
     {
-        printf("\nThe directory to delete is: %s", rmdFileName.text);
+        //printf("\nThe directory to delete is: %s", rmdFileName.text);
         returnStatus = rmdir(rmdFileName.text);
         setDynamicStringDataType(&theResponse, "250 The directory was successfully removed\r\n", strlen("250 The directory was successfully removed\r\n"));
         write(theClientData->socketDescriptor, theResponse.text, theResponse.textLen);
@@ -780,7 +765,7 @@ int parseCommandSize(clientDataType *theClientData)
     
     if (isSafePath == 1)
     {
-        printf("\nThe file to get the size is: %s", getSizeFromFileName.text);
+       // printf("\nThe file to get the size is: %s", getSizeFromFileName.text);
         
         if (FILE_IsFile(getSizeFromFileName.text)==1)
         {
@@ -824,7 +809,7 @@ int parseCommandRnfr(clientDataType *theClientData)
         (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
          FILE_IsDirectory(theClientData->renameFromFile.text) == 1))
     {
-        printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
+       // printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
         
         if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
             FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
@@ -862,7 +847,7 @@ int parseCommandRnto(clientDataType *theClientData)
     if (isSafePath == 1 &&
         theClientData->renameFromFile.textLen > 0)
     {
-        printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
+       // printf("\nThe file to check is: %s", theClientData->renameFromFile.text);
         
         if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
             FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
@@ -913,9 +898,9 @@ int parseCommandCdup(clientDataType *theClientData)
         FILE_AppendToString(&theResponse, " \r\n");
 
         write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
-        printTimeStamp();
-        printf("USER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
-        printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
+       // printTimeStamp();
+       // printf("USER COMMAND OK, NEW PATH IS: %s", theClientData->login.absolutePath.text);
+        //printf("\nUSER COMMAND OK, NEW LOCAL PATH IS: %s", theClientData->login.ftpPath.text);
         free(theResponse);
         return 1;
 }
@@ -929,7 +914,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     long long int theFileSize;
     char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
 
-    printf("\nOpening: %s", theFilename);
+    //printf("\nOpening: %s", theFilename);
 
     retrFP = fopen(theFilename, "rb");
     if (retrFP == NULL)
@@ -942,9 +927,9 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
 
     if (startFrom > 0)
     {
-        printf("\nSeek startFrom: %d", startFrom);
+        //printf("\nSeek startFrom: %d", startFrom);
         currentPosition = (long int) lseek(fileno(retrFP), startFrom, SEEK_SET);
-        printf("\nSeek result: %ld", currentPosition);
+       // printf("\nSeek result: %ld", currentPosition);
         if (currentPosition == -1)
         {
             fclose(retrFP);
@@ -957,7 +942,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
       toReturn = toReturn + write(thePasvSocketConnection, buffer, readen);
     }
 
-    printf("\n Bytes written: %ld", toReturn);
+    //printf("\n Bytes written: %ld", toReturn);
 
     fclose(retrFP);
     return toReturn;
@@ -1066,7 +1051,6 @@ int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCo
         setDynamicStringDataType(&ftpCommand->commandOps, argSecondary, argSecondaryIndex);
         
     return 1;
-    
 }
 
 int setPermissions(char * permissionsCommand, char * basePath)
@@ -1118,15 +1102,15 @@ int setPermissions(char * permissionsCommand, char * basePath)
         permissionsCommandCursor++;
     }
     
-    printf("\n thePermissionString = %s ", thePermissionString);
-    printf("\n theLocalPathCursor = %s ", theLocalPath);
+    //printf("\n thePermissionString = %s ", thePermissionString);
+    //printf("\n theLocalPathCursor = %s ", theLocalPath);
 
     if (basePath[strlen(basePath)-1] != '/')
         sprintf(theFinalCommand, "chmod %s %s/%s", thePermissionString, basePath, theLocalPath);
     else
         sprintf(theFinalCommand, "chmod %s %s%s", thePermissionString, basePath, theLocalPath);
     
-    printf("\n theFinalCommand = %s ", theFinalCommand);
+    //printf("\n theFinalCommand = %s ", theFinalCommand);
     
     system(theFinalCommand);
     

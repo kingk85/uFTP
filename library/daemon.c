@@ -50,9 +50,9 @@ int isProcessAlreadyRunning(void)
         syslog(LOG_ERR, "can’t open %s: %s", LOCKFILE, strerror(errno));
         exit(1);
     }
-    printf("\nFile pid opened.");
+    //printf("\nFile pid opened.");
     
-    if (returnCode = FILE_LockFile(fd) < 0) 
+    if ((returnCode = FILE_LockFile(fd)) < 0) 
     {
         if (errno == EACCES || errno == EAGAIN) 
         {
@@ -63,7 +63,7 @@ int isProcessAlreadyRunning(void)
         exit(1);
     }
     
-    printf("\nFILE_LockFile returnCode = %d", returnCode);    
+    //printf("\nFILE_LockFile returnCode = %d", returnCode);    
     ftruncate(fd, 0);
     sprintf(buf, "%ld", (long)getpid());
     write(fd, buf, strlen(buf)+1);
@@ -132,5 +132,4 @@ void daemonize(const char *cmd)
     fd0 = open("/dev/null", O_RDWR);
     fd1 = dup(0);
     fd2 = dup(0);
-
     }

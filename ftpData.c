@@ -178,14 +178,12 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
 
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen)
 {
-    printf("\n Appending in %s --> %s", dynamicString->text, theString);
     int theNewSize = dynamicString->textLen + stringLen;
     dynamicString->text = realloc(dynamicString->text, theNewSize + 1);
     memset(dynamicString->text+dynamicString->textLen, 0, stringLen+1);
     memcpy(dynamicString->text+dynamicString->textLen, theString, stringLen);
     dynamicString->text[theNewSize] = '\0';
     dynamicString->textLen = theNewSize;
-    printf("\n Append done --> %s", dynamicString->text);    
 }
 
 void setRandomicPort(ftpDataType *data, int socketPosition)
@@ -193,7 +191,6 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
     static unsigned short int randomizeInteger = 0;
     unsigned short int randomicPort = 5000;
     int i;
-    time_t t;
 
     randomizeInteger += 7;
     
@@ -206,13 +203,12 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
    
    randomicPort = ((rand() + socketPosition + randomizeInteger) % (10000 - 50000)) + 10000;
    i = 0;
-   printf("randomicPort  = %d", randomicPort);
+
    while (i < data->ftpParameters.maxClients)
    {
        
        if (randomicPort == data->clients[i].workerData.connectionPort)
        {
-        printf("randomicPort already in use = %d", randomicPort);
         randomicPort = ((rand() + socketPosition + i + randomizeInteger) % (10000 - 50000)) + 10000;
         i = 0;
        }
@@ -262,7 +258,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         }
         if (data.isDirectory == 0 && data.isFile == 0)
         {
-            printf("\nNot a directory, not a file, broken link");
+            //printf("\nNot a directory, not a file, broken link");
             continue;
         }
 
@@ -344,58 +340,36 @@ void deleteListDataInfoVector(void *TheElementToDelete)
 {
     ftpListDataType *data = (ftpListDataType *)TheElementToDelete;
 
-    
-    
-    
     if (data->owner != NULL)
     {
-        printf("\nDeleting data->owner:%s", data->owner);
-        fflush(0);
         free(data->owner);
     }
-    printf("\nDone");
-    fflush(0);
     
     if (data->groupOwner != NULL)
     {
-        printf("\nDeleting data->groupOwner:%s", data->groupOwner);
-        fflush(0);
         free(data->groupOwner);
     }
-        printf("\nDone");
-    fflush(0);
+
     if (data->inodePermissionString != NULL)
     {
-        printf("\nDeleting data->inodePermissionString:%s", data->inodePermissionString);
-        fflush(0);
         free(data->inodePermissionString);
     }
-        printf("\nDone");
-    fflush(0);
+
     if (data->fileNameWithPath != NULL)
     {
-        printf("\nDeleting data->fileNameWithPath:%s", data->fileNameWithPath);
-        fflush(0);
         free(data->fileNameWithPath);
     }
-        printf("\nDone");
-    fflush(0);
+
     if (data->finalStringPath != NULL)
     {
-        printf("\nDeleting data->finalStringPath:%s", data->finalStringPath);
-        fflush(0);
         free(data->finalStringPath);
     }
-    printf("\nDone");
-    fflush(0);
+
     if (data->linkPath != NULL)
     {
-        printf("\nDeleting data->linkPath:%s", data->linkPath);
-        fflush(0);
         free(data->linkPath);
     }
-    printf("\nDone");
-    fflush(0);
+
 }
 
 void resetWorkerData(workerDataType *workerData, int isInitialization)
@@ -444,7 +418,7 @@ void resetClientData(clientDataType *clientData, int isInitialization)
             void *pReturn;
             pthread_cancel(clientData->workerData.workerThread);
             pthread_join(clientData->workerData.workerThread, &pReturn);
-            printf("\nThread has been cancelled.");
+            //printf("\nThread has been cancelled.");
         }
         else
         {
@@ -492,4 +466,55 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     clientData->lastActivityTimeStamp = 0;
 
     
+}
+
+int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)
+{
+    int i = 0;
+    char * alfaLowerCase = "qwertyuiopasdfghjklzxcvbnm ";
+    char * alfaUpperCase = "QWERTYUIOPASDFGHJKLZXCVBNM ";
+
+    int stringInIndex;
+    int stringRefIndex;
+
+    for (i = 0; i <stringLenght; i++)
+    {
+        stringInIndex  = isCharInString(alfaUpperCase, strlen(alfaUpperCase), stringIn[i]);
+        if (stringInIndex == -1)
+        {
+            stringInIndex  = isCharInString(alfaLowerCase, strlen(alfaLowerCase), stringIn[i]);
+        }
+
+        stringRefIndex = isCharInString(alfaUpperCase, strlen(alfaUpperCase), stringRef[i]);
+        if (stringRefIndex == -1)
+        {
+            stringRefIndex  = isCharInString(alfaLowerCase, strlen(alfaLowerCase), stringRef[i]);
+        }
+        
+        if (stringRefIndex == -1 || stringInIndex == -1)
+        {
+            return 0;
+        }
+        
+        if (stringRefIndex != stringInIndex)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+int isCharInString(char *theString, int stringLen, char theChar)
+{
+    int i;
+    for (i = 0; i < stringLen; i++)
+    {
+        if (theString[i] == theChar)
+        {
+            return i;
+        }
+    }
+    
+    return -1;
 }

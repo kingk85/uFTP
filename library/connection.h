@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2018 ugo.
+ * Copyright 2018 Ugo Cirmignani.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,12 +22,6 @@
  * THE SOFTWARE.
  */
 
-/* 
- * File:   connection.h
- * Author: ugo
- *
- * Created on 25 febbraio 2018, 18.43
- */
 
 #ifndef CONNECTION_H
 #define CONNECTION_H
@@ -40,12 +34,21 @@ extern "C" {
 
 int getMaximumSocketFd(int mainSocket, ftpDataType * data);
 int createSocket(ftpDataType * ftpData);
+int createPassiveSocket(int port);
+int createActiveSocket(int port, char *ipAddress);
 void fdInit(ftpDataType * ftpData);
+void fdAdd(ftpDataType * ftpData, int index);
+void fdRemove(ftpDataType * ftpData, int index);
 
 void checkClientConnectionTimeout(ftpDataType * ftpData);
 void closeSocket(ftpDataType * ftpData, int processingSocket);
 void closeClient(ftpDataType * ftpData, int processingSocket);
 int selectWait(ftpDataType * ftpData);
+int isClientConnected(ftpDataType * ftpData, int cliendId);
+int getAvailableClientSocketIndex(ftpDataType * ftpData);
+int evaluateClientSocketConnection(ftpDataType * ftpData);
+
+
 
 #ifdef __cplusplus
 }
