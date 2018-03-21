@@ -953,7 +953,7 @@ int parseCommandCdup(clientDataType *theClientData)
 int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom)
 {
     long int readen = 0;
-    long int toReturn = 0;
+    long int toReturn = 0, writtenSize = 0;
     long int currentPosition = 0;
     FILE *retrFP;
     long long int theFileSize;
@@ -984,7 +984,17 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
 
     while ((readen = (long int) fread(buffer, sizeof(char), FTP_COMMAND_ELABORATE_CHAR_BUFFER, retrFP)) > 0)
     {
-      toReturn = toReturn + write(thePasvSocketConnection, buffer, readen);
+      writtenSize = write(thePasvSocketConnection, buffer, readen);
+ 
+      if (writtenSize <= 0)
+      {
+          fclose(retrFP);
+          return -1;
+      }
+      else
+      {
+            toReturn = toReturn + writtenSize;
+      }
     }
 
     //printf("\n Bytes written: %ld", toReturn);
