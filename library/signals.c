@@ -24,8 +24,11 @@
 
 #include <stdio.h>
 #include <signal.h>
+
+
 #include "../ftpServer.h"
 
+static void ignore_sigpipe(void);
 
 /* Catch Signal Handler functio */
 void signal_callback_handler(int signum){
@@ -33,7 +36,40 @@ void signal_callback_handler(int signum){
         printf("Caught signal SIGPIPE %d\n",signum);
 }
 
+static void ignore_sigpipe(void)
+{
+        // ignore SIGPIPE (or else it will bring our program down if the client
+        // closes its socket).
+        // NB: if running under gdb, you might need to issue this gdb command:
+        //          handle SIGPIPE nostop noprint pass
+        //     because, by default, gdb will stop our program execution (which we
+        //     might not want).
+        struct sigaction sa;
+
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_handler = SIG_IGN;
+
+        if (sigemptyset(&sa.sa_mask) < 0 || sigaction(SIGPIPE, &sa, 0) < 0) {
+                perror("Could not ignore the SIGPIPE signal");
+                exit(0);
+        }
+}
+
+
 void signalHandlerInstall(void)
 {
-    signal(SIGPIPE, signal_callback_handler);
+    //signal(SIGPIPE, signal_callback_handler);
+    signal(SIGUSR2,SIG_IGN);	
+    signal(SIGPIPE,SIG_IGN);
+    signal(SIGALRM,SIG_IGN);
+    signal(SIGTSTP,SIG_IGN);
+    signal(SIGTTIN,SIG_IGN);
+    signal(SIGTTOU,SIG_IGN);
+    signal(SIGURG,SIG_IGN);
+    signal(SIGXCPU,SIG_IGN);
+    signal(SIGXFSZ,SIG_IGN);
+    signal(SIGVTALRM,SIG_IGN);
+    signal(SIGPROF,SIG_IGN);
+    signal(SIGIO,SIG_IGN);
+    signal(SIGCHLD,SIG_IGN);
 }

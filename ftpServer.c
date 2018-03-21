@@ -75,6 +75,7 @@ void *connectionWorkerHandle(void * socketId)
   {
     printf("\nPasv (%d) thread init opening port: %d", theSocketId, ftpData.clients[theSocketId].workerData.connectionPort);
     printf("\nPasv (%d) open ok: %d", theSocketId, ftpData.clients[theSocketId].workerData.connectionPort);
+    setRandomicPort(&ftpData, theSocketId);
     ftpData.clients[theSocketId].workerData.passiveListeningSocket = createPassiveSocket(ftpData.clients[theSocketId].workerData.connectionPort);
     
     	if (ftpData.clients[theSocketId].workerData.socketIsConnected == 0)
@@ -379,7 +380,8 @@ void runFtpServer(void)
             }
 
             /* Check if there are client pending connections, accept the connection if possible otherwise reject */  
-            returnCode = evaluateClientSocketConnection(&ftpData);
+            if ((returnCode = evaluateClientSocketConnection(&ftpData)) == 1)
+                continue;
 
             /* no data to check client is not connected, continue to check other clients */
           if (isClientConnected(&ftpData, processingSock) == 0) 
@@ -404,8 +406,8 @@ void runFtpServer(void)
             //Debug print errors
             if (ftpData.clients[processingSock].bufferIndex < 0)
             {
-                printf("\nErrno = %d", errno);
-                perror("Error: ");
+                printf("\n1 Errno = %d", errno);
+                perror("1 Error: ");
             }
 
             //Some commands has been received
@@ -544,7 +546,6 @@ static int processCommand(int processingElement)
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PASV", strlen("PASV")) == 1)
     {
         printf("\nPASV COMMAND RECEIVED");
-        setRandomicPort(&ftpData, processingElement);
         toReturn = parseCommandPasv(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PORT", strlen("PORT")) == 1)

@@ -192,24 +192,21 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
     unsigned short int randomicPort = 5000;
     int i;
 
-    randomizeInteger += 7;
+    randomizeInteger += 1;
     
-    if (randomizeInteger >  50000 )
+    if (randomizeInteger >  100 )
         randomizeInteger = 1;
 
-    
-   /* Intializes random number generator */
-   srand( time(NULL));
-   
-   randomicPort = ((rand() + socketPosition + randomizeInteger) % (10000 - 50000)) + 10000;
+    while(randomicPort < 10000)
+        randomicPort = ((rand() + socketPosition + randomizeInteger) % (50000)) + 10000;
    i = 0;
 
    while (i < data->ftpParameters.maxClients)
    {
-       
-       if (randomicPort == data->clients[i].workerData.connectionPort)
+       if (randomicPort == data->clients[i].workerData.connectionPort ||
+           randomicPort < 10000)
        {
-        randomicPort = ((rand() + socketPosition + i + randomizeInteger) % (10000 - 50000)) + 10000;
+        randomicPort = ((rand() + socketPosition + i + randomizeInteger) % (50000)) + 10000;
         i = 0;
        }
        else 
@@ -218,7 +215,9 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
        }
    }
    
+   
    data->clients[socketPosition].workerData.connectionPort = randomicPort;
+   printf("data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
 }
 
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
@@ -385,10 +384,8 @@ void resetWorkerData(workerDataType *workerData, int isInitialization)
       workerData->commandReceived = 0;
       workerData->retrRestartAtByte = 0;
       workerData->threadIsAlive = 0;
-      
       workerData->activeModeOn = 0;
       workerData->passiveModeOn = 0;      
-
       workerData->activeIpAddressIndex = 0;
 
       memset(workerData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);

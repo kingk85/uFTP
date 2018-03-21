@@ -130,7 +130,7 @@ int createActiveSocket(int port, char *ipAddress)
 
   if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
   {
-      printf("\n Error : Could not create socket \n");
+      printf("\n2 Error : Could not create socket \n");
       return -1;
   }
   else
@@ -150,7 +150,7 @@ int createActiveSocket(int port, char *ipAddress)
 
   if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
   {
-     printf("\n Error : Connect Failed \n");
+     printf("\n3 Error : Connect Failed \n");
      return -1;
   }
 
@@ -336,8 +336,8 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             }
             else
             {
-                printf("\nErrno = %d", errno);
-                return 0;
+                printf("\n2Errno = %d", errno);
+                return 1;
             }
         }
         else
@@ -355,8 +355,8 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             }
             else
             {
-                printf("\nErrno = %d", errno);
-                return 0;
+                printf("\n3Errno = %d", errno);
+                return 1;
             }
         }
     }

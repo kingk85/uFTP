@@ -111,6 +111,10 @@ void applyConfiguration(ftpParameters_DataType *ftpParameters)
 
 void initFtpData(ftpDataType *ftpData)
 {
+    
+   /* Intializes random number generator */
+   srand( time(NULL));    
+    
  int i;
  ftpData->connectedClients = 0;
  ftpData->clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData->ftpParameters.maxClients);

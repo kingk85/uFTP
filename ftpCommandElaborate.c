@@ -225,18 +225,12 @@ int parseCommandModeS(clientDataType *theClientData)
 int parseCommandPasv(ftpDataType * data, int socketId)
 {
     /* Create worker thread */
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-        void *pReturn;
-        pthread_cancel(data->clients[socketId].workerData.workerThread);
-        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        //printf("\nThread has been cancelled.");
-    }
-    else
-    {
-        void *pReturn;
-        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-    }
+
+    void *pReturn;
+    pthread_cancel(data->clients[socketId].workerData.workerThread);
+    pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+    //printf("\nThread has been cancelled.");
+
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.activeModeOn = 0;    
 
@@ -258,19 +252,12 @@ int parseCommandPort(ftpDataType * data, int socketId)
     //printf("\ndata->clients[socketId].workerData.connectionPort: %d", data->clients[socketId].workerData.connectionPort);
     //printf("\ndata->clients[socketId].workerData.activeIpAddress: %s", data->clients[socketId].workerData.activeIpAddress);
 
-    /* Create worker thread */
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-        void *pReturn;
-        pthread_cancel(data->clients[socketId].workerData.workerThread);
-        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        //printf("\nThread has been cancelled.");
-    }
-    else
-    {
-        void *pReturn;
-        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-    }
+
+    void *pReturn;
+    pthread_cancel(data->clients[socketId].workerData.workerThread);
+    pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+    //printf("\nThread has been cancelled.");
+
     data->clients[socketId].workerData.passiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;    
 
