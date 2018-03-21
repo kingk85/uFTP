@@ -376,6 +376,7 @@ void runFtpServer(void)
             /* close the connection if quit flag has been set */
             if (ftpData.clients[processingSock].closeTheClient == 1)
             {
+                printf("\nClosing client connection %d", ftpData.clients[processingSock].closeTheClient);
                 closeClient(&ftpData, processingSock);
                 continue;
             }
