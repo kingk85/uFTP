@@ -47,7 +47,7 @@ int parseCommandUser(clientDataType *theClientData)
 {
     int returnCode;
     char *theName;
-    theName = getFtpCommandArg("USER", theClientData->theCommandReceived);
+    theName = getFtpCommandArg("USER", theClientData->theCommandReceived, 0);
 
     if (strlen(theName) >= 1)
     {
@@ -73,7 +73,7 @@ int parseCommandSite(clientDataType *theClientData)
 {
     int returnCode;
     char *theCommand;
-    theCommand = getFtpCommandArg("SITE", theClientData->theCommandReceived);
+    theCommand = getFtpCommandArg("SITE", theClientData->theCommandReceived, 0);
     
     if(compareStringCaseInsensitive(theCommand, "CHMOD", strlen("CHMOD")) == 1)
     {
@@ -100,7 +100,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
 {
     int returnCode;
     char *thePass;
-    thePass = getFtpCommandArg("PASS", data->clients[socketId].theCommandReceived);
+    thePass = getFtpCommandArg("PASS", data->clients[socketId].theCommandReceived, 0);
 
     if (strlen(thePass) >= 1)
     {
@@ -269,7 +269,7 @@ int parseCommandPort(ftpDataType * data, int socketId)
     char *theIpAndPort;
     int ipAddressBytes[4];
     int portBytes[2];
-    theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived);    
+    theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived, 0);    
     sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
     //printf("\ntheIpAndPort: %s", theIpAndPort);
     data->clients[socketId].workerData.connectionPort = (portBytes[0]*256)+portBytes[1];
@@ -354,7 +354,7 @@ int parseCommandList(ftpDataType * data, int socketId)
     int isSafePath = 0;
     char *theNameToList;
     
-    theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived);
+    theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived, 1);
     getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand);
  
    // printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
@@ -388,7 +388,7 @@ int parseCommandNlst(ftpDataType * data, int socketId)
 {
     int isSafePath = 0;
     char *theNameToNlist;
-    theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived);
+    theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived, 1);
     cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0);
 
     if (strlen(theNameToNlist) > 0)
@@ -415,12 +415,17 @@ int parseCommandRetr(ftpDataType * data, int socketId)
 {
     int isSafePath = 0;
     char *theNameToRetr;
-    theNameToRetr = getFtpCommandArg("RETR", data->clients[socketId].theCommandReceived);
+    
+    
+    //printf("\n\ndata->clients[socketId].theCommandReceived = %s", data->clients[socketId].theCommandReceived);
+    theNameToRetr = getFtpCommandArg("RETR", data->clients[socketId].theCommandReceived, 0);
     cleanDynamicStringDataType(&data->clients[socketId].fileToRetr, 0);
+    //printf("\n\ntheNameToRetr = %s", theNameToRetr);
     
     if (strlen(theNameToRetr) > 0)
     {
         isSafePath = getSafePath(&data->clients[socketId].fileToRetr, theNameToRetr, &data->clients[socketId].login);
+        //printf("\n\ndata->clients[socketId].fileToRetr = %s", data->clients[socketId].fileToRetr);
     }
 
     if (isSafePath == 1 &&
@@ -446,7 +451,7 @@ int parseCommandStor(ftpDataType * data, int socketId)
 {
     int isSafePath = 0;
     char *theNameToStor;
-    theNameToStor = getFtpCommandArg("STOR", data->clients[socketId].theCommandReceived);
+    theNameToStor = getFtpCommandArg("STOR", data->clients[socketId].theCommandReceived, 0);
     cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0);
     
     if (strlen(theNameToStor) > 0)
@@ -484,7 +489,7 @@ int parseCommandCwd(clientDataType *theClientData)
     cleanDynamicStringDataType(&ftpPathPrevious, 1);
     cleanDynamicStringDataType(&theSafePath, 1);
 
-    thePath = getFtpCommandArg("CWD", theClientData->theCommandReceived);
+    thePath = getFtpCommandArg("CWD", theClientData->theCommandReceived, 0);
 
     if (strlen(thePath) > 0)
     {
@@ -634,7 +639,7 @@ int parseCommandMkd(clientDataType *theClientData)
     dynamicStringDataType theResponse;
     dynamicStringDataType mkdFileName;
 
-    theDirectoryFilename = getFtpCommandArg("MKD", theClientData->theCommandReceived);
+    theDirectoryFilename = getFtpCommandArg("MKD", theClientData->theCommandReceived, 0);
     
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&mkdFileName, 1);
@@ -685,7 +690,7 @@ int parseCommandDele(clientDataType *theClientData)
     dynamicStringDataType theResponse;
     dynamicStringDataType deleFileName;
 
-    theFileToDelete = getFtpCommandArg("DELE", theClientData->theCommandReceived);
+    theFileToDelete = getFtpCommandArg("DELE", theClientData->theCommandReceived, 0);
 
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&deleFileName, 1);
@@ -753,7 +758,7 @@ int parseCommandRmd(clientDataType *theClientData)
     dynamicStringDataType theResponse;
     dynamicStringDataType rmdFileName;
     
-    theDirectoryFilename = getFtpCommandArg("RMD", theClientData->theCommandReceived);
+    theDirectoryFilename = getFtpCommandArg("RMD", theClientData->theCommandReceived, 0);
     
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&rmdFileName, 1);
@@ -790,7 +795,7 @@ int parseCommandSize(clientDataType *theClientData)
     dynamicStringDataType theResponse;
     dynamicStringDataType getSizeFromFileName;
     
-    theFileName = getFtpCommandArg("SIZE", theClientData->theCommandReceived);
+    theFileName = getFtpCommandArg("SIZE", theClientData->theCommandReceived, 0);
 
     cleanDynamicStringDataType(&theResponse, 1);
     cleanDynamicStringDataType(&getSizeFromFileName, 1);
@@ -837,7 +842,7 @@ int parseCommandRnfr(clientDataType *theClientData)
     char *theRnfrFileName;
     dynamicStringDataType theResponse;
 
-    theRnfrFileName = getFtpCommandArg("RNFR", theClientData->theCommandReceived);
+    theRnfrFileName = getFtpCommandArg("RNFR", theClientData->theCommandReceived, 0);
     cleanDynamicStringDataType(&theClientData->renameFromFile, 0);
     cleanDynamicStringDataType(&theResponse, 1);
     
@@ -878,7 +883,7 @@ int parseCommandRnto(clientDataType *theClientData)
     char *theRntoFileName;
     dynamicStringDataType theResponse;
 
-    theRntoFileName = getFtpCommandArg("RNTO", theClientData->theCommandReceived);
+    theRntoFileName = getFtpCommandArg("RNTO", theClientData->theCommandReceived, 0);
     cleanDynamicStringDataType(&theClientData->renameToFile, 0);
     cleanDynamicStringDataType(&theResponse, 1);
     
@@ -1003,7 +1008,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     return toReturn;
 }
 
-char *getFtpCommandArg(char * theCommand, char *theCommandString)
+char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs)
 {
     char *toReturn = theCommandString + strlen(theCommand);
 
@@ -1014,21 +1019,24 @@ char *getFtpCommandArg(char * theCommand, char *theCommandString)
     }
 
     /* Skip eventual secondary arguments */
-    if (toReturn[0] == '-')
+    if(skipArgs == 1)
     {
-        while (toReturn[0] != ' ' &&
-               toReturn[0] != '\r' &&
-               toReturn[0] != '\n' &&
-               toReturn[0] != 0)
-            {
-                toReturn += 1;
-            }
-    }
+        if (toReturn[0] == '-')
+        {
+            while (toReturn[0] != ' ' &&
+                   toReturn[0] != '\r' &&
+                   toReturn[0] != '\n' &&
+                   toReturn[0] != 0)
+                {
+                    toReturn += 1;
+                }
+        }
 
-    /* Pass spaces */ 
-    while (toReturn[0] == ' ')
-    {
-        toReturn += 1;
+        /* Pass spaces */ 
+        while (toReturn[0] == ' ')
+        {
+            toReturn += 1;
+        }
     }
 
     return toReturn;

@@ -24,8 +24,8 @@
 
 #include <stdio.h>
 #include <signal.h>
-
-
+#include <stdlib.h>
+#include <string.h>
 #include "../ftpServer.h"
 
 static void ignore_sigpipe(void);
