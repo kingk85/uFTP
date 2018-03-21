@@ -27,6 +27,11 @@
 #define FTPCOMMANDSELABORATE_H
 
 #define FTP_COMMAND_ELABORATE_CHAR_BUFFER       1024
+
+#define FTP_COMMAND_NOT_RECONIZED               0
+#define FTP_COMMAND_PROCESSED                   1
+#define FTP_COMMAND_PROCESSED_WRITE_ERROR       2
+
 #include "ftpData.h"
 
 #ifdef __cplusplus
