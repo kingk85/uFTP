@@ -96,7 +96,6 @@ int createPassiveSocket(int port)
   temp.sin_addr.s_addr = INADDR_ANY;
   temp.sin_port = htons(port);
 
-  
   int reuse = 1;
    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
         perror("setsockopt(SO_REUSEADDR) failed");
@@ -104,12 +103,17 @@ int createPassiveSocket(int port)
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
        perror("setsockopt(SO_REUSEPORT) failed");
 
-
   //Bind socket
   returnCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
 
+  if (returnCode == -1)
+      return returnCode;
+
   //Number of client allowed
   returnCode = listen(sock, 1);
+
+  if (returnCode == -1)
+      return returnCode;  
 
   return sock;
 }

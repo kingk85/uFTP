@@ -27,7 +27,7 @@
 #define FTPCOMMANDSELABORATE_H
 
 #define FTP_COMMAND_ELABORATE_CHAR_BUFFER       1024
-
+#define FTP_COMMAND_ELABORATE_CHAR_BUFFER_BIG   4096
 #define FTP_COMMAND_NOT_RECONIZED               0
 #define FTP_COMMAND_PROCESSED                   1
 #define FTP_COMMAND_PROCESSED_WRITE_ERROR       2
@@ -72,7 +72,7 @@ int parseCommandOpts(clientDataType *theClientData);
 int parseCommandRnfr(clientDataType *theClientData);
 int parseCommandRnto(clientDataType *theClientData);
 
-int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom);
+int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom, FILE *retrFP);
 char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs);
 int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand);
 int setPermissions(char * permissionsCommand, char * basePath);

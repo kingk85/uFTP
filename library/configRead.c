@@ -111,34 +111,30 @@ void applyConfiguration(ftpParameters_DataType *ftpParameters)
 
 void initFtpData(ftpDataType *ftpData)
 {
-    
-   /* Intializes random number generator */
-   srand( time(NULL));    
-    
- int i;
- ftpData->connectedClients = 0;
- ftpData->clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData->ftpParameters.maxClients);
- 
- ftpData->serverIp.ip[0] = 127;
- ftpData->serverIp.ip[1] = 0;
- ftpData->serverIp.ip[2] = 0;
- ftpData->serverIp.ip[3] = 1;
+    int i;    
+     /* Intializes random number generator */
+    srand(time(NULL));    
 
- memset(ftpData->welcomeMessage, 0, 1024);
- strcpy(ftpData->welcomeMessage, "220 Hello\r\n");
- 
-  //Client data reset to zero
-  for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
-  {
-      resetWorkerData(&ftpData->clients[i].workerData, 1);
-      resetClientData(&ftpData->clients[i], 1);
-      ftpData->clients[i].clientProgressiveNumber = i;
-  }
+    ftpData->connectedClients = 0;
+    ftpData->clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData->ftpParameters.maxClients);
 
- return;
+    ftpData->serverIp.ip[0] = 127;
+    ftpData->serverIp.ip[1] = 0;
+    ftpData->serverIp.ip[2] = 0;
+    ftpData->serverIp.ip[3] = 1;
 
+    memset(ftpData->welcomeMessage, 0, 1024);
+    strcpy(ftpData->welcomeMessage, "220 Hello\r\n");
+
+      //Client data reset to zero
+    for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
+    {
+        resetWorkerData(&ftpData->clients[i].workerData, 1);
+        resetClientData(&ftpData->clients[i], 1);
+        ftpData->clients[i].clientProgressiveNumber = i;
+    }
+     return;
 }
-
 
 /*Private functions*/
 static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector)

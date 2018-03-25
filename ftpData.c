@@ -225,9 +225,8 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
     int i;
     int fileAndFoldersCount = 0;
     ftpListDataType data;
-    
     FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0);
-    
+
     for (i = 0; i < fileAndFoldersCount; i++)
     {
         data.owner = NULL;
@@ -374,7 +373,6 @@ void deleteListDataInfoVector(void *TheElementToDelete)
 void resetWorkerData(workerDataType *workerData, int isInitialization)
 {
       workerData->connectionPort = 0;
-      workerData->threadIsBusy = 0;
       workerData->passiveModeOn = 0;
       workerData->socketIsConnected = 0;
       workerData->commandIndex = 0;
@@ -400,10 +398,32 @@ void resetWorkerData(workerDataType *workerData, int isInitialization)
       {
         pthread_mutex_destroy(&workerData->conditionMutex);
         pthread_cond_destroy(&workerData->conditionVariable);
+        
+        if (workerData->theStorFile != NULL) 
+        {
+            fclose(workerData->theStorFile);
+            workerData->theStorFile = NULL;
+        }
+    
+      }
+      else
+      {
+        DYNV_VectorGeneric_Init(&workerData->directoryInfo);
+        workerData->theStorFile = NULL;
       }
 
       pthread_mutex_init(&workerData->conditionMutex, NULL);
       pthread_cond_init(&workerData->conditionVariable, NULL);
+      
+    //Clear the dynamic vector structure
+    int theSize = workerData->directoryInfo.Size;
+    char ** lastToDestroy = NULL;
+    if (theSize > 0)
+    {
+        lastToDestroy = ((ftpListDataType *)workerData->directoryInfo.Data[0])->fileList;
+        workerData->directoryInfo.Destroy(&workerData->directoryInfo, deleteListDataInfoVector);
+        free(lastToDestroy);
+    }
 }
 
 void resetClientData(clientDataType *clientData, int isInitialization)

@@ -115,12 +115,13 @@ struct workerData
     int commandReceived;
 
     unsigned long int retrRestartAtByte;
-    int threadIsBusy;
 
     /* The PASV thread will wait the signal before start */
     pthread_mutex_t conditionMutex;
     pthread_cond_t conditionVariable;
     ftpCommandDataType    ftpCommand;
+    DYNV_VectorGenericDataType directoryInfo;
+    FILE *theStorFile;
 } typedef workerDataType;
 
 struct clientData

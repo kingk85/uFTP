@@ -254,12 +254,9 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     pthread_cancel(data->clients[socketId].workerData.workerThread);
     pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
     //printf("\nThread has been cancelled.");
-
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.activeModeOn = 0;    
-
     pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
-
     return 1;
 }
 
@@ -303,8 +300,7 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     226 Since you see this ABOR must've succeeded
     */
     int returnCode;
-    if (data->clients[socketId].workerData.threadIsAlive == 1 &&
-        data->clients[socketId].workerData.threadIsBusy == 1)
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         void *pReturn;
         pthread_cancel(data->clients[socketId].workerData.workerThread);
@@ -955,21 +951,18 @@ int parseCommandCdup(clientDataType *theClientData)
         return 1;
 }
 
-int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom)
+int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom, FILE *retrFP)
 {
     long int readen = 0;
     long int toReturn = 0, writtenSize = 0;
     long int currentPosition = 0;
-    FILE *retrFP;
     long long int theFileSize;
     char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
 
-    //printf("\nOpening: %s", theFilename);
 
     retrFP = fopen(theFilename, "rb");
     if (retrFP == NULL)
     {
-        fclose(retrFP);
         return -1;
     }
 
@@ -983,6 +976,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
         if (currentPosition == -1)
         {
             fclose(retrFP);
+            retrFP = NULL;
             return toReturn;
         }
     }
@@ -994,6 +988,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
       if (writtenSize <= 0)
       {
           fclose(retrFP);
+          retrFP = NULL;
           return -1;
       }
       else
@@ -1005,6 +1000,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     //printf("\n Bytes written: %ld", toReturn);
 
     fclose(retrFP);
+    retrFP = NULL;
     return toReturn;
 }
 
