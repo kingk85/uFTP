@@ -132,54 +132,54 @@ int FILE_IsFile(const char *TheFileName)
 }
 
 void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive)
-	{
-	int FileAndFolderIndex = *FilesandFolders;
+{
+    int FileAndFolderIndex = *FilesandFolders;
 
-	//Allocate the array for the 1st time
-	if (*InodeList == NULL)
-		{
-		(*InodeList) = (char **) malloc(sizeof(char *) * (1));
-		}
+    //Allocate the array for the 1st time
+    if (*InodeList == NULL)
+    {
+        (*InodeList) = (char **) malloc(sizeof(char *) * (1));
+    }
 
-	DIR *TheDirectory;
-	struct dirent *dir;
-	TheDirectory = opendir(DirectoryInodeName);
+    DIR *TheDirectory;
+    struct dirent *dir;
+    TheDirectory = opendir(DirectoryInodeName);
 
-	if (TheDirectory)
-		{
-		 while ((dir = readdir(TheDirectory)) != NULL)
-		 	 {
-				if ( dir->d_name[0] == '.' && strlen(dir->d_name) == 1)
-                                    continue;
-                                
-				if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strlen(dir->d_name) == 2)
-                                    continue;                                
-					
-                                //Set the row to needed size
-                                int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
-                                (*InodeList) = (char ** ) realloc((*InodeList), ReallocSize );
-                                int nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
-                                //Allocate the path string size
-                                (*InodeList)[FileAndFolderIndex]  = (char *) malloc (  nsize );
-                                strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
-                                strcat((*InodeList)[FileAndFolderIndex], "/" );
-                                strcat((*InodeList)[FileAndFolderIndex], dir->d_name );
-                                (*InodeList)[FileAndFolderIndex][ strlen(dir->d_name)  + strlen(DirectoryInodeName) + 1 ] = '\0';
-                                (*FilesandFolders)++;
-                                FileAndFolderIndex++;
+    if (TheDirectory)
+    {
+        while ((dir = readdir(TheDirectory)) != NULL)
+        {
+            if ( dir->d_name[0] == '.' && strlen(dir->d_name) == 1)
+                continue;
 
-                                if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
-                                        {
-                                        FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive );
-                                        FileAndFolderIndex = (*FilesandFolders);
-                                        }
-				 
-		 	 }
-		 closedir(TheDirectory);
-		}
+            if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strlen(dir->d_name) == 2)
+                continue;                                
 
-	qsort ((*InodeList), *FilesandFolders, sizeof (const char *), FILE_CompareString);
-	}
+            //Set the row to needed size
+            int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
+            (*InodeList) = (char ** ) realloc((*InodeList), ReallocSize );
+            int nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
+            //Allocate the path string size
+            (*InodeList)[FileAndFolderIndex]  = (char *) malloc (  nsize );
+            strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
+            strcat((*InodeList)[FileAndFolderIndex], "/" );
+            strcat((*InodeList)[FileAndFolderIndex], dir->d_name );
+            (*InodeList)[FileAndFolderIndex][ strlen(dir->d_name)  + strlen(DirectoryInodeName) + 1 ] = '\0';
+            (*FilesandFolders)++;
+            FileAndFolderIndex++;
+
+            if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
+            {
+                FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive );
+                FileAndFolderIndex = (*FilesandFolders);
+            }
+
+        }
+        closedir(TheDirectory);
+    }
+
+    qsort ((*InodeList), *FilesandFolders, sizeof (const char *), FILE_CompareString);
+}
 
 int FILE_GetStringFromFile(char * filename, char **file_content)
 {

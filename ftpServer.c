@@ -36,7 +36,6 @@
 #include <netdb.h>
 #include <errno.h>
 
-
 /* FTP LIBS */
 #include "ftpServer.h"
 #include "ftpData.h"
@@ -75,7 +74,7 @@ void *connectionWorkerHandle(void * socketId)
   //Passive data connection mode
   if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
   {
-    int tries = 10;
+    int tries = 30;
     printf("\nPasv (%d) thread init opening port: %d", theSocketId, ftpData.clients[theSocketId].workerData.connectionPort);
     printf("\nPasv (%d) open ok: %d", theSocketId, ftpData.clients[theSocketId].workerData.connectionPort);
 
@@ -83,7 +82,7 @@ void *connectionWorkerHandle(void * socketId)
     {
         setRandomicPort(&ftpData, theSocketId);
         ftpData.clients[theSocketId].workerData.passiveListeningSocket = createPassiveSocket(ftpData.clients[theSocketId].workerData.connectionPort);
-        
+
         if (ftpData.clients[theSocketId].workerData.passiveListeningSocket != -1)
         {
             break;
@@ -297,7 +296,7 @@ void *connectionWorkerHandle(void * socketId)
           int i;
           char theBufferWrite[FTP_COMMAND_ELABORATE_CHAR_BUFFER_BIG];
           char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-          
+
           getListDataInfo(ftpData.clients[theSocketId].nlistPath.text, &ftpData.clients[theSocketId].workerData.directoryInfo);
           printf("\nPasv (%d) ftpData.clients[theSocketId].login.absolutePath.text = %s",theSocketId, ftpData.clients[theSocketId].login.absolutePath.text);
 

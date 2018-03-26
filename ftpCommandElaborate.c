@@ -251,7 +251,11 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     /* Create worker thread */
     int returnCode;
     void *pReturn;
-    pthread_cancel(data->clients[socketId].workerData.workerThread);
+    
+    if (data->clients[socketId].workerData.threadIsAlive == 1) 
+    {
+        pthread_cancel(data->clients[socketId].workerData.workerThread);
+    }
     pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
     //printf("\nThread has been cancelled.");
     data->clients[socketId].workerData.passiveModeOn = 1;
@@ -276,7 +280,10 @@ int parseCommandPort(ftpDataType * data, int socketId)
 
 
     void *pReturn;
-    pthread_cancel(data->clients[socketId].workerData.workerThread);
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
+    {
+        pthread_cancel(data->clients[socketId].workerData.workerThread);
+    }
     pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
     //printf("\nThread has been cancelled.");
 
@@ -303,7 +310,10 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         void *pReturn;
-        pthread_cancel(data->clients[socketId].workerData.workerThread);
+        if (data->clients[socketId].workerData.threadIsAlive == 1)
+        {
+            pthread_cancel(data->clients[socketId].workerData.workerThread);
+        }
         pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
         //printf("\nThread has been cancelled due to ABOR request.");
         

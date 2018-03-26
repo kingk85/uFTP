@@ -23,7 +23,6 @@
  */
 
 
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -315,7 +314,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         %Z	Timezone name or abbreviation	CDT
         %%	A % sign	%
          */
-        
+
         directoryInfo->PushBack(directoryInfo, &data, sizeof(ftpListDataType));
     }
     
@@ -435,7 +434,6 @@ void resetClientData(clientDataType *clientData, int isInitialization)
             void *pReturn;
             pthread_cancel(clientData->workerData.workerThread);
             pthread_join(clientData->workerData.workerThread, &pReturn);
-            //printf("\nThread has been cancelled.");
         }
         else
         {
