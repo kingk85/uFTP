@@ -219,6 +219,12 @@ void *connectionWorkerHandle(void * socketId)
             }
             fclose(ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.theStorFile = NULL;
+            
+            
+            if (ftpData.clients[theSocketId].login.ownerShip.ownerShipSet == 1)
+            {
+                FILE_doChownFromUidGid(ftpData.clients[theSocketId].fileToStor.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid);
+            }
 
             memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             sprintf(theResponse, "226 file stor ok\r\n");

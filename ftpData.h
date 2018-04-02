@@ -47,11 +47,25 @@ struct parameter
     char* value;
 } typedef parameter_DataType;
 
+
+struct ownerShip
+{
+    int ownerShipSet;
+    char* userOwnerString;
+    char* groupOwnerString;
+    uid_t uid;
+    gid_t gid;
+    
+} typedef ownerShip_DataType;
+
 struct usersParameters
 {
     char* name;
     char* password;
-    char* homePath;    
+    char* homePath;
+    
+    ownerShip_DataType ownerShip;
+    
 } typedef usersParameters_DataType;
 
 struct ftpParameters
@@ -85,7 +99,7 @@ struct loginData
     dynamicStringDataType homePath;
     dynamicStringDataType ftpPath;
     dynamicStringDataType absolutePath;
-    
+    ownerShip_DataType ownerShip;
 } typedef loginDataType;
 
 struct ipData

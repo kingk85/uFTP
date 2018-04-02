@@ -32,11 +32,16 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 
 #include "fileManagement.h"
 #include "dynamicVectors.h"
+
+
+
+
 
 static int FILE_CompareString(const void * a, const void * b);
 
@@ -537,4 +542,72 @@ int FILE_LockFile(int fd)
     fl.l_whence = SEEK_SET;
     fl.l_len = 0;
     return(fcntl(fd, F_SETLK, &fl));
+}
+
+
+int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid)
+{
+    if (chown(file_path, uid, gid) == -1)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+int FILE_doChownFromUidGidString (  const char *file_path,
+                    const char *user_name,
+                    const char *group_name) 
+{
+    uid_t          uid;
+    gid_t          gid;
+    struct passwd *pwd;
+    struct group  *grp;
+
+    pwd = getpwnam(user_name);
+    if (pwd == NULL) 
+    {
+        return 0;
+    }
+    uid = pwd->pw_uid;
+
+    grp = getgrnam(group_name);
+    if (grp == NULL)
+    {
+        return 0;
+    }
+    gid = grp->gr_gid;
+
+    if (chown(file_path, uid, gid) == -1)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+
+uid_t FILE_getUID(const char *user_name)
+{
+    struct passwd *pwd;
+    pwd = getpwnam(user_name);
+
+    if (pwd == NULL) 
+    {
+        return -1;
+    }
+
+    return pwd->pw_uid;
+}
+
+gid_t FILE_getGID(const char *group_name)
+{
+    struct group  *grp;
+    grp = getgrnam(group_name);
+    if (grp == NULL)
+    {
+        return -1;
+    }
+
+    return grp->gr_gid;
 }

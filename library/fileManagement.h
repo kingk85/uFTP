@@ -26,6 +26,7 @@
 
     #include <stdio.h> 
     #include <time.h> 
+    #include <sys/types.h>
     #include "dynamicVectors.h"
 
     #define FILE_MAX_LINE_LENGHT			512
@@ -65,5 +66,9 @@
     void FILE_AppendToString(char ** sourceString, char *theString);
     void FILE_DirectoryToParent(char ** sourceString);
     int FILE_LockFile(int fd);
+    int FILE_doChownFromUidGidString(const char *file_path, const char *user_name, const char *group_name);
+    int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid);
+    uid_t FILE_getUID(const char *user_name);
+    gid_t FILE_getGID(const char *group_name);
 #define	GEN_FILE_MANAGEMENT_TYPES
 #endif

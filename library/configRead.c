@@ -346,7 +346,9 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
 
     char    userX[PARAMETER_SIZE_LIMIT], 
             passwordX[PARAMETER_SIZE_LIMIT], 
-            homeX[PARAMETER_SIZE_LIMIT];
+            homeX[PARAMETER_SIZE_LIMIT], 
+            userOwnerX[PARAMETER_SIZE_LIMIT], 
+            groupOwnerX[PARAMETER_SIZE_LIMIT];
     
     printf("\nReading configuration settings..");
     
@@ -441,21 +443,33 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     memset(userX, 0, PARAMETER_SIZE_LIMIT);
     memset(passwordX, 0, PARAMETER_SIZE_LIMIT);
     memset(homeX, 0, PARAMETER_SIZE_LIMIT);
-
+    memset(userOwnerX, 0, PARAMETER_SIZE_LIMIT);
+    memset(groupOwnerX, 0, PARAMETER_SIZE_LIMIT);
+    
     DYNV_VectorGeneric_Init(&ftpParameters->usersVector);
     while(1)
     {
-        int searchUserIndex, searchPasswordIndex, searchHomeIndex;
+        int searchUserIndex, searchPasswordIndex, searchHomeIndex, searchUserOwnerIndex, searchGroupOwnerIndex;
         usersParameters_DataType userData;
 
         sprintf(userX, "USER_%d", userIndex);
         sprintf(passwordX, "PASSWORD_%d", userIndex);
         sprintf(homeX, "HOME_%d", userIndex);
+        sprintf(groupOwnerX, "GROUP_NAME_OWNER_%d", userIndex);
+        sprintf(userOwnerX, "USER_NAME_OWNER_%d", userIndex);        
         userIndex++;
         
         searchUserIndex = searchParameter(userX, parametersVector);
         searchPasswordIndex = searchParameter(passwordX, parametersVector);
         searchHomeIndex = searchParameter(homeX, parametersVector);
+        searchUserOwnerIndex = searchParameter(userOwnerX, parametersVector);
+        searchGroupOwnerIndex = searchParameter(groupOwnerX, parametersVector);        
+        
+        //printf("\ngroupOwnerX = %s", groupOwnerX);
+        //printf("\nuserOwnerX = %s", userOwnerX);
+        //printf("\nsearchUserOwnerIndex = %d", searchUserOwnerIndex);
+        //printf("\nsearchGroupOwnerIndex = %d", searchGroupOwnerIndex);
+
         
         if (searchUserIndex == -1 ||
             searchPasswordIndex == -1 ||
@@ -465,6 +479,8 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
             break;
         }
 
+        userData.ownerShip.groupOwnerString = NULL;
+        userData.ownerShip.userOwnerString = NULL;
         userData.name = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1);
         userData.password = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1);
         userData.homePath = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value) + 1);
@@ -476,12 +492,41 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         userData.name[strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value)] = '\0';
         userData.password[strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value)] = '\0';
         userData.homePath[strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value)] = '\0';
+        
+        if (searchUserOwnerIndex != -1 &&
+            searchGroupOwnerIndex != -1)
+        {
+            userData.ownerShip.groupOwnerString = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value) + 1);
+            userData.ownerShip.userOwnerString  = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value) + 1);
 
-        printf("\nUser parameter found");
+            strcpy(userData.ownerShip.groupOwnerString, ((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value);
+            strcpy(userData.ownerShip.userOwnerString, ((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value);
+
+            userData.ownerShip.groupOwnerString[strlen(((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value)] = '\0';
+            userData.ownerShip.userOwnerString[strlen(((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value)] = '\0';
+            
+            userData.ownerShip.gid = FILE_getGID(userData.ownerShip.groupOwnerString);
+            userData.ownerShip.uid = FILE_getUID(userData.ownerShip.userOwnerString);
+            userData.ownerShip.ownerShipSet = 1;
+        }
+        else
+        {
+            userData.ownerShip.ownerShipSet = 0;
+            userData.ownerShip.groupOwnerString = NULL;
+            userData.ownerShip.userOwnerString  = NULL;
+        }
+
+        printf("\n\nUser parameter found");
         printf("\nName: %s", userData.name);
         printf("\nPassword: %s", userData.password);
         printf("\nHomePath: %s", userData.homePath);
-
+        printf("\ngroupOwnerStr: %s", userData.ownerShip.groupOwnerString);
+        printf("\nuserOwnerStr: %s", userData.ownerShip.userOwnerString);        
+        printf("\nuserData.gid = %d", userData.ownerShip.gid);
+        printf("\nuserData.uid = %d", userData.ownerShip.uid);
+        printf("\nuserData.ownerShipSet = %d", userData.ownerShip.ownerShipSet);
+        
+        
         ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
     }
 

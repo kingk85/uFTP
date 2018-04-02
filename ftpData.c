@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +29,6 @@
 #include <pthread.h>
 #include <netinet/in.h>
 #include <unistd.h>
-
 
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
@@ -459,7 +457,6 @@ void resetClientData(clientDataType *clientData, int isInitialization)
     
     memset(&clientData->client_sockaddr_in, 0, clientData->sockaddr_in_size);
     memset(&clientData->server_sockaddr_in, 0, clientData->sockaddr_in_server_size);
-    
     memset(clientData->clientIpAddress, 0, INET_ADDRSTRLEN);
     memset(clientData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
     memset(clientData->theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
@@ -475,12 +472,9 @@ void resetClientData(clientDataType *clientData, int isInitialization)
 
     cleanDynamicStringDataType(&clientData->ftpCommand.commandArgs, isInitialization);
     cleanDynamicStringDataType(&clientData->ftpCommand.commandOps, isInitialization);
-    
-    
+
     clientData->connectionTimeStamp = 0;
     clientData->lastActivityTimeStamp = 0;
-
-    
 }
 
 int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)

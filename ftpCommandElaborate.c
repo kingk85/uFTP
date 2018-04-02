@@ -77,7 +77,7 @@ int parseCommandSite(clientDataType *theClientData)
     
     if(compareStringCaseInsensitive(theCommand, "CHMOD", strlen("CHMOD")) == 1)
     {
-        setPermissions(theCommand, theClientData->login.absolutePath.text);
+        setPermissions(theCommand, theClientData->login.absolutePath.text, theClientData->login.ownerShip);
         char *theResponse = "200 Permissions changed\r\n";
         returnCode = write(theClientData->socketDescriptor, theResponse, strlen(theResponse));
         if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -113,7 +113,6 @@ int parseCommandPass(ftpDataType * data, int socketId)
             char *theResponse = "430 Invalid username or password\r\n";
             returnCode = write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
             if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-           //printf("\nLogin Error recorded no such username or password");
         }
         else
         {
@@ -122,16 +121,15 @@ int parseCommandPass(ftpDataType * data, int socketId)
             setDynamicStringDataType(&data->clients[socketId].login.absolutePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
             setDynamicStringDataType(&data->clients[socketId].login.homePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
             setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", strlen("/"));
+
+            data->clients[socketId].login.ownerShip.ownerShipSet = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.ownerShipSet;
+            data->clients[socketId].login.ownerShip.gid = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.gid;
+            data->clients[socketId].login.ownerShip.uid = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.uid;
             data->clients[socketId].login.userLoggedIn = 1;
 
             returnCode = write(data->clients[socketId].socketDescriptor, theResponse, strlen(theResponse));
             if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             printTimeStamp();
-            
-            //printf("PASS COMMAND OK, PASSWORD IS: %s", data->clients[socketId].login.password.text);
-            //printf("\nheClientData->login.homePath: %s", data->clients[socketId].login.homePath.text);
-            //printf("\nheClientData->login.ftpPath: %s", data->clients[socketId].login.ftpPath.text);
-            //printf("\nheClientData->login.absolutePath: %s", data->clients[socketId].login.absolutePath.text);
         }
 
        return 1;
@@ -294,7 +292,6 @@ int parseCommandPort(ftpDataType * data, int socketId)
 
     return 1;
 }
-
 
 int parseCommandAbor(ftpDataType * data, int socketId)
 {
@@ -657,6 +654,11 @@ int parseCommandMkd(clientDataType *theClientData)
         int returnStatus;
         //printf("\nThe directory to make is: %s", mkdFileName.text);
         returnStatus = mkdir(mkdFileName.text, S_IRWXU | S_IRWXG | S_IRWXO);
+        if (theClientData->login.ownerShip.ownerShipSet == 1)
+        {
+            FILE_doChownFromUidGid(mkdFileName.text, theClientData->login.ownerShip.uid, theClientData->login.ownerShip.gid);
+        }
+
         setDynamicStringDataType(&theResponse, "257 \"", strlen("257 \""));
         appendToDynamicStringDataType(&theResponse, theDirectoryFilename, strlen(theDirectoryFilename));
         appendToDynamicStringDataType(&theResponse, "\" : The directory was successfully created\r\n", strlen("\" : The directory was successfully created\r\n"));
@@ -1122,13 +1124,14 @@ int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCo
     return 1;
 }
 
-int setPermissions(char * permissionsCommand, char * basePath)
+int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataType ownerShip)
 {
     #define STATUS_INCREASE 0
     #define STATUS_PERMISSIONS 1
     #define STATUS_LOCAL_PATH 2
     
     int permissionsCommandCursor = 0;
+    int returnCode = 0;
 
     int status = STATUS_INCREASE;
     char thePermissionString[1024];
@@ -1174,14 +1177,37 @@ int setPermissions(char * permissionsCommand, char * basePath)
     //printf("\n thePermissionString = %s ", thePermissionString);
     //printf("\n theLocalPathCursor = %s ", theLocalPath);
 
+    //if (basePath[strlen(basePath)-1] != '/')
+        //sprintf(theFinalCommand, "chmod %s %s/%s", thePermissionString, basePath, theLocalPath);
+    //else
+        //sprintf(theFinalCommand, "chmod %s %s%s", thePermissionString, basePath, theLocalPath);
+
+    //printf("\ntheFinalCommand = %s ", theFinalCommand);
+
+    //system(theFinalCommand);
+    if (ownerShip.ownerShipSet == 1)
+    {
+        memset(theFinalCommand, 0, 2048);
+        if (basePath[strlen(basePath)-1] != '/')
+            sprintf(theFinalCommand, "%s/%s", basePath, theLocalPath);
+        else
+            sprintf(theFinalCommand, "%s%s", basePath, theLocalPath);
+
+        FILE_doChownFromUidGid(theFinalCommand, ownerShip.uid, ownerShip.gid);
+    }
+
+    memset(theFinalCommand, 0, 2048);
+
     if (basePath[strlen(basePath)-1] != '/')
-        sprintf(theFinalCommand, "chmod %s %s/%s", thePermissionString, basePath, theLocalPath);
+        sprintf(theFinalCommand, "%s/%s", basePath, theLocalPath);
     else
-        sprintf(theFinalCommand, "chmod %s %s%s", thePermissionString, basePath, theLocalPath);
-    
-    //printf("\n theFinalCommand = %s ", theFinalCommand);
-    
-    system(theFinalCommand);
-    
+        sprintf(theFinalCommand, "%s%s", basePath, theLocalPath);
+
+    returnCode = strtol(thePermissionString, 0, 8);
+    if (chmod (theFinalCommand, returnCode) < 0)
+    {
+        printf("\n---> ERROR WHILE SETTING FILE PERMISSION");
+    }
+
     return 1;
 }
