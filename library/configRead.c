@@ -91,23 +91,23 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
 
 void applyConfiguration(ftpParameters_DataType *ftpParameters)
 {
-    if (ftpParameters->singleInstanceModeOn == 1)
-    {
-        int returnCode = isProcessAlreadyRunning();
-        if (returnCode == 1)
-        {
-            printf("\nThe process is already running..");
-            exit(0);
-        }
-    }
+  /* Fork the process daemon mode */
+  if (ftpParameters->daemonModeOn == 1)
+  {
+      daemonize("uFTP");
+  }
 
-    /* Fork the process daemon mode */
-    if (ftpParameters->daemonModeOn == 1)
-    {
-        daemonize("uFTP");
-    }
+	if (ftpParameters->singleInstanceModeOn == 1)
+	{
+		int returnCode = isProcessAlreadyRunning();
+
+		if (returnCode == 1)
+		{
+			printf("\nThe process is already running..");
+			exit(0);
+		}
+	}
 }
-
 
 void initFtpData(ftpDataType *ftpData)
 {
