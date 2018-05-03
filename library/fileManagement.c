@@ -23,6 +23,8 @@
  */
 
 
+#define _LARGEFILE64_SOURCE
+
 
 #include <pwd.h>
 #include <grp.h>
@@ -65,13 +67,13 @@ int FILE_IsDirectory(char *DirectoryPath)
 {
     struct stat sb;
     if (stat(DirectoryPath, &sb) == 0 && S_ISDIR(sb.st_mode))
-        {
+    {
         return 1;
-        }
+    }
     else
-        {
+    {
         return 0;
-        }
+    }
     
     return 0;
 }
@@ -91,27 +93,29 @@ long int FILE_GetAvailableSpace(const char* path)
 }
 
 /* Get the file size */
-int FILE_GetFileSize(FILE *TheFilePointer)
+long long int FILE_GetFileSize(FILE *TheFilePointer)
 {
-    int Prev = 0, TheFileSize = 0;
-    Prev = ftell(TheFilePointer);
-    fseek(TheFilePointer, 0L, SEEK_END);
-    TheFileSize = ftell(TheFilePointer);
-    fseek(TheFilePointer, Prev, SEEK_SET);
+    long long int Prev = 0, TheFileSize = 0;
+    Prev = ftello64(TheFilePointer);
+    fseeko64(TheFilePointer, 0, SEEK_END);
+    TheFileSize = ftello64(TheFilePointer);
+    fseeko64(TheFilePointer, Prev, SEEK_SET);
     return TheFileSize;
 }
 
-int FILE_GetFileSizeFromPath(char *TheFileName)
+long long int FILE_GetFileSizeFromPath(char *TheFileName)
 {
     if (FILE_IsFile(TheFileName) == 1)
     {
         FILE *TheFilePointer;
-        TheFilePointer = fopen(TheFileName, "rb");
-        int Prev = 0, TheFileSize = 0;
-        Prev = ftell(TheFilePointer);
-        fseek(TheFilePointer, 0L, SEEK_END);
-        TheFileSize = ftell(TheFilePointer);
-        fseek(TheFilePointer, Prev, SEEK_SET);
+        TheFilePointer = fopen64(TheFileName, "rb");
+        long long int Prev = 0, TheFileSize = 0;
+        Prev = ftello64(TheFilePointer);
+        fseeko64(TheFilePointer, 0L, SEEK_END);
+        TheFileSize = ftello64(TheFilePointer);
+        printf("ftello64(TheFilePointer) == %lli", ftello64(TheFilePointer));
+        fseeko64(TheFilePointer, Prev, SEEK_SET);
+
         fclose(TheFilePointer);
         return TheFileSize;
     }
@@ -125,9 +129,9 @@ int FILE_GetFileSizeFromPath(char *TheFileName)
 int FILE_IsFile(const char *TheFileName)
 {
   FILE *TheFile;
-  TheFile = fopen(TheFileName, "rb");
+  TheFile = fopen64(TheFileName, "rb");
 
-  if (TheFile)
+  if (TheFile != NULL)
     {
         fclose(TheFile);
         return 1;
@@ -188,7 +192,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
 int FILE_GetStringFromFile(char * filename, char **file_content)
 {
-    int file_size = 0;
+    long long int file_size = 0;
     int c, count;
 
     if (FILE_IsFile(filename) == 0)
@@ -219,134 +223,134 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
 }
 
 void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *ParametersVector)
-	{
-	FILE *File;
-	char Line[FILE_MAX_LINE_LENGHT];
-	int i;
-	int c;
-	char FirstChar = 0;
-	char SeparatorChar = 0;
-	char ParameterChar = 0;
-	int BufferNameCursor = 0;
-	int BufferValueCursor = 0;
-	FILE_StringParameter_DataType TheParameter;
+{
+    FILE *File;
+    char Line[FILE_MAX_LINE_LENGHT];
+    int i;
+    int c;
+    char FirstChar = 0;
+    char SeparatorChar = 0;
+    char ParameterChar = 0;
+    int BufferNameCursor = 0;
+    int BufferValueCursor = 0;
+    FILE_StringParameter_DataType TheParameter;
 
-	memset (TheParameter.Name, 0, FILE_MAX_PAR_VAR_SIZE);
-	memset (TheParameter.Value, 0, FILE_MAX_PAR_VAR_SIZE);
+    memset (TheParameter.Name, 0, FILE_MAX_PAR_VAR_SIZE);
+    memset (TheParameter.Value, 0, FILE_MAX_PAR_VAR_SIZE);
 
-	File = fopen(filename, "r");
-	if(File == NULL)
-        {
-            printf("error while opening file %s", filename);
-        }
-	else
-		{
-		printf("Parameter initializing from file %s", filename);
+    File = fopen(filename, "r");
+    if(File == NULL)
+    {
+        printf("error while opening file %s", filename);
+    }
+    else
+    {
+    printf("Parameter initializing from file %s", filename);
 
-		while(fgets(Line, FILE_MAX_LINE_LENGHT, File) != NULL)
-			{
-			//printf("LINE: %s", Line);
-			i = 0;
+    while(fgets(Line, FILE_MAX_LINE_LENGHT, File) != NULL)
+            {
+            //printf("LINE: %s", Line);
+            i = 0;
 
-			while (i<FILE_MAX_LINE_LENGHT)
-				{
-				c = Line[i++];
-				if (((char) c == ' ' && FirstChar != '#') || (char) c == '\r' || (c == 9 && FirstChar != '#' ) || (c == 10) || (c == 13))
-					{
-					continue;
-					}
+            while (i<FILE_MAX_LINE_LENGHT)
+            {
+            c = Line[i++];
+            if (((char) c == ' ' && FirstChar != '#') || (char) c == '\r' || (c == 9 && FirstChar != '#' ) || (c == 10) || (c == 13))
+                    {
+                    continue;
+                    }
 
-				if ((char) c == '\0' )
-					{
-				  if ((FirstChar != '#' && FirstChar != '=' && FirstChar != 0 ) && SeparatorChar == '=' && ParameterChar != 0 )
-				  	{
-				  	TheParameter.Name[BufferNameCursor] = '\0';
-				  	TheParameter.Value[BufferValueCursor] = '\0';
-				  	printf("Adding name: %s value: %s", TheParameter.Name, TheParameter.Value);
-				  	//printf("TheParameter.Name[0] = %d", TheParameter.Name[0]);
+            if ((char) c == '\0' )
+                    {
+              if ((FirstChar != '#' && FirstChar != '=' && FirstChar != 0 ) && SeparatorChar == '=' && ParameterChar != 0 )
+                    {
+                    TheParameter.Name[BufferNameCursor] = '\0';
+                    TheParameter.Value[BufferValueCursor] = '\0';
+                    printf("Adding name: %s value: %s", TheParameter.Name, TheParameter.Value);
+                    //printf("TheParameter.Name[0] = %d", TheParameter.Name[0]);
 
-				  	ParametersVector->PushBack(ParametersVector, &TheParameter, sizeof(FILE_StringParameter_DataType));
-						BufferNameCursor = 0;
-						BufferValueCursor = 0;
-						memset (TheParameter.Name, 0, FILE_MAX_PAR_VAR_SIZE);
-						memset (TheParameter.Value, 0, FILE_MAX_PAR_VAR_SIZE);
-				    }
+                    ParametersVector->PushBack(ParametersVector, &TheParameter, sizeof(FILE_StringParameter_DataType));
+                            BufferNameCursor = 0;
+                            BufferValueCursor = 0;
+                            memset (TheParameter.Name, 0, FILE_MAX_PAR_VAR_SIZE);
+                            memset (TheParameter.Value, 0, FILE_MAX_PAR_VAR_SIZE);
+                }
 
-					FirstChar = 0;
-					SeparatorChar = 0;
-					ParameterChar = 0;
+                    FirstChar = 0;
+                    SeparatorChar = 0;
+                    ParameterChar = 0;
 
-					if ((char) c == '\0')
-						{
-						break;
-						}
-				   }
-				   else
-				   	{
-				  	 //printf("Checking chars");
+                    if ((char) c == '\0')
+                            {
+                            break;
+                            }
+               }
+               else
+                    {
+                     //printf("Checking chars");
 
-						//first char, parameter name
-						if (FirstChar == 0)
-							{
-							FirstChar = (char) c;
-							//printf("FirstChar = %c", FirstChar);
-							}
-						else if (FirstChar != 0 && SeparatorChar == 0 && (char) c == '=')
-							{
-							SeparatorChar = (char) c;
-							//printf("SeparatorChar = %c", SeparatorChar);
-							}
-						else if (FirstChar != 0 && SeparatorChar != 0 && ParameterChar == 0)
-							{
-							ParameterChar = (char) c;
-							//printf("ParameterChar = %c", ParameterChar);
-							}
+                            //first char, parameter name
+                            if (FirstChar == 0)
+                                    {
+                                    FirstChar = (char) c;
+                                    //printf("FirstChar = %c", FirstChar);
+                                    }
+                            else if (FirstChar != 0 && SeparatorChar == 0 && (char) c == '=')
+                                    {
+                                    SeparatorChar = (char) c;
+                                    //printf("SeparatorChar = %c", SeparatorChar);
+                                    }
+                            else if (FirstChar != 0 && SeparatorChar != 0 && ParameterChar == 0)
+                                    {
+                                    ParameterChar = (char) c;
+                                    //printf("ParameterChar = %c", ParameterChar);
+                                    }
 
-						//Get the parameter name
-						if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar == 0 && BufferNameCursor < FILE_MAX_PAR_VAR_SIZE )
-							if(BufferNameCursor < FILE_MAX_PAR_VAR_SIZE)
-								TheParameter.Name[BufferNameCursor++] = (char) c;
+                            //Get the parameter name
+                            if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar == 0 && BufferNameCursor < FILE_MAX_PAR_VAR_SIZE )
+                                    if(BufferNameCursor < FILE_MAX_PAR_VAR_SIZE)
+                                            TheParameter.Name[BufferNameCursor++] = (char) c;
 
-						//Get the parameter value
-						if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar != 0 && ParameterChar != 0 && BufferValueCursor < FILE_MAX_PAR_VAR_SIZE )
-							if(BufferValueCursor < FILE_MAX_PAR_VAR_SIZE)
-								TheParameter.Value[BufferValueCursor++] = (char) c;
-				        }
-				    }
-				}
+                            //Get the parameter value
+                            if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar != 0 && ParameterChar != 0 && BufferValueCursor < FILE_MAX_PAR_VAR_SIZE )
+                                    if(BufferValueCursor < FILE_MAX_PAR_VAR_SIZE)
+                                            TheParameter.Value[BufferValueCursor++] = (char) c;
+                    }
+                }
+            }
 
-			fclose(File);
-			}
+            fclose(File);
+            }
 
-	printf("ParametersVector->Size %d", ParametersVector->Size);
+    printf("ParametersVector->Size %d", ParametersVector->Size);
 
-	for (i = 0; i < ParametersVector->Size; i++)
-		{
-		printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
-		}
+    for (i = 0; i < ParametersVector->Size; i++)
+            {
+            printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
+            }
 
-	qsort(ParametersVector->Data, ParametersVector->Size, sizeof(void *), FILE_CompareStringParameter);
+    qsort(ParametersVector->Data, ParametersVector->Size, sizeof(void *), FILE_CompareStringParameter);
 
-	printf("Sorted");
-	for (i = 0; i < ParametersVector->Size; i++)
-		{
-		printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
-		}
+    printf("Sorted");
+    for (i = 0; i < ParametersVector->Size; i++)
+            {
+            printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
+            }
 
-	}
+}
 
 int FILE_StringParametersLinearySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * name)
-	{
-	int i;
-	for(i=0; i<TheVectorGeneric->Size; i++)
-		{
-		if(strcmp(((FILE_StringParameter_DataType *)TheVectorGeneric->Data[i])->Name, (char *) name) == 0)
-			{
-			return i;
-			}
-		}
-	return -1;
-	}
+{
+    int i;
+    for(i=0; i<TheVectorGeneric->Size; i++)
+    {
+        if(strcmp(((FILE_StringParameter_DataType *)TheVectorGeneric->Data[i])->Name, (char *) name) == 0)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
 
 int FILE_StringParametersBinarySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * Needle)
 	{
@@ -490,47 +494,40 @@ time_t FILE_GetLastModifiedData(char *path)
 
 void FILE_AppendToString(char ** sourceString, char *theString)
 {
-        //printf("\n sourcestring = %s", *sourceString);
-        //printf("\n theString = %s", theString);
-        
-	int theNewSize = strlen(*sourceString) + strlen(theString);
-	*sourceString = realloc(*sourceString, theNewSize + 10);
-	strcat(*sourceString, theString);
-	(*sourceString)[theNewSize] = '\0';
-        
-       // printf("\n sourcestring = %s", *sourceString);
-       // printf("\n theString = %s", theString);
-       // printf("\n theNewSize = %d", theNewSize);
+    int theNewSize = strlen(*sourceString) + strlen(theString);
+    *sourceString = realloc(*sourceString, theNewSize + 10);
+    strcat(*sourceString, theString);
+    (*sourceString)[theNewSize] = '\0';
 }
 
 void FILE_DirectoryToParent(char ** sourceString)
 {
-         //printf("\n");
-        int i = 0, theLastSlash = -1, strLen = 0;
-        
-        strLen = strlen(*sourceString);
-        //printf("\nstrLen = %d", strLen);
-        
-        for (i = 0; i < strLen; i++)
-        {
-            //printf("%c", (*sourceString)[i]);
-            if ( (*sourceString)[i] == '/')
-            {
-                theLastSlash = i;
-                //printf("\n theLastSlash = %d", theLastSlash);
-            }
-        }
+    //printf("\n");
+   int i = 0, theLastSlash = -1, strLen = 0;
 
-        if (theLastSlash > -1)
-        {
-            int theNewSize = theLastSlash;
-            if (theLastSlash == 0)
-            {
-                theNewSize = 1;
-            }
-            *sourceString = realloc(*sourceString, theNewSize+1);
-            (*sourceString)[theNewSize] = '\0';
-        }
+   strLen = strlen(*sourceString);
+   //printf("\nstrLen = %d", strLen);
+
+   for (i = 0; i < strLen; i++)
+   {
+       //printf("%c", (*sourceString)[i]);
+       if ( (*sourceString)[i] == '/')
+       {
+           theLastSlash = i;
+           //printf("\n theLastSlash = %d", theLastSlash);
+       }
+   }
+
+   if (theLastSlash > -1)
+   {
+       int theNewSize = theLastSlash;
+       if (theLastSlash == 0)
+       {
+           theNewSize = 1;
+       }
+       *sourceString = realloc(*sourceString, theNewSize+1);
+       (*sourceString)[theNewSize] = '\0';
+   }
 }
 
 

@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#define _LARGEFILE64_SOURCE
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -798,7 +799,7 @@ int parseCommandSize(clientDataType *theClientData)
 {
     int returnCode;
     int isSafePath;
-    unsigned long long int theSize;
+    long long int theSize;
     char *theFileName;
     dynamicStringDataType theResponse;
     dynamicStringDataType getSizeFromFileName;
@@ -963,16 +964,15 @@ int parseCommandCdup(clientDataType *theClientData)
         return 1;
 }
 
-int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom, FILE *retrFP)
+long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, long long int startFrom, FILE *retrFP)
 {
-    long int readen = 0;
-    long int toReturn = 0, writtenSize = 0;
-    long int currentPosition = 0;
+    long long int readen = 0;
+    long long int toReturn = 0, writtenSize = 0;
+    long long int currentPosition = 0;
     long long int theFileSize;
     char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
 
-
-    retrFP = fopen(theFilename, "rb");
+    retrFP = fopen64(theFilename, "rb");
     if (retrFP == NULL)
     {
         return -1;
@@ -983,7 +983,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
     if (startFrom > 0)
     {
         //printf("\nSeek startFrom: %d", startFrom);
-        currentPosition = (long int) lseek(fileno(retrFP), startFrom, SEEK_SET);
+        currentPosition = (long long int) lseek64(fileno(retrFP), startFrom, SEEK_SET);
        // printf("\nSeek result: %ld", currentPosition);
         if (currentPosition == -1)
         {
@@ -993,7 +993,7 @@ int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom
         }
     }
 
-    while ((readen = (long int) fread(buffer, sizeof(char), FTP_COMMAND_ELABORATE_CHAR_BUFFER, retrFP)) > 0)
+    while ((readen = (long long int) fread(buffer, sizeof(char), FTP_COMMAND_ELABORATE_CHAR_BUFFER, retrFP)) > 0)
     {
       writtenSize = write(thePasvSocketConnection, buffer, readen);
  

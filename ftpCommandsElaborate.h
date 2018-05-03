@@ -72,7 +72,7 @@ int parseCommandOpts(clientDataType *theClientData);
 int parseCommandRnfr(clientDataType *theClientData);
 int parseCommandRnto(clientDataType *theClientData);
 
-int writeRetrFile(char * theFilename, int thePasvSocketConnection, int startFrom, FILE *retrFP);
+long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, long long int startFrom, FILE *retrFP);
 char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs);
 int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand);
 int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataType ownerShip);

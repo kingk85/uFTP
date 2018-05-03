@@ -23,7 +23,7 @@
  */
 
 #ifndef GEN_FILE_MANAGEMENT_TYPES
-
+    #define _LARGEFILE64_SOURCE
     #include <stdio.h> 
     #include <time.h> 
     #include <sys/types.h>
@@ -48,9 +48,9 @@
     }
     FILE_fileInfo_DataType;
 
-    int  FILE_GetFileSize(FILE *theFilePointer);
+    long long int  FILE_GetFileSize(FILE *theFilePointer);
     long int FILE_GetAvailableSpace(const char* ThePath);
-    int FILE_GetFileSizeFromPath(char *TheFileName);
+    long long int FILE_GetFileSizeFromPath(char *TheFileName);
     int  FILE_IsFile(const char *theFileName);
     int  FILE_IsDirectory (char *directory_path);
     void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * filesandfolders, int recursive);

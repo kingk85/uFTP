@@ -25,7 +25,7 @@
 
 #ifndef FTPDATA_H
 #define FTPDATA_H
-
+#define _LARGEFILE64_SOURCE
 #include <netinet/in.h>
 #include "library/dynamicVectors.h"
 
@@ -33,7 +33,10 @@
 #define CLIENT_COMMAND_STRING_SIZE                  2048
 #define CLIENT_BUFFER_STRING_SIZE                   2048
 
-#define LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE       80
+#define LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE       1024
+
+#define COMMAND_TYPE_LIST                           0
+#define COMMAND_TYPE_NLIST                          1
 
 
 #ifdef __cplusplus
@@ -128,7 +131,7 @@ struct workerData
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];    
     int commandReceived;
 
-    unsigned long int retrRestartAtByte;
+    long long int retrRestartAtByte;
 
     /* The PASV thread will wait the signal before start */
     pthread_mutex_t conditionMutex;
@@ -208,7 +211,7 @@ struct ftpListData
     int isLink;
     char *owner;
     char *groupOwner;
-    int fileSize;
+    long long int fileSize;
     char *inodePermissionString;
     char **fileList;
     time_t lastModifiedData;
@@ -222,6 +225,7 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
+int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, int commandType);
 void deleteListDataInfoVector(void *TheElementToDelete);
 void resetWorkerData(workerDataType *pasvData, int isInitialization);
 void resetClientData(clientDataType *clientData, int isInitialization);
