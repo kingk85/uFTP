@@ -57,7 +57,6 @@ void workerCleanup(void *socketId)
 {
     int theSocketId = *(int *)socketId;
     printTimeStamp();
-    printf("\nCleanup called for thread id: %d", theSocketId);
     printf("\nClosing pasv socket (%d) ok!", theSocketId);
     shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
     shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
@@ -102,11 +101,8 @@ void *connectionWorkerHandle(void * socketId)
     if (ftpData.clients[theSocketId].workerData.socketIsConnected == 0)
     {
         printf("Waiting for pasv client connection on port: %d", ftpData.clients[theSocketId].workerData.connectionPort);
-
-        char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-        memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-        sprintf(theResponse, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n", ftpData.clients[theSocketId].serverIpAddressInteger[0], ftpData.clients[theSocketId].serverIpAddressInteger[1], ftpData.clients[theSocketId].serverIpAddressInteger[2], ftpData.clients[theSocketId].serverIpAddressInteger[3], (ftpData.clients[theSocketId].workerData.connectionPort / 256), (ftpData.clients[theSocketId].workerData.connectionPort % 256));
-        returnCode = write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+        
+        returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n", ftpData.clients[theSocketId].serverIpAddressInteger[0], ftpData.clients[theSocketId].serverIpAddressInteger[1], ftpData.clients[theSocketId].serverIpAddressInteger[2], ftpData.clients[theSocketId].serverIpAddressInteger[3], (ftpData.clients[theSocketId].workerData.connectionPort / 256), (ftpData.clients[theSocketId].workerData.connectionPort % 256));
         if (returnCode <= 0)
         {
             ftpData.clients[theSocketId].closeTheClient = 1;
@@ -116,7 +112,6 @@ void *connectionWorkerHandle(void * socketId)
         //Wait for sockets
         if ((ftpData.clients[theSocketId].workerData.socketConnection = accept(ftpData.clients[theSocketId].workerData.passiveListeningSocket, 0, 0))!=-1)
         {
-            printTimeStamp();
             printf("\nPasv (%d) connection initialized", theSocketId);
             ftpData.clients[theSocketId].workerData.socketIsConnected = 1;
             printf("\nPasv (%d) connection ok", theSocketId);
@@ -131,7 +126,6 @@ void *connectionWorkerHandle(void * socketId)
   }
   else if (ftpData.clients[theSocketId].workerData.activeModeOn == 1)
   {
-    char *activeResponse = "200 connection accepted\r\n";
     printf("\nConnecting on the active client %s:%d", ftpData.clients[theSocketId].workerData.activeIpAddress, ftpData.clients[theSocketId].workerData.connectionPort);
     ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);
 
@@ -141,7 +135,7 @@ void *connectionWorkerHandle(void * socketId)
         pthread_exit(NULL);
     }
 
-    returnCode = write(ftpData.clients[theSocketId].socketDescriptor, activeResponse, strlen(activeResponse));
+    returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "200 connection accepted\r\n");
 
     if (returnCode <= 0)
     {
@@ -171,15 +165,12 @@ void *connectionWorkerHandle(void * socketId)
             compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "STOR", strlen("STOR")) == 1 &&
             ftpData.clients[theSocketId].fileToStor.textLen > 0)
         {
-            char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
             ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
 
             if (ftpData.clients[theSocketId].workerData.theStorFile == NULL)
             {
                 perror("Can't open the file");    
-                strcpy(theResponse, "550 Unable to write the file\r\n");
-                returnCode = write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+                returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "550 Unable to write the file\r\n");
 
                 if (returnCode <= 0)
                 {
@@ -192,8 +183,8 @@ void *connectionWorkerHandle(void * socketId)
 
             printf("\nftpData.clients[theSocketId].theFileNameToStor: %s", ftpData.clients[theSocketId].fileToStor.text);
             printf("\nftpData.clients[theSocketId].login.absolutePath.text: %s", ftpData.clients[theSocketId].login.absolutePath.text);
-            strcpy(theResponse, "150 Accepted data connection\r\n");
-            returnCode = write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+
+            returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "150 Accepted data connection\r\n");
 
             if (returnCode <= 0)
             {
@@ -228,9 +219,7 @@ void *connectionWorkerHandle(void * socketId)
                 FILE_doChownFromUidGid(ftpData.clients[theSocketId].fileToStor.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid);
             }
 
-            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-            sprintf(theResponse, "226 file stor ok\r\n");
-            returnCode = write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+            returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "226 file stor ok\r\n");
             if (returnCode <= 0)
             {
                 ftpData.clients[theSocketId].closeTheClient = 1;
@@ -245,20 +234,19 @@ void *connectionWorkerHandle(void * socketId)
               )
         {
           int theFiles = 0, theCommandType;
-          
-          
+
           if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "LIST", strlen("LIST")) == 1)
               theCommandType = COMMAND_TYPE_LIST;
           else if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1)
-              theCommandType = COMMAND_TYPE_NLIST;
-          
+              theCommandType = COMMAND_TYPE_NLST;
+
           returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "150 Accepted data connection\r\n");
           if (returnCode <= 0)
           {
               ftpData.clients[theSocketId].closeTheClient = 1;
               pthread_exit(NULL);
           }
-          
+
           returnCode = writeListDataInfoToSocket(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].workerData.socketConnection, &theFiles, theCommandType);
           if (returnCode <= 0)
           {
@@ -279,11 +267,8 @@ void *connectionWorkerHandle(void * socketId)
                  compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "RETR", strlen("RETR")) == 1)
         {
             long long int writenSize = 0, writeReturn = 0;
-            char theResponse[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-            strcpy(theResponse, "150 Accepted data connection\r\n");
-            writeReturn = write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
-
+            
+            writeReturn = dprintf(ftpData.clients[theSocketId].socketDescriptor, "150 Accepted data connection\r\n");
             if (writeReturn <= 0)
             {
                 ftpData.clients[theSocketId].closeTheClient = 1;
@@ -299,9 +284,7 @@ void *connectionWorkerHandle(void * socketId)
 
             if (writenSize == -1)
             {
-              memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-              sprintf(theResponse, "550 unable to open the file for reading\r\n");
-              writeReturn = write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+              writeReturn = dprintf(ftpData.clients[theSocketId].socketDescriptor, "550 unable to open the file for reading\r\n");
 
               if (writeReturn <= 0)
               {
@@ -311,9 +294,7 @@ void *connectionWorkerHandle(void * socketId)
               break;
             }
 
-            memset(theResponse, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-            sprintf(theResponse, "226-File successfully transferred\r\n226 done\r\n");
-            writeReturn =  write(ftpData.clients[theSocketId].socketDescriptor, theResponse, strlen(theResponse));
+            writeReturn =  dprintf(ftpData.clients[theSocketId].socketDescriptor, "226-File successfully transferred\r\n226 done\r\n");
 
             if (writeReturn <= 0)
             {
@@ -440,8 +421,12 @@ void runFtpServer(void)
                               //Echo unrecognized commands
                               if (commandProcessStatus == FTP_COMMAND_NOT_RECONIZED) 
                               {
-                                  char * theNotSupportedString = "500 Unknown command\r\n";
-                                  write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
+                                  int returnCode = 0;
+                                  returnCode = dprintf(ftpData.clients[processingSock].socketDescriptor, "500 Unknown command\r\n");
+                                  if (returnCode < 0)
+                                  {
+                                  ftpData.clients[processingSock].closeTheClient = 1;
+                                  }
                                   printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
                               }
                               else if (commandProcessStatus == FTP_COMMAND_PROCESSED)
@@ -458,11 +443,9 @@ void runFtpServer(void)
                   {
                       //Command overflow can't be processed
                       int returnCode;
-                      char * theNotSupportedString = "500 Unknown command\r\n";
                       ftpData.clients[processingSock].commandIndex = 0;
                       memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-                      //Write some error message to the client
-                      returnCode = write(ftpData.clients[processingSock].socketDescriptor, theNotSupportedString, strlen(theNotSupportedString));
+                      returnCode = dprintf(ftpData.clients[processingSock].socketDescriptor, "500 Unknown command\r\n");
                       if (returnCode <= 0) ftpData.clients[processingSock].closeTheClient = 1;
                       break;
                   }

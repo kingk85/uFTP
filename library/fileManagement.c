@@ -41,10 +41,6 @@
 #include "fileManagement.h"
 #include "dynamicVectors.h"
 
-
-
-
-
 static int FILE_CompareString(const void * a, const void * b);
 
 static int FILE_CompareString(const void * a, const void * b)
@@ -113,9 +109,7 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
         Prev = ftello64(TheFilePointer);
         fseeko64(TheFilePointer, 0L, SEEK_END);
         TheFileSize = ftello64(TheFilePointer);
-        printf("ftello64(TheFilePointer) == %lli", ftello64(TheFilePointer));
         fseeko64(TheFilePointer, Prev, SEEK_SET);
-
         fclose(TheFilePointer);
         return TheFileSize;
     }

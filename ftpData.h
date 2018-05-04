@@ -36,7 +36,7 @@
 #define LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE       1024
 
 #define COMMAND_TYPE_LIST                           0
-#define COMMAND_TYPE_NLIST                          1
+#define COMMAND_TYPE_NLST                          1
 
 
 #ifdef __cplusplus

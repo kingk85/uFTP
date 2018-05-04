@@ -219,7 +219,6 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
 }
 
 
-
 int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, int commandType)
 {
     int i, x, returnCode;
@@ -325,7 +324,7 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
             }
             break;
             
-            case COMMAND_TYPE_NLIST:
+            case COMMAND_TYPE_NLST:
             {
             returnCode = dprintf(theSocket, "%s\r\n",data.fileNameNoPath);    
             }
@@ -372,7 +371,6 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         
         return 1;
     }
-
 
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 {

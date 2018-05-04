@@ -35,13 +35,10 @@
 
 #define PARAMETER_SIZE_LIMIT        1024
 
-
-
 /* Private Functions */
 static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector);
 static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector);
 static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
-
 
 /* Public Functions */
 int searchUser(char *name, DYNV_VectorGenericDataType *usersVector)
@@ -108,7 +105,6 @@ void applyConfiguration(ftpParameters_DataType *ftpParameters)
         daemonize("uFTP");
     }
 }
-
 
 void initFtpData(ftpDataType *ftpData)
 {
