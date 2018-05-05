@@ -32,9 +32,9 @@
 static void ignore_sigpipe(void);
 
 /* Catch Signal Handler functio */
-void signal_callback_handler(int signum){
-
-        printf("Caught signal SIGPIPE %d\n",signum);
+void signal_callback_handler(int signum) 
+{
+    printf("Caught signal SIGPIPE %d\n",signum);
 }
 
 static void ignore_sigpipe(void)
@@ -55,7 +55,6 @@ static void ignore_sigpipe(void)
                 exit(0);
         }
 }
-
 
 void signalHandlerInstall(void)
 {

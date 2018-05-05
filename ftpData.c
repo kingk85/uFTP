@@ -218,7 +218,6 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
    printf("data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
 }
 
-
 int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, int commandType)
 {
     int i, x, returnCode;
@@ -243,7 +242,7 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         data.finalStringPath = NULL;
         data.linkPath = NULL;       
 
-        data.numberOfSubDirectories = 1; /* to Do*/
+        
         data.isFile = 0;
         data.isDirectory = 0;
         
@@ -259,6 +258,7 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
             data.isFile = 0;
             data.isLink = 0;
             data.fileSize = 4096;
+            data.numberOfSubDirectories = FILE_GetDirectoryInodeCount(fileList[i]);
         }
         else if (FILE_IsFile(fileList[i]) == 1)
         {
@@ -267,6 +267,7 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
             data.isDirectory = 0;
             data.isFile = 1;
             data.isLink = 0;
+            data.numberOfSubDirectories = 1; /* to Do*/
             data.fileSize = FILE_GetFileSizeFromPath(fileList[i]);
         }
         if (data.isDirectory == 0 && data.isFile == 0)
@@ -314,6 +315,15 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
             case COMMAND_TYPE_LIST:
             {
                 returnCode = dprintf(theSocket, "%s %d %s %s %lld %s %s\r\n", 
+                data.inodePermissionString == NULL? "Uknown" : data.inodePermissionString
+                ,data.numberOfSubDirectories
+                ,data.owner == NULL? "Uknown" : data.owner
+                ,data.groupOwner == NULL? "Uknown" : data.groupOwner
+                ,data.fileSize
+                ,data.lastModifiedDataString == NULL? "Uknown" : data.lastModifiedDataString
+                ,data.finalStringPath == NULL? "Uknown" : data.finalStringPath);
+                
+                printf("%s %d %s %s %lld %s %s\r\n", 
                 data.inodePermissionString == NULL? "Uknown" : data.inodePermissionString
                 ,data.numberOfSubDirectories
                 ,data.owner == NULL? "Uknown" : data.owner
@@ -483,20 +493,6 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 
         directoryInfo->PushBack(directoryInfo, &data, sizeof(ftpListDataType));
     }
-    
-    
-    /*printf("\n\ntotal %d", directoryInfo->Size);
-    for (i = 0; i < directoryInfo->Size; i++)
-    {
-        printf("\n%s %d %s %s %d %s %s", ((ftpListDataType *)directoryInfo->Data[i])->inodePermissionString
-        ,((ftpListDataType *)directoryInfo->Data[i])->numberOfSubDirectories
-        ,((ftpListDataType *)directoryInfo->Data[i])->owner
-        ,((ftpListDataType *)directoryInfo->Data[i])->groupOwner
-        ,((ftpListDataType *)directoryInfo->Data[i])->fileSize
-        ,((ftpListDataType *)directoryInfo->Data[i])->lastModifiedDataString
-        ,((ftpListDataType *)directoryInfo->Data[i])->fileNameNoPath);
-    }*/
-    
 }
 
 void deleteListDataInfoVector(void *TheElementToDelete)
@@ -532,7 +528,6 @@ void deleteListDataInfoVector(void *TheElementToDelete)
     {
         free(data->linkPath);
     }
-
 }
 
 void resetWorkerData(workerDataType *workerData, int isInitialization)
@@ -667,12 +662,12 @@ int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLe
         {
             stringRefIndex  = isCharInString(alfaLowerCase, strlen(alfaLowerCase), stringRef[i]);
         }
-        
+
         if (stringRefIndex == -1 || stringInIndex == -1)
         {
             return 0;
         }
-        
+
         if (stringRefIndex != stringInIndex)
         {
             return 0;
@@ -692,6 +687,6 @@ int isCharInString(char *theString, int stringLen, char theChar)
             return i;
         }
     }
-    
+
     return -1;
 }

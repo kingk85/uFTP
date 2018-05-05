@@ -56,7 +56,6 @@ static int processCommand(int processingElement);
 void workerCleanup(void *socketId)
 {
     int theSocketId = *(int *)socketId;
-    printTimeStamp();
     printf("\nClosing pasv socket (%d) ok!", theSocketId);
     shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
     shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
@@ -275,12 +274,12 @@ void *connectionWorkerHandle(void * socketId)
                 pthread_exit(NULL);
             }
 
-            printf("\nPasv (%d) writeReturn: %d", theSocketId, writeReturn);
+            printf("\nPasv (%d) writeReturn: %lld", theSocketId, writeReturn);
 
             writenSize = writeRetrFile(ftpData.clients[theSocketId].fileToRetr.text, ftpData.clients[theSocketId].workerData.socketConnection, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.retrRestartAtByte = 0;
 
-            printf("\nPasv (%d) writeReturn data: %d",theSocketId, writeReturn);
+            printf("\nPasv (%d) writeReturn data: %lld",theSocketId, writeReturn);
 
             if (writenSize == -1)
             {
