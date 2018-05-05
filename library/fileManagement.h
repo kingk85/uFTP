@@ -54,6 +54,7 @@
     int  FILE_IsFile(const char *theFileName);
     int  FILE_IsDirectory (char *directory_path);
     void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * filesandfolders, int recursive);
+    int  FILE_GetDirectoryInodeCount(char * DirectoryInodeName);
     int  FILE_GetStringFromFile(char * filename, char **file_content);
     void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *ParametersVector);
     int FILE_StringParametersLinearySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * name);

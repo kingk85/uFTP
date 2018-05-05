@@ -184,6 +184,34 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     qsort ((*InodeList), *FilesandFolders, sizeof (const char *), FILE_CompareString);
 }
 
+int FILE_GetDirectoryInodeCount(char * DirectoryInodeName)
+{
+    int FileAndFolderIndex = 0;
+
+    DIR *TheDirectory;
+    struct dirent *dir;
+    TheDirectory = opendir(DirectoryInodeName);
+
+    if (TheDirectory)
+    {
+        while ((dir = readdir(TheDirectory)) != NULL)
+        {
+            if ( dir->d_name[0] == '.' && strlen(dir->d_name) == 1)
+                continue;
+
+            if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strlen(dir->d_name) == 2)
+                continue;                                
+
+            FileAndFolderIndex++;
+
+        }
+        
+        closedir(TheDirectory);
+    }
+
+    return FileAndFolderIndex;
+}
+
 int FILE_GetStringFromFile(char * filename, char **file_content)
 {
     long long int file_size = 0;
