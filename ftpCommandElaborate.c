@@ -515,8 +515,7 @@ int parseCommandCwd(clientDataType *theClientData)
         {
             setDynamicStringDataType(&theClientData->login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
             setDynamicStringDataType(&theClientData->login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
-            
-            returnCode = dprintf(theClientData->socketDescriptor, "550 Can't change directory to %s: No such file or directory\r\n");
+            returnCode = dprintf(theClientData->socketDescriptor, "550 Can't change directory to %s: No such file or directory\r\n", theClientData->login.absolutePath.text);
         }
 
         if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;

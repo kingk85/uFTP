@@ -101,8 +101,8 @@ void applyConfiguration(ftpParameters_DataType *ftpParameters)
 
         if (returnCode == 1)
         {
-                printf("\nThe process is already running..");
-                exit(0);
+            printf("\nThe process is already running..");
+            exit(0);
         }
     }
 }

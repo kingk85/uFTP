@@ -169,7 +169,7 @@ void *connectionWorkerHandle(void * socketId)
             if (ftpData.clients[theSocketId].workerData.theStorFile == NULL)
             {
                 perror("Can't open the file");    
-                returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "550 Unable to write the file\r\n");
+                returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "553 Unable to write the file\r\n");
 
                 if (returnCode <= 0)
                 {
