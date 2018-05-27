@@ -382,6 +382,28 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         return 1;
     }
 
+int searchInLoginFailsVector(void * loginFailsVector, void *element)
+{
+    int i = 0;
+    //printf("((DYNV_VectorGenericDataType *)loginFailsVector)->Size = %d", ((DYNV_VectorGenericDataType *)loginFailsVector)->Size);
+
+    for (i = 0; i < ((DYNV_VectorGenericDataType *)loginFailsVector)->Size; i++)
+    {
+        if (strcmp( ((loginFailsDataType *) element)->ipAddress, (((loginFailsDataType *) ((DYNV_VectorGenericDataType *)loginFailsVector)->Data[i])->ipAddress)) == 0)
+        {
+            //printf("\n\n***IP address found: %s in %d", ((loginFailsDataType *) element)->ipAddress, i);
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void deleteLoginFailsData(void *element)
+{
+    ; //NOP
+}
+
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 {
     int i;

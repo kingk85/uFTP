@@ -36,8 +36,8 @@
 #define LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE       1024
 
 #define COMMAND_TYPE_LIST                           0
-#define COMMAND_TYPE_NLST                          1
-
+#define COMMAND_TYPE_NLST                           1
+#define WRONG_PASSWORD_ALLOWED_RETRY_TIME           60
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,6 +80,10 @@ struct ftpParameters
     int singleInstanceModeOn;
     DYNV_VectorGenericDataType usersVector;
     int maximumIdleInactivity;
+    
+    int maximumConnectionsPerIp;
+    int maximumUserAndPassowrdLoginTries;
+    
 } typedef ftpParameters_DataType;
     
 struct dynamicStringData
@@ -183,6 +187,13 @@ struct clientData
     unsigned long long int lastActivityTimeStamp;
 } typedef clientDataType;
 
+struct loginFails
+{
+    char ipAddress[INET_ADDRSTRLEN];
+    unsigned long long int failTimeStamp;
+    int failureNumbers;
+} typedef loginFailsDataType;
+
 struct ConnectionParameters
 {
     int theMainSocket, maxSocketFD;
@@ -197,6 +208,7 @@ struct ftpData
     clientDataType *clients;
     ipDataType serverIp;
     ftpParameters_DataType ftpParameters;
+    DYNV_VectorGenericDataType loginFailsVector;
 } typedef ftpDataType;
 
 struct ftpListData
@@ -226,6 +238,8 @@ void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *t
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
 int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, int commandType);
+int searchInLoginFailsVector(void *loginFailsVector, void *element);
+void deleteLoginFailsData(void *element);
 void deleteListDataInfoVector(void *TheElementToDelete);
 void resetWorkerData(workerDataType *pasvData, int isInitialization);
 void resetClientData(clientDataType *clientData, int isInitialization);

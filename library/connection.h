@@ -41,6 +41,7 @@ void fdAdd(ftpDataType * ftpData, int index);
 void fdRemove(ftpDataType * ftpData, int index);
 
 void checkClientConnectionTimeout(ftpDataType * ftpData);
+void flushLoginWrongTriesData(ftpDataType * ftpData);
 void closeSocket(ftpDataType * ftpData, int processingSocket);
 void closeClient(ftpDataType * ftpData, int processingSocket);
 int selectWait(ftpDataType * ftpData);

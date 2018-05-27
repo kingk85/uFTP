@@ -300,7 +300,7 @@ void *connectionWorkerHandle(void * socketId)
               ftpData.clients[theSocketId].closeTheClient = 1;
               pthread_exit(NULL);
             }
-            printf("\nPasv (%d) writeReturn response to 21: %d",theSocketId, writeReturn);
+            printf("\nPasv (%d) writeReturn response to 21: %lld",theSocketId, writeReturn);
             break;
         }
       break;
@@ -352,6 +352,7 @@ void runFtpServer(void)
         if (selectWait(&ftpData) == 0)
         {
             checkClientConnectionTimeout(&ftpData);
+            flushLoginWrongTriesData(&ftpData);
         }
 
         /*Main loop handle client commands */
