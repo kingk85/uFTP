@@ -258,6 +258,23 @@ void checkClientConnectionTimeout(ftpDataType * ftpData)
     }
 }
 
+void flushLoginWrongTriesData(ftpDataType * ftpData)
+{
+    int i;
+    //printf("\n flushLoginWrongTriesData size of the vector : %d", ftpData->loginFailsVector.Size);
+    
+    for (i = (ftpData->loginFailsVector.Size-1); i >= 0; i--)
+    {
+        //printf("\n last login fail attempt : %d", ((loginFailsDataType *) ftpData->loginFailsVector.Data[i])->failTimeStamp);
+        
+        if ( (time(NULL) - ((loginFailsDataType *) ftpData->loginFailsVector.Data[i])->failTimeStamp) > WRONG_PASSWORD_ALLOWED_RETRY_TIME)
+        {
+            //printf("\n Deleting element : %d", i);
+            ftpData->loginFailsVector.DeleteAt(&ftpData->loginFailsVector, i, deleteLoginFailsData);
+        }
+    }
+}
+
 int selectWait(ftpDataType * ftpData)
 {
     struct timeval selectMaximumLockTime;
@@ -305,7 +322,8 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
         {
             if ((ftpData->clients[availableSocketIndex].socketDescriptor = accept(ftpData->connectionData.theMainSocket, (struct sockaddr *)&ftpData->clients[availableSocketIndex].client_sockaddr_in, (socklen_t*)&ftpData->clients[availableSocketIndex].sockaddr_in_size))!=-1)
             {
-                int error;
+                int error, numberOfConnectionFromSameIp, i;
+                numberOfConnectionFromSameIp = 0;
                 ftpData->connectedClients++;
                 ftpData->clients[availableSocketIndex].socketIsConnected = 1;
 
@@ -336,7 +354,29 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
 
                 ftpData->clients[availableSocketIndex].connectionTimeStamp = (int)time(NULL);
                 ftpData->clients[availableSocketIndex].lastActivityTimeStamp = (int)time(NULL);
-                write(ftpData->clients[availableSocketIndex].socketDescriptor, ftpData->welcomeMessage, strlen(ftpData->welcomeMessage));
+                
+                for (i = 0; i <ftpData->ftpParameters.maxClients; i++)
+                {
+                    if (i == availableSocketIndex)
+                    {
+                        continue;
+                    }
+                    
+                    if (strcmp(ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->clients[i].clientIpAddress) == 0) {
+                        numberOfConnectionFromSameIp++;
+                    }
+                }
+                if (ftpData->ftpParameters.maximumConnectionsPerIp > 0 &&
+                    numberOfConnectionFromSameIp >= ftpData->ftpParameters.maximumConnectionsPerIp)
+                {
+                    dprintf(ftpData->clients[availableSocketIndex].socketDescriptor, "530 too many connection from your ip address %s \r\n", ftpData->clients[availableSocketIndex].clientIpAddress);
+                    ftpData->clients[availableSocketIndex].closeTheClient = 1;
+                }
+                else
+                {
+                    write(ftpData->clients[availableSocketIndex].socketDescriptor, ftpData->welcomeMessage, strlen(ftpData->welcomeMessage));
+                }
+                
                 return 1;
             }
             else

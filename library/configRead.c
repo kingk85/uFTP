@@ -124,14 +124,17 @@ void initFtpData(ftpDataType *ftpData)
     memset(ftpData->welcomeMessage, 0, 1024);
     strcpy(ftpData->welcomeMessage, "220 Hello\r\n");
 
-      //Client data reset to zero
+    DYNV_VectorGeneric_InitWithSearchFunction(&ftpData->loginFailsVector, searchInLoginFailsVector);
+
+    //Client data reset to zero
     for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
     {
         resetWorkerData(&ftpData->clients[i].workerData, 1);
         resetClientData(&ftpData->clients[i], 1);
         ftpData->clients[i].clientProgressiveNumber = i;
     }
-     return;
+
+    return;
 }
 
 /*Private functions*/
@@ -361,6 +364,32 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         ftpParameters->maxClients = 10;
         printf("\nMAXIMUM_ALLOWED_FTP_CONNECTION parameter not found in the configuration file, using the default value: %d", ftpParameters->maxClients);
     }
+    
+    searchIndex = searchParameter("MAX_CONNECTION_NUMBER_PER_IP", parametersVector);
+    if (searchIndex != -1)
+    {
+        ftpParameters->maximumConnectionsPerIp = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        printf("\nMAX_CONNECTION_NUMBER_PER_IP: %d", ftpParameters->maximumConnectionsPerIp);
+    }
+    else
+    {
+        ftpParameters->maximumConnectionsPerIp = 4;
+        printf("\nMAX_CONNECTION_NUMBER_PER_IP parameter not found in the configuration file, using the default value: %d", ftpParameters->maximumConnectionsPerIp);
+    }
+
+    searchIndex = searchParameter("MAX_CONNECTION_TRY_PER_IP", parametersVector);
+    if (searchIndex != -1)
+    {
+        ftpParameters->maximumUserAndPassowrdLoginTries = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        printf("\nMAX_CONNECTION_TRY_PER_IP: %d", ftpParameters->maximumUserAndPassowrdLoginTries);
+    }
+    else
+    {
+        ftpParameters->maximumUserAndPassowrdLoginTries = 3;
+        printf("\nMAX_CONNECTION_TRY_PER_IP parameter not found in the configuration file, using the default value: %d", ftpParameters->maximumUserAndPassowrdLoginTries);
+    }
+    
+
     
     searchIndex = searchParameter("FTP_PORT", parametersVector);
     if (searchIndex != -1)

@@ -97,7 +97,32 @@ int parseCommandPass(ftpDataType * data, int socketId)
 {
     int returnCode;
     char *thePass;
+    loginFailsDataType element;
+    int searchPosition = -1;
+
     thePass = getFtpCommandArg("PASS", data->clients[socketId].theCommandReceived, 0);
+
+    strcpy(element.ipAddress, data->clients[socketId].clientIpAddress);
+    element.failTimeStamp = time(NULL);
+    element.failureNumbers = 1;
+
+    searchPosition = data->loginFailsVector.SearchElement(&data->loginFailsVector, &element);
+    //printf("\nsearchPosition = %d", searchPosition);
+
+    if (searchPosition != -1)
+    {
+        if (element.failTimeStamp - ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failTimeStamp < WRONG_PASSWORD_ALLOWED_RETRY_TIME)
+        {
+            if (((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failureNumbers >= data->ftpParameters.maximumUserAndPassowrdLoginTries)
+            {
+                //printf("\n TOO MANY LOGIN FAILS! \n");
+                data->clients[socketId].closeTheClient = 1;
+                returnCode = dprintf(data->clients[socketId].socketDescriptor, "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
+                if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+                return 1;
+            }
+        }
+    }
 
     if (strlen(thePass) >= 1)
     {
@@ -107,6 +132,19 @@ int parseCommandPass(ftpDataType * data, int socketId)
         if (searchUserNameIndex < 0 ||
             (strcmp(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->password, thePass) != 0))
         {
+            
+            //Record the login fail!
+            if (searchPosition == -1)
+            {
+                if (data->ftpParameters.maximumUserAndPassowrdLoginTries != 0)
+                    data->loginFailsVector.PushBack(&data->loginFailsVector, &element, sizeof(loginFailsDataType));
+            }
+            else
+            {
+                ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failureNumbers++;
+                ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failTimeStamp = time(NULL);
+            }
+            
             returnCode = dprintf(data->clients[socketId].socketDescriptor, "430 Invalid username or password\r\n");
             if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
@@ -130,6 +168,19 @@ int parseCommandPass(ftpDataType * data, int socketId)
     }
     else
     {
+
+        //Record the login fail!
+        if (searchPosition == -1)
+        {
+            if (data->ftpParameters.maximumUserAndPassowrdLoginTries != 0)
+                data->loginFailsVector.PushBack(&data->loginFailsVector, &element, sizeof(loginFailsDataType));
+        }
+        else
+        {
+            ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failureNumbers++;
+            ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failTimeStamp = time(NULL);
+        }
+
         returnCode = dprintf(data->clients[socketId].socketDescriptor, "430 Invalid username or password\r\n");
         if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         return 1;
