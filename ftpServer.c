@@ -351,7 +351,9 @@ void runFtpServer(void)
         /* waits for socket activity, if no activity then checks for client socket timeouts */
         if (selectWait(&ftpData) == 0)
         {
+            
             checkClientConnectionTimeout(&ftpData);
+            
             flushLoginWrongTriesData(&ftpData);
         }
 
