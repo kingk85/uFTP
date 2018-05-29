@@ -247,13 +247,13 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         data.isDirectory = 0;
         
         
-        printf("\nPROCESSING: %s", fileList[i]);
-        fflush(0);
+        //printf("\nPROCESSING: %s", fileList[i]);
+        //fflush(0);
         
         if (FILE_IsDirectory(fileList[i]) == 1)
         {
-            printf("\nis directory");
-            fflush(0);
+            //printf("\nis directory");
+            //fflush(0);
             data.isDirectory = 1;
             data.isFile = 0;
             data.isLink = 0;
@@ -262,8 +262,8 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         }
         else if (FILE_IsFile(fileList[i]) == 1)
         {
-            printf("\nis file");
-            fflush(0);
+            //printf("\nis file");
+            //fflush(0);
             data.isDirectory = 0;
             data.isFile = 1;
             data.isLink = 0;
@@ -272,11 +272,11 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         }
         if (data.isDirectory == 0 && data.isFile == 0)
         {
-            printf("\nNot a directory, not a file, broken link");
+            //printf("\nNot a directory, not a file, broken link");
             continue;
         }
         
-        printf("\nFILE SIZE : %lld", data.fileSize);
+        //printf("\nFILE SIZE : %lld", data.fileSize);
 
         data.owner = FILE_GetOwner(fileList[i]);
         data.groupOwner = FILE_GetGroupOwner(fileList[i]);
@@ -323,14 +323,6 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
                 ,data.lastModifiedDataString == NULL? "Uknown" : data.lastModifiedDataString
                 ,data.finalStringPath == NULL? "Uknown" : data.finalStringPath);
                 
-                printf("%s %d %s %s %lld %s %s\r\n", 
-                data.inodePermissionString == NULL? "Uknown" : data.inodePermissionString
-                ,data.numberOfSubDirectories
-                ,data.owner == NULL? "Uknown" : data.owner
-                ,data.groupOwner == NULL? "Uknown" : data.groupOwner
-                ,data.fileSize
-                ,data.lastModifiedDataString == NULL? "Uknown" : data.lastModifiedDataString
-                ,data.finalStringPath == NULL? "Uknown" : data.finalStringPath);
             }
             break;
             
