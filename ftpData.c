@@ -403,8 +403,8 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
     ftpListDataType data;
     FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0);
     
-    printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
-    fflush(0);
+    //printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
+    //fflush(0);
     
     for (i = 0; i < fileAndFoldersCount; i++)
     {
@@ -420,13 +420,13 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         data.isDirectory = 0;
         
         
-        printf("\nPROCESSING: %s", data.fileList[i]);
-        fflush(0);
+        //printf("\nPROCESSING: %s", data.fileList[i]);
+        //fflush(0);
         
         if (FILE_IsDirectory(data.fileList[i]) == 1)
         {
-            printf("\nis file");
-            fflush(0);
+            //printf("\nis file");
+            //fflush(0);
             data.isDirectory = 1;
             data.isFile = 0;
             data.isLink = 0;
@@ -434,8 +434,8 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
         }
         else if (FILE_IsFile(data.fileList[i]) == 1)
         {
-            printf("\nis file");
-            fflush(0);
+            //printf("\nis file");
+            //fflush(0);
             data.isDirectory = 0;
             data.isFile = 1;
             data.isLink = 0;
