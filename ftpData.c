@@ -276,6 +276,7 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
             continue;
         }
         
+      
         //printf("\nFILE SIZE : %lld", data.fileSize);
 
         data.owner = FILE_GetOwner(fileList[i]);
