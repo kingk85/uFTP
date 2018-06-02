@@ -471,19 +471,20 @@ char * FILE_GetListPermissionsString(char *file) {
 
 char * FILE_GetOwner(char *fileName)
 {
+    int returnCode = 0;
     char *toReturn;
     struct stat info;
-    if (stat(fileName, &info) == -1 )
+
+    if ((returnCode = stat(fileName, &info)) == -1)
         return NULL;
 
-    struct passwd *pw = getpwuid(info.st_uid);
-    
-    if (pw->pw_name == 0)
+    struct passwd *pw;
+    if ( (pw = getpwuid(info.st_uid)) == NULL)
         return NULL;
-        
+
     toReturn = (char *) malloc (strlen(pw->pw_name) + 1);
     strcpy(toReturn, pw->pw_name);
-    
+
     return toReturn;
 }
 
@@ -493,9 +494,9 @@ char * FILE_GetGroupOwner(char *fileName)
     struct stat info;
     if (stat(fileName, &info) == -1 )
         return NULL;
-    struct group  *gr = getgrgid(info.st_gid);
+    struct group  *gr;
     
-    if (gr->gr_name == 0)
+    if ((gr = getgrgid(info.st_gid)) == NULL)
         return NULL;
     
     toReturn = (char *) malloc (strlen(gr->gr_name) + 1);
