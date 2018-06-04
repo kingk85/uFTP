@@ -71,12 +71,16 @@ int createSocket(ftpDataType * ftpData)
   errorCode = fcntl(sock, F_SETFL, O_NONBLOCK);
 
     int reuse = 1;
+    
+#ifdef SO_REUSEADDR
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
         perror("setsockopt(SO_REUSEADDR) failed");
+#endif
 
+#ifdef SO_REUSEPORT
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
         perror("setsockopt(SO_REUSEPORT) failed");
-
+#endif
   //Bind socket
   errorCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
 
