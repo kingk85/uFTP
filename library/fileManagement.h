@@ -23,7 +23,7 @@
  */
 
 #ifndef GEN_FILE_MANAGEMENT_TYPES
-    #define _LARGEFILE64_SOURCE
+    
     #include <stdio.h> 
     #include <time.h> 
     #include <sys/types.h>

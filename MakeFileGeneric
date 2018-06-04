@@ -22,7 +22,7 @@ OPTIMIZATION=-O3
 HEADERS=-I
 LIBPATH=./build/modules/
 BUILDFILES=start uFTP end  
-
+DEFINITIONS=-D_LARGEFILE64_SOURCE
 
 all: $(BUILDFILES)
 
@@ -37,7 +37,7 @@ end:
 	@echo Build process end
 
 uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o
-	@$(CC) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o -o $(OUTPATH)uFTP -lpthread
+	@$(CC) $(DEFINITIONS) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o -o $(OUTPATH)uFTP -lpthread
 
 daemon.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)daemon.c -o $(LIBPATH)daemon.o
