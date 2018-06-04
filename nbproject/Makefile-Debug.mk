@@ -14,7 +14,7 @@ GREP=grep
 NM=nm
 CCADMIN=CCadmin
 RANLIB=ranlib
-CC=gcc
+CC=gcc 
 CCC=g++
 CXX=g++
 FC=gfortran
@@ -75,57 +75,57 @@ ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/uftp: ${OBJECTFILES}
 ${OBJECTDIR}/ftpCommandElaborate.o: ftpCommandElaborate.c
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ftpCommandElaborate.o ftpCommandElaborate.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ftpCommandElaborate.o ftpCommandElaborate.c
 
 ${OBJECTDIR}/ftpData.o: ftpData.c
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ftpData.o ftpData.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ftpData.o ftpData.c
 
 ${OBJECTDIR}/ftpServer.o: ftpServer.c
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ftpServer.o ftpServer.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ftpServer.o ftpServer.c
 
 ${OBJECTDIR}/library/configRead.o: library/configRead.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/configRead.o library/configRead.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/configRead.o library/configRead.c
 
 ${OBJECTDIR}/library/connection.o: library/connection.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/connection.o library/connection.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/connection.o library/connection.c
 
 ${OBJECTDIR}/library/daemon.o: library/daemon.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/daemon.o library/daemon.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/daemon.o library/daemon.c
 
 ${OBJECTDIR}/library/dynamicVectors.o: library/dynamicVectors.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/dynamicVectors.o library/dynamicVectors.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/dynamicVectors.o library/dynamicVectors.c
 
 ${OBJECTDIR}/library/fileManagement.o: library/fileManagement.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/fileManagement.o library/fileManagement.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/fileManagement.o library/fileManagement.c
 
 ${OBJECTDIR}/library/logFunctions.o: library/logFunctions.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/logFunctions.o library/logFunctions.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/logFunctions.o library/logFunctions.c
 
 ${OBJECTDIR}/library/signals.o: library/signals.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/signals.o library/signals.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/signals.o library/signals.c
 
 ${OBJECTDIR}/uFTP.o: uFTP.c
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.c) -g -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/uFTP.o uFTP.c
+	$(COMPILE.c) -g -D_LARGEFILE64_SOURCE -Ilibrary -include library/dynamicVectors.h -include library/fileManagement.h -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/uFTP.o uFTP.c
 
 # Subprojects
 .build-subprojects:

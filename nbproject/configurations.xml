@@ -67,6 +67,7 @@
       </toolsSet>
       <compileType>
         <cTool>
+          <commandlineTool>gcc </commandlineTool>
           <incDir>
             <pElem>library</pElem>
           </incDir>
@@ -75,6 +76,9 @@
             <pElem>library/fileManagement.h</pElem>
           </incFile>
           <commandLine>-pthread</commandLine>
+          <preprocessorList>
+            <Elem>_LARGEFILE64_SOURCE</Elem>
+          </preprocessorList>
         </cTool>
       </compileType>
       <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">

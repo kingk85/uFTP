@@ -25,7 +25,7 @@
 
 #ifndef FTPDATA_H
 #define FTPDATA_H
-#define _LARGEFILE64_SOURCE
+
 #include <netinet/in.h>
 #include "library/dynamicVectors.h"
 
