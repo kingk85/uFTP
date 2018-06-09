@@ -21,6 +21,7 @@
     <logicalFolder name="ResourceFiles"
                    displayName="Resource Files"
                    projectFiles="true">
+      <itemPath>README.md</itemPath>
     </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
@@ -82,6 +83,8 @@
         </cTool>
       </compileType>
       <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="README.md" ex="false" tool="3" flavor2="0">
       </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
       </item>
@@ -153,6 +156,8 @@
         </asmTool>
       </compileType>
       <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="README.md" ex="false" tool="3" flavor2="0">
       </item>
       <item path="ftpCommandElaborate.c" ex="false" tool="0" flavor2="0">
       </item>
