@@ -91,39 +91,85 @@ long int FILE_GetAvailableSpace(const char* path)
 /* Get the file size */
 long long int FILE_GetFileSize(FILE *TheFilePointer)
 {
+#ifdef _LARGEFILE64_SOURCE
     long long int Prev = 0, TheFileSize = 0;
     Prev = ftello64(TheFilePointer);
     fseeko64(TheFilePointer, 0, SEEK_END);
     TheFileSize = ftello64(TheFilePointer);
     fseeko64(TheFilePointer, Prev, SEEK_SET);
     return TheFileSize;
+#endif
+
+#ifndef _LARGEFILE64_SOURCE
+    long long int Prev = 0, TheFileSize = 0;
+    Prev = ftell(TheFilePointer);
+    fseek(TheFilePointer, 0, SEEK_END);
+    TheFileSize = ftell(TheFilePointer);
+    fseek(TheFilePointer, Prev, SEEK_SET);
+    return TheFileSize;
+#endif
 }
 
 long long int FILE_GetFileSizeFromPath(char *TheFileName)
 {
-    if (FILE_IsFile(TheFileName) == 1)
-    {
-        FILE *TheFilePointer;
-        TheFilePointer = fopen64(TheFileName, "rb");
-        long long int Prev = 0, TheFileSize = 0;
-        Prev = ftello64(TheFilePointer);
-        fseeko64(TheFilePointer, 0L, SEEK_END);
-        TheFileSize = ftello64(TheFilePointer);
-        fseeko64(TheFilePointer, Prev, SEEK_SET);
-        fclose(TheFilePointer);
-        return TheFileSize;
-    }
-    else
-    {
-        return 0;
-    }
+
+
+#ifdef _LARGEFILE64_SOURCE
+  if (FILE_IsFile(TheFileName) == 1)
+  {
+      FILE *TheFilePointer;
+      TheFilePointer = fopen64(TheFileName, "rb");
+      long long int Prev = 0, TheFileSize = 0;
+      Prev = ftello64(TheFilePointer);
+      fseeko64(TheFilePointer, 0L, SEEK_END);
+      TheFileSize = ftello64(TheFilePointer);
+      fseeko64(TheFilePointer, Prev, SEEK_SET);
+      fclose(TheFilePointer);
+      return TheFileSize;
+  }
+  else
+  {
+      return 0;
+  }
+#endif
+
+#ifndef _LARGEFILE64_SOURCE
+  if (FILE_IsFile(TheFileName) == 1)
+  {
+      FILE *TheFilePointer;
+      TheFilePointer = fopen(TheFileName, "rb");
+      long long int Prev = 0, TheFileSize = 0;
+      Prev = ftell(TheFilePointer);
+      fseek(TheFilePointer, 0L, SEEK_END);
+      TheFileSize = ftell(TheFilePointer);
+      fseek(TheFilePointer, Prev, SEEK_SET);
+      fclose(TheFilePointer);
+      return TheFileSize;
+  }
+  else
+  {
+      return 0;
+  }
+#endif
+
+
 }
 
 /* Check if a file is valid */
 int FILE_IsFile(const char *TheFileName)
 {
   FILE *TheFile;
-  TheFile = fopen64(TheFileName, "rb");
+
+#ifdef _LARGEFILE64_SOURCE
+TheFile = fopen64(TheFileName, "rb");
+#endif
+
+#ifndef _LARGEFILE64_SOURCE
+TheFile = fopen(TheFileName, "rb");
+#endif
+
+
+
 
   if (TheFile != NULL)
     {
@@ -222,7 +268,14 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
         return 0;
     }
 
-    FILE *file = fopen(filename, "rb");
+
+		#ifdef _LARGEFILE64_SOURCE
+    	FILE *file = fopen64(filename, "rb");
+		#endif
+
+		#ifndef _LARGEFILE64_SOURCE
+    	FILE *file = fopen(filename, "rb");
+		#endif
 
     if (file == NULL)
     {
@@ -232,6 +285,8 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
 
     file_size = FILE_GetFileSize(file);
 
+
+
     count = 0;
     *file_content  = (char *) malloc(file_size * sizeof(char) + 100);
 
@@ -240,8 +295,14 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
         (*file_content)[count++] = (char) c;
     }
     (*file_content)[count] = '\0';
+
+
+
     fclose(file);
-    return (count);
+
+
+
+    return count;
 }
 
 void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *ParametersVector)
@@ -505,7 +566,6 @@ char * FILE_GetGroupOwner(char *fileName)
     return toReturn;
 }
 
-
 time_t FILE_GetLastModifiedData(char *path)
 {
     struct stat statbuf;
@@ -553,7 +613,6 @@ void FILE_DirectoryToParent(char ** sourceString)
    }
 }
 
-
 int FILE_LockFile(int fd)
 {
     struct flock fl;
@@ -563,7 +622,6 @@ int FILE_LockFile(int fd)
     fl.l_len = 0;
     return(fcntl(fd, F_SETLK, &fl));
 }
-
 
 int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid)
 {
@@ -605,7 +663,6 @@ int FILE_doChownFromUidGidString (  const char *file_path,
 
     return 1;
 }
-
 
 uid_t FILE_getUID(const char *user_name)
 {
