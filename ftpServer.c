@@ -164,7 +164,16 @@ void *connectionWorkerHandle(void * socketId)
             compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "STOR", strlen("STOR")) == 1 &&
             ftpData.clients[theSocketId].fileToStor.textLen > 0)
         {
-            ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
+
+						#ifdef _LARGEFILE64_SOURCE
+							ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
+						#endif
+
+						#ifndef _LARGEFILE64_SOURCE
+							ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
+						#endif
+
+
 
             if (ftpData.clients[theSocketId].workerData.theStorFile == NULL)
             {

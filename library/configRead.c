@@ -65,13 +65,21 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
 
     if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
     {
-        printf("\nReading configuration from \n -> %s", LOCAL_CONFIGURATION_FILENAME);
+        printf("\nReading configuration from \n -> %s \n", LOCAL_CONFIGURATION_FILENAME);
+
         returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters);
+
+        printf("\nDONE\n");
+
     }
     else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME) == 1)
     {
-        printf("\nReading configuration from \n -> %s", DEFAULT_CONFIGURATION_FILENAME);
+        printf("\nReading configuration from \n -> %s\n", DEFAULT_CONFIGURATION_FILENAME);
+
         returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters);
+
+        printf("\nDONE\n");
+
     }
 
     if (returnCode == 1) 
@@ -149,7 +157,13 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
     int theFileSize = 0;
     int i, state, nameIndex, valueIndex, allowSpacesInValue;
     char * theFileContent;
+
+
+    printf("\n FILE_GetStringFromFile");
+
     theFileSize = FILE_GetStringFromFile(path, &theFileContent);
+    printf("\n FILE_GetStringFromFile Done");
+
 
     char name[PARAMETER_SIZE_LIMIT];
     char value[PARAMETER_SIZE_LIMIT];
@@ -296,7 +310,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
                 nameIndex = 0;
                 valueIndex = 0;
                 state = STATE_START;
-                //printf("\nParameter read: %s = %s", parameter.name, parameter.value);
+                printf("\nParameter read: %s = %s", parameter.name, parameter.value);
+
                 parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
             }
             break;
@@ -318,7 +333,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
         memset(value, 0, PARAMETER_SIZE_LIMIT);
         nameIndex = 0;
         valueIndex = 0;
-        //printf("\nParameter read: %s = %s", parameter.name, parameter.value);
+        printf("\nParameter read: %s = %s", parameter.name, parameter.value);
+
         parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
     }
 

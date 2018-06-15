@@ -903,7 +903,16 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
     long long int theFileSize;
     char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
 
-    retrFP = fopen64(theFilename, "rb");
+
+		#ifdef _LARGEFILE64_SOURCE
+				retrFP = fopen64(theFilename, "rb");
+		#endif
+
+		#ifndef _LARGEFILE64_SOURCE
+			retrFP = fopen(theFilename, "rb");
+		#endif
+
+
     if (retrFP == NULL)
     {
         return -1;
@@ -914,7 +923,15 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
     if (startFrom > 0)
     {
         //printf("\nSeek startFrom: %d", startFrom);
-        currentPosition = (long long int) lseek64(fileno(retrFP), startFrom, SEEK_SET);
+
+				#ifdef _LARGEFILE64_SOURCE
+    				currentPosition = (long long int) lseek64(fileno(retrFP), startFrom, SEEK_SET);
+				#endif
+
+				#ifndef _LARGEFILE64_SOURCE
+    				currentPosition = (long long int) lseek(fileno(retrFP), startFrom, SEEK_SET);
+				#endif
+
        // printf("\nSeek result: %ld", currentPosition);
         if (currentPosition == -1)
         {
@@ -939,9 +956,6 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
             toReturn = toReturn + writtenSize;
       }
     }
-
-    //printf("\n Bytes written: %ld", toReturn);
-
     fclose(retrFP);
     retrFP = NULL;
     return toReturn;
