@@ -85,10 +85,6 @@ int parseCommandSite(clientDataType *theClientData)
         returnCode = dprintf(theClientData->socketDescriptor, "500 unknown extension\r\n");
         if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
-
-    //site chmod 777 test
-    //200 Permissions changed on test
-    //500 SITE ciao is an unknown extension    
  
     return 1;
 }
@@ -380,8 +376,9 @@ int parseCommandList(ftpDataType * data, int socketId)
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived, 1);
     getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand);
  
-   // printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
-   // printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+    printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+    printf("\ntheNameToList: %s", theNameToList);
     
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0);
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0);    
@@ -414,6 +411,10 @@ int parseCommandNlst(ftpDataType * data, int socketId)
     theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived, 1);
     cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0);
 
+    printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    printf("\nNLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+    printf("\ntheNameToNlist: %s", theNameToNlist);
+    
     if (strlen(theNameToNlist) > 0)
     {
         isSafePath = getSafePath(&data->clients[socketId].nlistPath, theNameToNlist, &data->clients[socketId].login);
@@ -566,7 +567,7 @@ int parseCommandCwd(clientDataType *theClientData)
         {
             setDynamicStringDataType(&theClientData->login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
             setDynamicStringDataType(&theClientData->login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
-            returnCode = dprintf(theClientData->socketDescriptor, "550 Can't change directory to %s: No such file or directory\r\n", theClientData->login.absolutePath.text);
+            returnCode = dprintf(theClientData->socketDescriptor, "530 Can't change directory to %s: No such file or directory\r\n", theClientData->login.absolutePath.text);
         }
 
         if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -671,11 +672,11 @@ int parseCommandOpts(clientDataType *theClientData)
 
 int parseCommandDele(clientDataType *theClientData)
 {
+    int functionReturnCode = 0;
     int returnCode;
     int isSafePath;
     int returnStatus = 0;
     char *theFileToDelete;
-    dynamicStringDataType theResponse;
     dynamicStringDataType deleFileName;
 
     theFileToDelete = getFtpCommandArg("DELE", theClientData->theCommandReceived, 0);
@@ -687,20 +688,27 @@ int parseCommandDele(clientDataType *theClientData)
     if (isSafePath == 1)
     {
         //printf("\nThe file to delete is: %s", deleFileName.text);
-        returnStatus = remove(deleFileName.text);
-        returnCode = dprintf(theClientData->socketDescriptor, "250 Deleted %s\r\n", theFileToDelete);
-        if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        if (FILE_IsFile(deleFileName.text) == 1)
+        {
+            returnStatus = remove(deleFileName.text);
+            returnCode = dprintf(theClientData->socketDescriptor, "250 Deleted %s\r\n", theFileToDelete);
+            functionReturnCode = 1;
+            if (returnCode <= 0) functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        else
+        {
+            returnCode = dprintf(theClientData->socketDescriptor, "550 Could not delete the file: No such file\r\n");
+            functionReturnCode = 1;
+            if (returnCode <= 0) functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
     }
     else
     {
-        cleanDynamicStringDataType(&deleFileName, 0);
-        return 0;
+        functionReturnCode = 0;
     }
     
-
-
     cleanDynamicStringDataType(&deleFileName, 0);
-    return 1;
+    return functionReturnCode;
 }
 
 int parseCommandNoop(clientDataType *theClientData)
@@ -730,6 +738,7 @@ int parseCommandQuit(ftpDataType * data, int socketId)
 
 int parseCommandRmd(clientDataType *theClientData)
 {
+    int functionReturnCode = 0;
     int returnCode;
     int isSafePath;
     int returnStatus = 0;
@@ -745,19 +754,28 @@ int parseCommandRmd(clientDataType *theClientData)
     if (isSafePath == 1)
     {
         //printf("\nThe directory to delete is: %s", rmdFileName.text);
-        returnStatus = rmdir(rmdFileName.text);
-        returnCode = dprintf(theClientData->socketDescriptor, "250 The directory was successfully removed\r\n");
-        if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        if (FILE_IsDirectory(rmdFileName.text) == 1) 
+        {
+            returnStatus = rmdir(rmdFileName.text);
+            returnCode = dprintf(theClientData->socketDescriptor, "250 The directory was successfully removed\r\n");
+            functionReturnCode = 1;
+            if (returnCode <= 0) functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        else
+        {
+            returnCode = dprintf(theClientData->socketDescriptor, "550 Could not delete the directory:No such directory\r\n");
+            functionReturnCode = 1;
+            if (returnCode <= 0) functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
     }
     else
     {
-        cleanDynamicStringDataType(&rmdFileName, 0);
-        return 0;
+        functionReturnCode = 0;
     }
 
     cleanDynamicStringDataType(&rmdFileName, 0);
 
-    return 1;
+    return functionReturnCode;
 }
 
 int parseCommandSize(clientDataType *theClientData)
@@ -777,7 +795,7 @@ int parseCommandSize(clientDataType *theClientData)
     if (isSafePath == 1)
     {
 
-        if (FILE_IsFile(getSizeFromFileName.text)==1)
+        if (FILE_IsFile(getSizeFromFileName.text)== 1)
         {
             theSize = FILE_GetFileSizeFromPath(getSizeFromFileName.text);
             returnCode = dprintf(theClientData->socketDescriptor, "213 %lld\r\n", theSize);
@@ -792,7 +810,9 @@ int parseCommandSize(clientDataType *theClientData)
         returnCode = dprintf(theClientData->socketDescriptor, "550 Can't check for file existence\r\n");
     }
     cleanDynamicStringDataType(&getSizeFromFileName, 0);
-    if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+    if (returnCode <= 0) 
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     
     return 1;
 }
