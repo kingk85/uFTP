@@ -370,6 +370,8 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         }
         
         }
+        
+    if (fileList != NULL)
         free (fileList);
         
         return 1;
