@@ -1,19 +1,5 @@
-#LINARO
-#CC=arm-linux-gnueabihf-gcc
-
-#Other arm
-#CC=arm-unknown-linux-gnu-gcc
-
 #Linux Generic
 CC=gcc
-
-#Windows
-#CC=i686-w64-mingw32-gcc
-
-#Windows
-#CCWIN=i686-w64-mingw32-gcc
-#CCLINUX=gcc
-#CCARM=/opt/crosstool/gcc-4.0.1-glibc-2.3.5/arm-unknown-linux-gnu/bin/arm-unknown-linux-gnu-gcc
 
 OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
@@ -23,10 +9,10 @@ HEADERS=-I
 LIBPATH=./build/modules/
 BUILDFILES=start uFTP end
 
-DEFINITIONS=
+#DEFINITIONS=
 
 #TO ENABLE THE LARGE FILE SUPPORT UNCOMMENT THE NEXT LINE
-#DEFINITIONS=-D_LARGEFILE64_SOURCE
+DEFINITIONS=-D_LARGEFILE64_SOURCE
 
 all: $(BUILDFILES)
 

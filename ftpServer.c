@@ -56,7 +56,7 @@ static int processCommand(int processingElement);
 void workerCleanup(void *socketId)
 {
     int theSocketId = *(int *)socketId;
-    printf("\nClosing pasv socket (%d) ok!", theSocketId);
+    //printf("\nClosing pasv socket (%d) ok!", theSocketId);
     shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
     shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
     close(ftpData.clients[theSocketId].workerData.socketConnection);
@@ -75,9 +75,6 @@ void *connectionWorkerHandle(void * socketId)
   if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
   {
     int tries = 30;
-    printf("\nPasv (%d) thread init opening port: %d", theSocketId, ftpData.clients[theSocketId].workerData.connectionPort);
-    printf("\nPasv (%d) open ok: %d", theSocketId, ftpData.clients[theSocketId].workerData.connectionPort);
-
     while (tries > 0)
     {
         setRandomicPort(&ftpData, theSocketId);
@@ -92,15 +89,13 @@ void *connectionWorkerHandle(void * socketId)
     }
     if (ftpData.clients[theSocketId].workerData.passiveListeningSocket == -1)
     {
-        printf("\n ftpData.clients[theSocketId].workerData.passiveListeningSocket == -1");
         ftpData.clients[theSocketId].closeTheClient = 1;
         pthread_exit(NULL);
     }
 
     if (ftpData.clients[theSocketId].workerData.socketIsConnected == 0)
     {
-        printf("Waiting for pasv client connection on port: %d", ftpData.clients[theSocketId].workerData.connectionPort);
-        
+
         returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\r\n", ftpData.clients[theSocketId].serverIpAddressInteger[0], ftpData.clients[theSocketId].serverIpAddressInteger[1], ftpData.clients[theSocketId].serverIpAddressInteger[2], ftpData.clients[theSocketId].serverIpAddressInteger[3], (ftpData.clients[theSocketId].workerData.connectionPort / 256), (ftpData.clients[theSocketId].workerData.connectionPort % 256));
         if (returnCode <= 0)
         {
@@ -111,13 +106,10 @@ void *connectionWorkerHandle(void * socketId)
         //Wait for sockets
         if ((ftpData.clients[theSocketId].workerData.socketConnection = accept(ftpData.clients[theSocketId].workerData.passiveListeningSocket, 0, 0))!=-1)
         {
-            printf("\nPasv (%d) connection initialized", theSocketId);
             ftpData.clients[theSocketId].workerData.socketIsConnected = 1;
-            printf("\nPasv (%d) connection ok", theSocketId);
         }
         else
         {
-            printf("\n ftpData.clients[theSocketId].workerData.socketConnection == -1");
             ftpData.clients[theSocketId].closeTheClient = 1;
             pthread_exit(NULL);
         }
@@ -125,7 +117,6 @@ void *connectionWorkerHandle(void * socketId)
   }
   else if (ftpData.clients[theSocketId].workerData.activeModeOn == 1)
   {
-    printf("\nConnecting on the active client %s:%d", ftpData.clients[theSocketId].workerData.activeIpAddress, ftpData.clients[theSocketId].workerData.connectionPort);
     ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);
 
     if (ftpData.clients[theSocketId].workerData.socketConnection < 0)
@@ -165,19 +156,17 @@ void *connectionWorkerHandle(void * socketId)
             ftpData.clients[theSocketId].fileToStor.textLen > 0)
         {
 
-						#ifdef _LARGEFILE64_SOURCE
-							ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
-						#endif
+            #ifdef _LARGEFILE64_SOURCE
+                    ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
+            #endif
 
-						#ifndef _LARGEFILE64_SOURCE
-							ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
-						#endif
-
+            #ifndef _LARGEFILE64_SOURCE
+                    ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
+            #endif
 
 
             if (ftpData.clients[theSocketId].workerData.theStorFile == NULL)
-            {
-                perror("Can't open the file");    
+            { 
                 returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "553 Unable to write the file\r\n");
 
                 if (returnCode <= 0)
@@ -188,9 +177,6 @@ void *connectionWorkerHandle(void * socketId)
 
                 break;
             }
-
-            printf("\nftpData.clients[theSocketId].theFileNameToStor: %s", ftpData.clients[theSocketId].fileToStor.text);
-            printf("\nftpData.clients[theSocketId].login.absolutePath.text: %s", ftpData.clients[theSocketId].login.absolutePath.text);
 
             returnCode = dprintf(ftpData.clients[theSocketId].socketDescriptor, "150 Accepted data connection\r\n");
 
@@ -283,12 +269,9 @@ void *connectionWorkerHandle(void * socketId)
                 pthread_exit(NULL);
             }
 
-            printf("\nPasv (%d) writeReturn: %lld", theSocketId, writeReturn);
 
             writenSize = writeRetrFile(ftpData.clients[theSocketId].fileToRetr.text, ftpData.clients[theSocketId].workerData.socketConnection, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.retrRestartAtByte = 0;
-
-            printf("\nPasv (%d) writeReturn data: %lld",theSocketId, writeReturn);
 
             if (writenSize == -1)
             {
@@ -309,7 +292,6 @@ void *connectionWorkerHandle(void * socketId)
               ftpData.clients[theSocketId].closeTheClient = 1;
               pthread_exit(NULL);
             }
-            printf("\nPasv (%d) writeReturn response to 21: %lld",theSocketId, writeReturn);
             break;
         }
       break;
@@ -329,6 +311,9 @@ void *connectionWorkerHandle(void * socketId)
 
 void runFtpServer(void)
 {
+    
+    printf("\nHello uFTP server v%s starting..\n", UFTP_SERVER_VERSION);
+    
     /* Needed for Select*/
     static int processingSock = 0, returnCode = 0;
 
@@ -372,7 +357,6 @@ void runFtpServer(void)
             /* close the connection if quit flag has been set */
             if (ftpData.clients[processingSock].closeTheClient == 1)
             {
-                printf("\nClosing client connection %d", ftpData.clients[processingSock].closeTheClient);
                 closeClient(&ftpData, processingSock);
                 continue;
             }

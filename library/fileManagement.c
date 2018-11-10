@@ -158,26 +158,23 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
 /* Check if a file is valid */
 int FILE_IsFile(const char *TheFileName)
 {
-  FILE *TheFile;
+    FILE *TheFile;
 
-#ifdef _LARGEFILE64_SOURCE
-TheFile = fopen64(TheFileName, "rb");
-#endif
+    #ifdef _LARGEFILE64_SOURCE
+      TheFile = fopen64(TheFileName, "rb");
+    #endif
 
-#ifndef _LARGEFILE64_SOURCE
-TheFile = fopen(TheFileName, "rb");
-#endif
+    #ifndef _LARGEFILE64_SOURCE
+      TheFile = fopen(TheFileName, "rb");
+    #endif
 
+    if (TheFile != NULL)
+      {
+          fclose(TheFile);
+          return 1;
+      }
 
-
-
-  if (TheFile != NULL)
-    {
-        fclose(TheFile);
-        return 1;
-    }
-
-  return 0;
+    return 0;
 }
 
 void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive)
@@ -296,13 +293,13 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
     }
 
 
-		#ifdef _LARGEFILE64_SOURCE
-    	FILE *file = fopen64(filename, "rb");
-		#endif
+    #ifdef _LARGEFILE64_SOURCE
+        FILE *file = fopen64(filename, "rb");
+    #endif
 
-		#ifndef _LARGEFILE64_SOURCE
-    	FILE *file = fopen(filename, "rb");
-		#endif
+    #ifndef _LARGEFILE64_SOURCE
+        FILE *file = fopen(filename, "rb");
+    #endif
 
     if (file == NULL)
     {
@@ -311,8 +308,6 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
     }
 
     file_size = FILE_GetFileSize(file);
-
-
 
     count = 0;
     *file_content  = (char *) malloc(file_size * sizeof(char) + 100);
