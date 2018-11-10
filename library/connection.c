@@ -406,7 +406,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             struct sockaddr_in socketRefuse_sockaddr_in;
             if ((socketRefuseFd = accept(ftpData->connectionData.theMainSocket, (struct sockaddr *)&socketRefuse_sockaddr_in, (socklen_t*)&socketRefuse_in_size))!=-1)
             {
-                char *messageToWrite = "530 Server reached the maximum number of connection, please try later.\r\n";
+                char *messageToWrite = "10068 Server reached the maximum number of connection, please try later.\r\n";
                 write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
                 shutdown(socketRefuseFd, SHUT_RDWR);
                 close(socketRefuseFd);

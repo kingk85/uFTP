@@ -158,12 +158,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
     int i, state, nameIndex, valueIndex, allowSpacesInValue;
     char * theFileContent;
 
-
-    printf("\n FILE_GetStringFromFile");
-
     theFileSize = FILE_GetStringFromFile(path, &theFileContent);
-    printf("\n FILE_GetStringFromFile Done");
-
 
     char name[PARAMETER_SIZE_LIMIT];
     char value[PARAMETER_SIZE_LIMIT];
@@ -178,6 +173,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
 
     while (i < theFileSize)
     {
+
         switch (state)
          {
             case STATE_START:
@@ -259,7 +255,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
                     else
                         allowSpacesInValue = 0;
                 }    
-                else if (theFileContent[i] == '\n')
+                else if (theFileContent[i] == '\n' ||
+                         i == (theFileSize-1))
                 {
                     /* Value stored proceed to save */
                     if (valueIndex > 0) 
@@ -319,7 +316,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
     }
     
     /* che if there is a value to store */
-    if (state == STATE_VALUE &&
+    if (state == STATE_STORE &&
         valueIndex > 0)
     {
         parameter_DataType parameter;
@@ -334,7 +331,6 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
         nameIndex = 0;
         valueIndex = 0;
         printf("\nParameter read: %s = %s", parameter.name, parameter.value);
-
         parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
     }
 

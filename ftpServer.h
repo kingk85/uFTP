@@ -27,14 +27,11 @@
 #define FTPSERVER_H
 
 #define MAX_FTP_CLIENTS                 10
-
+#define UFTP_SERVER_VERSION             "1.0.1 beta"
 
 void runFtpServer(void);
-
-
 void *connectionWorkerHandle(void * socketId);
 void workerCleanup(void *socketId);
-
 void signal_callback_handler(int signum);
 
 #endif /* FTPSERVER_H */

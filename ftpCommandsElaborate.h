@@ -32,6 +32,12 @@
 #define FTP_COMMAND_PROCESSED                   1
 #define FTP_COMMAND_PROCESSED_WRITE_ERROR       2
 
+
+#define FTP_CHMODE_COMMAND_RETURN_CODE_OK               1
+#define FTP_CHMODE_COMMAND_RETURN_CODE_NO_FILE          2
+#define FTP_CHMODE_COMMAND_RETURN_CODE_NO_PERMISSIONS   3
+#define FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG         4
+
 #include "ftpData.h"
 
 #ifdef __cplusplus
