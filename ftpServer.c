@@ -90,6 +90,7 @@ void *connectionWorkerHandle(void * socketId)
     if (ftpData.clients[theSocketId].workerData.passiveListeningSocket == -1)
     {
         ftpData.clients[theSocketId].closeTheClient = 1;
+        printf("\n Closing the client 1");
         pthread_exit(NULL);
     }
 
@@ -100,6 +101,7 @@ void *connectionWorkerHandle(void * socketId)
         if (returnCode <= 0)
         {
             ftpData.clients[theSocketId].closeTheClient = 1;
+            printf("\n Closing the client 2");
             pthread_exit(NULL);
         }
 
@@ -111,6 +113,7 @@ void *connectionWorkerHandle(void * socketId)
         else
         {
             ftpData.clients[theSocketId].closeTheClient = 1;
+            printf("\n Closing the client 3");
             pthread_exit(NULL);
         }
     }
@@ -122,6 +125,7 @@ void *connectionWorkerHandle(void * socketId)
     if (ftpData.clients[theSocketId].workerData.socketConnection < 0)
     {
         ftpData.clients[theSocketId].closeTheClient = 1;
+        printf("\n Closing the client 4");
         pthread_exit(NULL);
     }
 
@@ -130,6 +134,7 @@ void *connectionWorkerHandle(void * socketId)
     if (returnCode <= 0)
     {
         ftpData.clients[theSocketId].closeTheClient = 1;
+        printf("\n Closing the client 5");
         pthread_exit(NULL);
     }
 
@@ -172,6 +177,7 @@ void *connectionWorkerHandle(void * socketId)
                 if (returnCode <= 0)
                 {
                     ftpData.clients[theSocketId].closeTheClient = 1;
+                    printf("\n Closing the client 6");
                     pthread_exit(NULL);
                 }
 
@@ -183,6 +189,7 @@ void *connectionWorkerHandle(void * socketId)
             if (returnCode <= 0)
             {
                 ftpData.clients[theSocketId].closeTheClient = 1;
+                printf("\n Closing the client 7");
                 pthread_exit(NULL);
             }
 
@@ -217,6 +224,7 @@ void *connectionWorkerHandle(void * socketId)
             if (returnCode <= 0)
             {
                 ftpData.clients[theSocketId].closeTheClient = 1;
+                printf("\n Closing the client 8");
                 pthread_exit(NULL);
             }
 
@@ -238,6 +246,7 @@ void *connectionWorkerHandle(void * socketId)
           if (returnCode <= 0)
           {
               ftpData.clients[theSocketId].closeTheClient = 1;
+              printf("\n Closing the client 8");
               pthread_exit(NULL);
           }
 
@@ -245,6 +254,7 @@ void *connectionWorkerHandle(void * socketId)
           if (returnCode <= 0)
           {
               ftpData.clients[theSocketId].closeTheClient = 1;
+              printf("\n Closing the client 9");
               pthread_exit(NULL);
           }
 
@@ -252,6 +262,7 @@ void *connectionWorkerHandle(void * socketId)
           if (returnCode <= 0)
           {
               ftpData.clients[theSocketId].closeTheClient = 1;
+              printf("\n Closing the client 10");
               pthread_exit(NULL);
           }
 
@@ -266,6 +277,7 @@ void *connectionWorkerHandle(void * socketId)
             if (writeReturn <= 0)
             {
                 ftpData.clients[theSocketId].closeTheClient = 1;
+                printf("\n Closing the client 11");
                 pthread_exit(NULL);
             }
 
@@ -280,6 +292,7 @@ void *connectionWorkerHandle(void * socketId)
               if (writeReturn <= 0)
               {
                 ftpData.clients[theSocketId].closeTheClient = 1;
+                printf("\n Closing the client 12");
                 pthread_exit(NULL);
               }
               break;
@@ -290,6 +303,7 @@ void *connectionWorkerHandle(void * socketId)
             if (writeReturn <= 0)
             {
               ftpData.clients[theSocketId].closeTheClient = 1;
+              printf("\n Closing the client 13");
               pthread_exit(NULL);
             }
             break;
@@ -427,10 +441,12 @@ void runFtpServer(void)
                               else if (commandProcessStatus == FTP_COMMAND_PROCESSED)
                               {
                                   ftpData.clients[processingSock].lastActivityTimeStamp = (int)time(NULL);
+                                  
                               }
                               else if (commandProcessStatus == FTP_COMMAND_PROCESSED_WRITE_ERROR)
                               {
                                   ftpData.clients[processingSock].closeTheClient = 1;
+                                  printf("\n Write error, closing the client!");
                               }
                           }
                   }
@@ -441,7 +457,10 @@ void runFtpServer(void)
                       ftpData.clients[processingSock].commandIndex = 0;
                       memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
                       returnCode = dprintf(ftpData.clients[processingSock].socketDescriptor, "500 Unknown command\r\n");
-                      if (returnCode <= 0) ftpData.clients[processingSock].closeTheClient = 1;
+                      if (returnCode <= 0) 
+                          ftpData.clients[processingSock].closeTheClient = 1;
+                      
+                      printf("\n Command too long closing the client.");
                       break;
                   }
               }

@@ -334,6 +334,10 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
         parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
     }
 
+    if (theFileSize > 0) {
+        free(theFileContent);
+    }
+
     return 1;
 }
 

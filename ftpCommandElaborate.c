@@ -142,7 +142,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
         {
             if (((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failureNumbers >= data->ftpParameters.maximumUserAndPassowrdLoginTries)
             {
-                //printf("\n TOO MANY LOGIN FAILS! \n");
+                printf("\n TOO MANY LOGIN FAILS! \n");
                 data->clients[socketId].closeTheClient = 1;
                 returnCode = dprintf(data->clients[socketId].socketDescriptor, "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
                 if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -220,6 +220,9 @@ int parseCommandAuth(clientDataType *theClientData)
     returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    
+    //client -> AUTH TLS
+    //server -> 234 AUTH TLS OK.
 
     return FTP_COMMAND_PROCESSED;
 }
@@ -823,6 +826,7 @@ int parseCommandQuit(ftpDataType * data, int socketId)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     data->clients[socketId].closeTheClient = 1;
+    printf("\n Closing the client quit received");
     return FTP_COMMAND_PROCESSED;
 }
 
