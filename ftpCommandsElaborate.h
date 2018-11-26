@@ -37,7 +37,8 @@
 #define FTP_CHMODE_COMMAND_RETURN_CODE_NO_FILE          2
 #define FTP_CHMODE_COMMAND_RETURN_CODE_NO_PERMISSIONS   3
 #define FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG         4
-
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "ftpData.h"
 
 #ifdef __cplusplus
@@ -49,7 +50,7 @@ extern "C" {
 int parseCommandUser(clientDataType *theClientData);
 int parseCommandSite(clientDataType *theClientData);
 int parseCommandPass(ftpDataType * data, int socketId);
-int parseCommandAuth(clientDataType *theClientData);
+int parseCommandAuth(clientDataType *theClientData, SSL_CTX *);
 int parseCommandPwd(clientDataType *theClientData);
 int parseCommandSyst(clientDataType *theClientData);
 int parseCommandFeat(clientDataType *theClientData);

@@ -47,10 +47,11 @@
 #include "library/logFunctions.h"
 #include "library/configRead.h"
 #include "library/signals.h"
+#include "library/openSsl.h"
 #include "library/connection.h"
 
 ftpDataType ftpData;
-
+SSL_CTX *ctx;
 static int processCommand(int processingElement);
 
 void workerCleanup(void *socketId)
@@ -325,9 +326,11 @@ void *connectionWorkerHandle(void * socketId)
 
 void runFtpServer(void)
 {
-    
     printf("\nHello uFTP server v%s starting..\n", UFTP_SERVER_VERSION);
+
     
+    
+
     /* Needed for Select*/
     static int processingSock = 0, returnCode = 0;
 
@@ -352,6 +355,10 @@ void runFtpServer(void)
 
     /* the maximum socket fd is now the main socket descriptor */
     ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
+    
+    init_openssl();
+    ctx = create_context();
+    configure_context(ctx);
 
   //Endless loop ftp process
     while (1)
@@ -359,9 +366,7 @@ void runFtpServer(void)
         /* waits for socket activity, if no activity then checks for client socket timeouts */
         if (selectWait(&ftpData) == 0)
         {
-            
             checkClientConnectionTimeout(&ftpData);
-            
             flushLoginWrongTriesData(&ftpData);
         }
 
@@ -518,7 +523,38 @@ static int processCommand(int processingElement)
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) == 1)
     {
         printf("\nAUTH COMMAND RECEIVED");
-        toReturn = parseCommandAuth(&ftpData.clients[processingElement]);
+        
+    int returnCode;
+    //returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
+    returnCode = dprintf(ftpData.clients[processingElement].socketDescriptor, "234 AUTH TLS OK..\r\n");
+
+
+    ftpData.clients[processingElement].tlsIsEnabled = 1;
+    SSL *ssl;
+    ssl = SSL_new(ctx);
+        SSL_set_fd(ssl, ftpData.clients[processingElement].socketDescriptor);
+
+        if (SSL_accept(ssl) <= 0) {
+            printf("\nSSL ERRORS");
+            ERR_print_errors_fp(stderr);
+        }
+        else {
+            printf("\nSSL ACCEPTED");
+            SSL_write(ssl, "ciao prova\r\n", strlen("ciao prova\r\n"));
+        }    
+        
+        char buffer[100];
+        int readenb = 0;
+        while(1)
+        {
+            readenb =  SSL_read(ssl, buffer, 100);
+            if (readenb > 0)
+                printf("\nSslReaden: %s", buffer);
+            sleep(1);
+            
+        }
+
+       // toReturn = parseCommandAuth(&ftpData.clients[processingElement], ctx);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PWD", strlen("PWD")) == 1)
     {

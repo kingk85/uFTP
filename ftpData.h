@@ -27,6 +27,8 @@
 #define FTPDATA_H
 
 #include <netinet/in.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "library/dynamicVectors.h"
 
 
@@ -49,7 +51,6 @@ struct parameter
     char* name;
     char* value;
 } typedef parameter_DataType;
-
 
 struct ownerShip
 {
@@ -116,6 +117,8 @@ struct ipData
 
 struct workerData
 {
+    
+    
     int threadIsAlive;
     int connectionPort;
     int passiveModeOn;
@@ -147,6 +150,9 @@ struct workerData
 
 struct clientData
 {
+    SSL *ssl;
+    int tlsIsEnabled;
+    
     int clientProgressiveNumber;
     int socketDescriptor;
     int socketIsConnected;
@@ -202,6 +208,7 @@ struct ConnectionParameters
 
 struct ftpData
 {
+    
     int connectedClients;
     char welcomeMessage[1024];
     ConnectionData_DataType connectionData;

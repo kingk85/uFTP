@@ -44,6 +44,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/library/dynamicVectors.o \
 	${OBJECTDIR}/library/fileManagement.o \
 	${OBJECTDIR}/library/logFunctions.o \
+	${OBJECTDIR}/library/openSsl.o \
 	${OBJECTDIR}/library/signals.o \
 	${OBJECTDIR}/uFTP.o
 
@@ -116,6 +117,11 @@ ${OBJECTDIR}/library/logFunctions.o: library/logFunctions.c
 	${MKDIR} -p ${OBJECTDIR}/library
 	${RM} "$@.d"
 	$(COMPILE.c) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/logFunctions.o library/logFunctions.c
+
+${OBJECTDIR}/library/openSsl.o: library/openSsl.c
+	${MKDIR} -p ${OBJECTDIR}/library
+	${RM} "$@.d"
+	$(COMPILE.c) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/library/openSsl.o library/openSsl.c
 
 ${OBJECTDIR}/library/signals.o: library/signals.c
 	${MKDIR} -p ${OBJECTDIR}/library

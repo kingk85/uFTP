@@ -40,6 +40,7 @@
 #include "library/logFunctions.h"
 #include "library/fileManagement.h"
 #include "library/configRead.h"
+#include "library/openSsl.h"
 #include "ftpCommandsElaborate.h"
 
 
@@ -214,12 +215,28 @@ int parseCommandPass(ftpDataType * data, int socketId)
     }
 }
 
-int parseCommandAuth(clientDataType *theClientData)
+int parseCommandAuth(clientDataType *theClientData, SSL_CTX *ctx)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
+    //returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
+    returnCode = dprintf(theClientData->socketDescriptor, "234 AUTH TLS OK..\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    
+
+    theClientData->tlsIsEnabled = 1;
+    SSL *ssl;
+    ssl = SSL_new(ctx);
+        SSL_set_fd(ssl, theClientData->socketDescriptor);
+
+        if (SSL_accept(ssl) <= 0) {
+                        printf("\nSSL ERRORS");
+            ERR_print_errors_fp(stderr);
+        }
+        else {
+            printf("\nSSL ACCEPTED");
+            SSL_write(ssl, "ciao prova\r\n", strlen("ciao prova\r\n"));
+        }    
     
     //client -> AUTH TLS
     //server -> 234 AUTH TLS OK.
@@ -272,7 +289,7 @@ int parseCommandFeat(clientDataType *theClientData)
     211 End.
      */
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "211-Extensions supported:\r\n PASV\r\nUTF8\r\n211 End.\r\n");
+    returnCode = dprintf(theClientData->socketDescriptor, "211-Extensions supported:\r\n PASV\r\nUTF8\r\nAUTH TLS\r\n211 End.\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
