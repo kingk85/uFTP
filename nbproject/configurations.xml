@@ -10,6 +10,7 @@
         <itemPath>library/dynamicVectors.h</itemPath>
         <itemPath>library/fileManagement.h</itemPath>
         <itemPath>library/logFunctions.h</itemPath>
+        <itemPath>library/openSsl.h</itemPath>
         <itemPath>library/signals.h</itemPath>
       </logicalFolder>
       <itemPath>library/daemon.h</itemPath>
@@ -33,6 +34,7 @@
         <itemPath>library/dynamicVectors.c</itemPath>
         <itemPath>library/fileManagement.c</itemPath>
         <itemPath>library/logFunctions.c</itemPath>
+        <itemPath>library/openSsl.c</itemPath>
         <itemPath>library/signals.c</itemPath>
       </logicalFolder>
       <itemPath>MakeFileGeneric</itemPath>
@@ -124,6 +126,10 @@
       </item>
       <item path="library/logFunctions.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="library/openSsl.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/openSsl.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="library/signals.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/signals.h" ex="false" tool="3" flavor2="0">
@@ -196,6 +202,10 @@
       <item path="library/logFunctions.c" ex="false" tool="0" flavor2="0">
       </item>
       <item path="library/logFunctions.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="library/openSsl.c" ex="false" tool="0" flavor2="0">
+      </item>
+      <item path="library/openSsl.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="library/signals.c" ex="false" tool="0" flavor2="0">
       </item>
