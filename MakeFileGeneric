@@ -3,6 +3,9 @@ CC=gcc
 
 OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
+
+#FOR DEBUG PURPOSE 
+#CFLAGS=-c -Wall -I. -g -O0
 CFLAGS=-c -Wall -I.
 OPTIMIZATION=-O3
 HEADERS=-I
