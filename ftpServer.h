@@ -33,6 +33,7 @@ void runFtpServer(void);
 void *connectionWorkerHandle(void * socketId);
 void workerCleanup(void *socketId);
 void signal_callback_handler(int signum);
+void deallocateMemory(void);
 
 #endif /* FTPSERVER_H */
 

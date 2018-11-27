@@ -56,9 +56,17 @@ static void ignore_sigpipe(void)
         }
 }
 
+void onUftpClose(void)
+{
+    printf("\nuFTP exit()\n");
+    deallocateMemory();
+    exit(0);
+}
+
 void signalHandlerInstall(void)
 {
     //signal(SIGPIPE, signal_callback_handler);
+    signal(SIGINT,onUftpClose);	
     signal(SIGUSR2,SIG_IGN);	
     signal(SIGPIPE,SIG_IGN);
     signal(SIGALRM,SIG_IGN);
