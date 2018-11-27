@@ -32,18 +32,18 @@
 
 #include "openSsl.h"
 
-void init_openssl()
+void initOpenssl()
 {
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
 }
 
-void cleanup_openssl()
+void cleanupOpenssl()
 {
     EVP_cleanup();
 }
 
-SSL_CTX *create_context()
+SSL_CTX *createContext()
 {
     const SSL_METHOD *method;
     SSL_CTX *ctx;
@@ -60,7 +60,7 @@ SSL_CTX *create_context()
     return ctx;
 }
 
-void configure_context(SSL_CTX *ctx)
+void configureContext(SSL_CTX *ctx)
 {
     SSL_CTX_set_ecdh_auto(ctx, 1);
 

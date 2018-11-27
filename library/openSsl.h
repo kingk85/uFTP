@@ -33,11 +33,10 @@
 extern "C" {
 #endif
 
-void init_openssl();
-void cleanup_openssl();
-SSL_CTX *create_context();
-void configure_context(SSL_CTX *ctx);
-
+void initOpenssl();
+void cleanupOpenssl();
+SSL_CTX *createContext();
+void configureContext(SSL_CTX *ctx);
 
 #ifdef __cplusplus
 }

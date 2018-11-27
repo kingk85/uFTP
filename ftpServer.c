@@ -356,9 +356,9 @@ void runFtpServer(void)
     /* the maximum socket fd is now the main socket descriptor */
     ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
     
-    init_openssl();
-    ctx = create_context();
-    configure_context(ctx);
+    initOpenssl();
+    ctx = createContext();
+    configureContext(ctx);
 
   //Endless loop ftp process
     while (1)
@@ -529,20 +529,30 @@ static int processCommand(int processingElement)
     returnCode = dprintf(ftpData.clients[processingElement].socketDescriptor, "234 AUTH TLS OK..\r\n");
 
 
-    ftpData.clients[processingElement].tlsIsEnabled = 1;
-    SSL *ssl;
-    ssl = SSL_new(ctx);
+        ftpData.clients[processingElement].tlsIsEnabled = 1;
+        SSL *ssl;
+        ssl = SSL_new(ctx);
         SSL_set_fd(ssl, ftpData.clients[processingElement].socketDescriptor);
 
-        if (SSL_accept(ssl) <= 0) {
-            printf("\nSSL ERRORS");
-            ERR_print_errors_fp(stderr);
+        int sslAcceptTimeout = 0;
+        do {
+            returnCode = SSL_accept(ssl);
+            printf("\nSSL waiting handshake %d.. return code = %d", sslAcceptTimeout, returnCode);
+            if (returnCode <= 0) {
+                printf("\nSSL ERRORS");
+                ERR_print_errors_fp(stderr);
+            }
+            else {
+                printf("\nSSL ACCEPTED");
+                fflush(0);
+                SSL_write(ssl, "ciao prova\r\n", strlen("ciao prova\r\n"));
+            }
+            sslAcceptTimeout++;
+            
+            sleep(1);
         }
-        else {
-            printf("\nSSL ACCEPTED");
-            SSL_write(ssl, "ciao prova\r\n", strlen("ciao prova\r\n"));
-        }    
-        
+        while(returnCode <=0 && sslAcceptTimeout < 3);
+        printf("\nReading ssl");
         char buffer[100];
         int readenb = 0;
         while(1)
@@ -710,4 +720,10 @@ static int processCommand(int processingElement)
     ftpData.clients[processingElement].commandIndex = 0;
     memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     return toReturn;
+}
+
+
+void deallocateMemory(void)
+{
+    printf("\n Deallocating the memory.. ");
 }
