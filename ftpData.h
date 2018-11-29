@@ -252,6 +252,7 @@ void resetWorkerData(workerDataType *pasvData, int isInitialization);
 void resetClientData(clientDataType *clientData, int isInitialization);
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
 int isCharInString(char *theString, int stringLen, char theChar);
+void destroyConfigurationVectorElement(void * data);
 #ifdef __cplusplus
 }
 #endif

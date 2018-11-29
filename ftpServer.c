@@ -328,9 +328,6 @@ void runFtpServer(void)
 {
     printf("\nHello uFTP server v%s starting..\n", UFTP_SERVER_VERSION);
 
-    
-    
-
     /* Needed for Select*/
     static int processingSock = 0, returnCode = 0;
 

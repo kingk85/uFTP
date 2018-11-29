@@ -56,7 +56,7 @@ static void ignore_sigpipe(void)
         }
 }
 
-void onUftpClose(void)
+void onUftpClose(int sig)
 {
     printf("\nuFTP exit()\n");
     deallocateMemory();

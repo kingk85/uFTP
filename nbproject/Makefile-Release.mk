@@ -50,7 +50,7 @@ OBJECTFILES= \
 
 
 # C Compiler Flags
-CFLAGS=
+CFLAGS=-pthread -ssl -crypto
 
 # CC Compiler Flags
 CCFLAGS=

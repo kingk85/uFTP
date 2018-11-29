@@ -54,6 +54,7 @@
                    displayName="Important Files"
                    projectFiles="false"
                    kind="IMPORTANT_FILES_FOLDER">
+      <itemPath>MakeFileGeneric</itemPath>
       <itemPath>Makefile</itemPath>
     </logicalFolder>
   </logicalFolder>
@@ -64,7 +65,7 @@
   <confs>
     <conf name="Debug" type="1">
       <toolsSet>
-        <compilerSet>default</compilerSet>
+        <compilerSet>GNU|GNU</compilerSet>
         <dependencyChecking>true</dependencyChecking>
         <rebuildPropChanged>false</rebuildPropChanged>
       </toolsSet>
@@ -78,11 +79,20 @@
             <pElem>library/dynamicVectors.h</pElem>
             <pElem>library/fileManagement.h</pElem>
           </incFile>
-          <commandLine>-pthread</commandLine>
           <preprocessorList>
             <Elem>_LARGEFILE64_SOURCE</Elem>
           </preprocessorList>
+          <warningLevel>2</warningLevel>
         </cTool>
+        <linkerTool>
+          <commandlineTool>gcc</commandlineTool>
+          <linkerLibItems>
+            <linkerLibStdlibItem>PosixThreads</linkerLibStdlibItem>
+            <linkerOptionItem>`pkg-config --libs libcrypto`</linkerOptionItem>
+            <linkerOptionItem>`pkg-config --libs libssl`</linkerOptionItem>
+            <linkerOptionItem>`pkg-config --libs openssl`</linkerOptionItem>
+          </linkerLibItems>
+        </linkerTool>
       </compileType>
       <item path="MakeFileGeneric" ex="false" tool="3" flavor2="0">
       </item>
@@ -150,6 +160,7 @@
       <compileType>
         <cTool>
           <developmentMode>5</developmentMode>
+          <commandLine>-pthread -ssl -crypto</commandLine>
         </cTool>
         <ccTool>
           <developmentMode>5</developmentMode>
