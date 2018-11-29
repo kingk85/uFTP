@@ -31,7 +31,7 @@ extern "C" {
 
 void signalHandlerInstall(void);
 void signal_callback_handler(int signum);
-void onUftpClose(void);
+void onUftpClose(int sig);
 
 #ifdef __cplusplus
 }

@@ -40,6 +40,12 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
 static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector);
 static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
 
+void destroyConfigurationVectorElement(void * data)
+{
+    free( ((parameter_DataType *) data)->value);
+    free( ((parameter_DataType *) data)->name);
+}
+
 /* Public Functions */
 int searchUser(char *name, DYNV_VectorGenericDataType *usersVector)
 {
@@ -66,18 +72,14 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
     if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s \n", LOCAL_CONFIGURATION_FILENAME);
-
         returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters);
-
         printf("\nDONE\n");
 
     }
     else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s\n", DEFAULT_CONFIGURATION_FILENAME);
-
         returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters);
-
         printf("\nDONE\n");
 
     }
@@ -92,6 +94,9 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
         exit(1);
     }
 
+    
+    DYNV_VectorGeneric_Destroy(&configParameters, destroyConfigurationVectorElement);
+    
     return;
 }
 

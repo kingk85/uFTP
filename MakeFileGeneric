@@ -5,8 +5,8 @@ OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
 
 #FOR DEBUG PURPOSE 
-#CFLAGS=-c -Wall -I. -g -O0
-CFLAGS=-c -Wall -I.
+CFLAGS=-c -Wall -I. -g -O0
+#CFLAGS=-c -Wall -I.
 OPTIMIZATION=-O3
 HEADERS=-I
 LIBPATH=./build/modules/

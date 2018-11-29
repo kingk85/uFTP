@@ -597,7 +597,7 @@ void resetWorkerData(workerDataType *workerData, int isInitialization)
 
 void resetClientData(clientDataType *clientData, int isInitialization)
 {
-    if (isInitialization != 0)
+    if (isInitialization != 1)
     {
         if (clientData->workerData.threadIsAlive == 1)
         {
@@ -607,7 +607,7 @@ void resetClientData(clientDataType *clientData, int isInitialization)
         }
         else
         {
-            void *pReturn;
+            void *pReturn = NULL;
             pthread_join(clientData->workerData.workerThread, &pReturn);
         }
     }
