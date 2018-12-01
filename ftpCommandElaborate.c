@@ -342,6 +342,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 {
     /* Create worker thread */
     void *pReturn;
+    printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
     if (data->clients[socketId].workerData.threadIsAlive == 1) 
     {
@@ -977,7 +978,7 @@ int parseCommandRnfr(clientDataType *theClientData)
 
 int parseCommandRnto(clientDataType *theClientData)
 {
-    int returnCode;
+    int returnCode = 0;
     int isSafePath;
     char *theRntoFileName;
 
@@ -993,29 +994,39 @@ int parseCommandRnto(clientDataType *theClientData)
         if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
             FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
         {
-            int returnCode = 0;
             returnCode = rename (theClientData->renameFromFile.text, theClientData->renameToFile.text);
             if (returnCode == 0) 
             {
+            	printf("\n250 File successfully renamed or moved");
                 returnCode = dprintf(theClientData->socketDescriptor, "250 File successfully renamed or moved\r\n");
             }
             else
             {
+            	printf("\n503 Error Renaming the file");
                 returnCode = dprintf(theClientData->socketDescriptor, "503 Error Renaming the file\r\n");
             }
         }
         else
         {
+        	printf("\n503 Need RNFR before RNTO");
             returnCode = dprintf(theClientData->socketDescriptor, "503 Need RNFR before RNTO\r\n");
         }
     }
     else
     {
+    	printf("\n503 Error Renaming the file");
         returnCode = dprintf(theClientData->socketDescriptor, "503 Error Renaming the file\r\n");
     }
 
-    if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-    return FTP_COMMAND_PROCESSED;
+    if (returnCode <= 0)
+    {
+    	printf("\, parseCommandRnto return code: %d", returnCode);
+    	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+    else {
+    	return FTP_COMMAND_PROCESSED;
+    }
+
 }
 
 int parseCommandCdup(clientDataType *theClientData)
@@ -1294,7 +1305,7 @@ int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataTyp
     }
 
     returnCode = strtol(thePermissionString, 0, 8);
-    if (returnCodeSetPermissions = chmod (theFinalFilename, returnCode) < 0)
+    if ((returnCodeSetPermissions = chmod (theFinalFilename, returnCode)) < 0)
     {
         printf("\n---> ERROR WHILE SETTING FILE PERMISSION");
     }
