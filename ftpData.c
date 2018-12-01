@@ -372,7 +372,9 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         }
         
     if (fileList != NULL)
+    {
         free (fileList);
+    }
         
         return 1;
     }
@@ -579,6 +581,7 @@ void resetWorkerData(workerDataType *workerData, int isInitialization)
       {
         DYNV_VectorGeneric_Init(&workerData->directoryInfo);
         workerData->theStorFile = NULL;
+        workerData->workerThread = 0;
       }
 
       pthread_mutex_init(&workerData->conditionMutex, NULL);
