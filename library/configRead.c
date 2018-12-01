@@ -122,7 +122,7 @@ void initFtpData(ftpDataType *ftpData)
     srand(time(NULL));    
 
     ftpData->connectedClients = 0;
-    ftpData->clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData->ftpParameters.maxClients);
+    ftpData->clients = (clientDataType *) calloc( sizeof(clientDataType), ftpData->ftpParameters.maxClients);
 
     ftpData->serverIp.ip[0] = 127;
     ftpData->serverIp.ip[1] = 0;
