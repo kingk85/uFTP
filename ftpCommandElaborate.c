@@ -976,7 +976,6 @@ int parseCommandRnto(clientDataType *theClientData)
         if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
             FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
         {
-            int returnCode = 0;
             returnCode = rename (theClientData->renameFromFile.text, theClientData->renameToFile.text);
             if (returnCode == 0) 
             {
