@@ -34,9 +34,118 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdarg.h>
+
 
 #include "../ftpData.h"
 #include "connection.h"
+
+
+
+int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
+{
+	#define SOCKET_PRINTF_BUFFER						2048
+
+	int bytesWritten = 0;
+	char theBuffer[2048];
+	int theStringSize = 0;
+	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+	printf("\nWriting to socket id %d: ", clientId);
+
+	va_list args;
+	va_start(args, __fmt);
+	//pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
+
+	while (*__fmt != '\0')
+	{
+		theStringSize = 0;
+		switch(*__fmt)
+		{
+			case 'd':
+			case 'D':
+			{
+				int theInteger = va_arg(args, int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%d", theInteger);
+			}
+			break;
+
+			case 'c':
+			case 'C':
+			{
+				int theCharInteger = va_arg(args, int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
+			}
+			break;
+
+			case 'f':
+			case 'F':
+			{
+				float theDouble = va_arg(args, double);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%f", theDouble);
+			}
+			break;
+
+			case 's':
+			case 'S':
+			{
+				char * theString = va_arg(args, char *);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%s", theString);
+			}
+			break;
+
+			case 'l':
+			case 'L':
+			{
+				long long int theLongLongInt = va_arg(args, long long int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%lld",  theLongLongInt);
+			}
+			break;
+
+			default:
+			{
+				printf("\n Switch is default (%c)", *__fmt);
+			}
+			break;
+		}
+
+		if (theStringSize >= SOCKET_PRINTF_BUFFER) {
+			printf("\n String buffer is full!");
+		}
+		else if (theStringSize < SOCKET_PRINTF_BUFFER &&
+				theStringSize > 0)
+		{
+			int theReturnCode = 0;
+			theReturnCode = write(ftpData->clients[clientId].socketDescriptor, theBuffer, theStringSize);
+			printf("%s", theBuffer);
+
+			if (theReturnCode > 0)
+			{
+				bytesWritten += theReturnCode;
+			}
+			else
+			{
+				bytesWritten = theReturnCode;
+				break;
+			}
+		}
+		else if(theStringSize == 0)
+		{
+			printf("\n Nothing to write.. ");
+		}
+
+		++__fmt;
+	}
+
+	//pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
+	va_end(args);
+	return bytesWritten;
+}
+
 
 /* Return the higher socket available*/
 int getMaximumSocketFd(int mainSocket, ftpDataType * ftpData)
@@ -381,12 +490,16 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 if (ftpData->ftpParameters.maximumConnectionsPerIp > 0 &&
                     numberOfConnectionFromSameIp >= ftpData->ftpParameters.maximumConnectionsPerIp)
                 {
-                    dprintf(ftpData->clients[availableSocketIndex].socketDescriptor, "530 too many connection from your ip address %s \r\n", ftpData->clients[availableSocketIndex].clientIpAddress);
+                	int theReturnCode = socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
                     ftpData->clients[availableSocketIndex].closeTheClient = 1;
                 }
                 else
                 {
-                    write(ftpData->clients[availableSocketIndex].socketDescriptor, ftpData->welcomeMessage, strlen(ftpData->welcomeMessage));
+                	int returnCode = socketPrintf(&ftpData, availableSocketIndex, "s", ftpData->welcomeMessage);
+                	if (returnCode <= 0)
+                	{
+                		ftpData->clients[availableSocketIndex].closeTheClient = 1;
+                	}
                 }
                 
                 return 1;

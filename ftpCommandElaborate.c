@@ -41,20 +41,21 @@
 #include "library/fileManagement.h"
 #include "library/configRead.h"
 #include "library/openSsl.h"
+#include "library/connection.h"
 #include "ftpCommandsElaborate.h"
 
 
 /* Elaborate the User login command */
-int parseCommandUser(clientDataType *theClientData)
+int parseCommandUser(ftpDataType * data, int socketId)
 {
     int returnCode;
     char *theUserName;
-    theUserName = getFtpCommandArg("USER", theClientData->theCommandReceived, 0);
+    theUserName = getFtpCommandArg("USER", data->clients[socketId].theCommandReceived, 0);
 
     if (strlen(theUserName) >= 1)
     {
-        setDynamicStringDataType(&theClientData->login.name, theUserName, strlen(theUserName));
-        returnCode = dprintf(theClientData->socketDescriptor, "331 User ok, Waiting for the password.\r\n");
+        setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName));
+        returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
 
         if (returnCode <= 0) 
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -63,9 +64,9 @@ int parseCommandUser(clientDataType *theClientData)
     }
     else
     {
-        returnCode = dprintf(theClientData->socketDescriptor, "430 Invalid username.\r\n");
-        
-        if (returnCode <= 0) 
+        returnCode = socketPrintf(data, socketId, "s", "430 Invalid username.\r\n");
+
+        if (returnCode <= 0)
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
         return FTP_COMMAND_PROCESSED;
@@ -73,33 +74,33 @@ int parseCommandUser(clientDataType *theClientData)
 }
 
 /* Elaborate the User login command */
-int parseCommandSite(clientDataType *theClientData)
+int parseCommandSite(ftpDataType * data, int socketId)
 {
     int returnCode, setPermissionsReturnCode;
     char *theCommand;
-    theCommand = getFtpCommandArg("SITE", theClientData->theCommandReceived, 0);
+    theCommand = getFtpCommandArg("SITE", data->clients[socketId].theCommandReceived, 0);
 
     if(compareStringCaseInsensitive(theCommand, "CHMOD", strlen("CHMOD")) == 1)
     {
-        setPermissionsReturnCode = setPermissions(theCommand, theClientData->login.absolutePath.text, theClientData->login.ownerShip);
+        setPermissionsReturnCode = setPermissions(theCommand, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.ownerShip);
 
         switch (setPermissionsReturnCode)
         {
             case FTP_CHMODE_COMMAND_RETURN_CODE_OK:
             {
-                returnCode = dprintf(theClientData->socketDescriptor, "200 Permissions changed\r\n");
+            	returnCode = socketPrintf(data, socketId, "s", "200 Permissions changed\r\n");
             }
             break;
 
             case FTP_CHMODE_COMMAND_RETURN_CODE_NO_FILE:
             {
-                returnCode = dprintf(theClientData->socketDescriptor, "550 chmod no such file\r\n");
+            	returnCode = socketPrintf(data, socketId, "s", "550 chmod no such file\r\n");
             }
             break;
 
             case FTP_CHMODE_COMMAND_RETURN_CODE_NO_PERMISSIONS:
             {
-                returnCode = dprintf(theClientData->socketDescriptor, "550 Some errors occoured while changing file permissions.\r\n");
+            	returnCode = socketPrintf(data, socketId, "s", "550 Some errors occurred while changing file permissions.\r\n");
             }
             break;            
 
@@ -113,7 +114,7 @@ int parseCommandSite(clientDataType *theClientData)
     }
     else
     {
-        returnCode = dprintf(theClientData->socketDescriptor, "500 unknown extension\r\n");
+    	returnCode = socketPrintf(data, socketId, "s", "500 unknown extension\r\n");
 
         if (returnCode <= 0) 
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -145,7 +146,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
             {
                 printf("\n TOO MANY LOGIN FAILS! \n");
                 data->clients[socketId].closeTheClient = 1;
-                returnCode = dprintf(data->clients[socketId].socketDescriptor, "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
+                returnCode = socketPrintf(data, socketId, "s", "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
                 if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 return FTP_COMMAND_PROCESSED;
             }
@@ -172,9 +173,9 @@ int parseCommandPass(ftpDataType * data, int socketId)
                 ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failureNumbers++;
                 ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failTimeStamp = time(NULL);
             }
-            
-            returnCode = dprintf(data->clients[socketId].socketDescriptor, "430 Invalid username or password\r\n");
-            if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+            returnCode = socketPrintf(data, socketId, "s", "430 Invalid username or password\r\n");
+            if (returnCode <= 0)
+            	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
         else
         {
@@ -188,8 +189,9 @@ int parseCommandPass(ftpDataType * data, int socketId)
             data->clients[socketId].login.ownerShip.uid = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.uid;
             data->clients[socketId].login.userLoggedIn = 1;
 
-            returnCode = dprintf(data->clients[socketId].socketDescriptor, "230 Login Ok.\r\n");
-            if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+            returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
+            if (returnCode <= 0)
+            	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
        return FTP_COMMAND_PROCESSED;
@@ -209,8 +211,9 @@ int parseCommandPass(ftpDataType * data, int socketId)
             ((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failTimeStamp = time(NULL);
         }
 
-        returnCode = dprintf(data->clients[socketId].socketDescriptor, "430 Invalid username or password\r\n");
-        if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        returnCode = socketPrintf(data, socketId, "s", "430 Invalid username or password\r\n");
+        if (returnCode <= 0)
+        	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         return 1;
     }
 }
@@ -218,8 +221,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
 int parseCommandAuth(clientDataType *theClientData, SSL_CTX *ctx)
 {
     int returnCode;
-    //returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
-    returnCode = dprintf(theClientData->socketDescriptor, "234 AUTH TLS OK..\r\n");
+    //returnCode = socketPrintf(data, socketId, "s", "234 AUTH TLS OK..\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     
@@ -244,27 +246,28 @@ int parseCommandAuth(clientDataType *theClientData, SSL_CTX *ctx)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandPwd(clientDataType *theClientData)
+int parseCommandPwd(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "257 \"%s\" is your current location\r\n", theClientData->login.ftpPath.text);
+    returnCode = socketPrintf(data, socketId, "sss", "257 \"", data->clients[socketId].login.ftpPath.text ,"\" is your current location\r\n");
+
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandSyst(clientDataType *theClientData)
+int parseCommandSyst(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "215 UNIX Type: L8\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "215 UNIX Type: L8\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandFeat(clientDataType *theClientData)
+int parseCommandFeat(ftpDataType * data, int socketId)
 {
     /*
     211-Extensions supported:
@@ -289,27 +292,28 @@ int parseCommandFeat(clientDataType *theClientData)
     211 End.
      */
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "211-Extensions supported:\r\n PASV\r\nUTF8\r\nAUTH TLS\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\n PASV\r\nUTF8\r\nAUTH TLS\r\n211 End.\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandTypeA(clientDataType *theClientData)
+int parseCommandTypeA(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "200 TYPE is now 8-bit binary\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
+
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandTypeI(clientDataType *theClientData)
+int parseCommandTypeI(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "200 TYPE is now 8-bit binary\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
     
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -317,21 +321,21 @@ int parseCommandTypeI(clientDataType *theClientData)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandStruF(clientDataType *theClientData)
+int parseCommandStruF(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "200 TYPE is now 8-bit binary\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandModeS(clientDataType *theClientData)
+int parseCommandModeS(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "200 TYPE is now 8-bit binary\r\n");
-    
+    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
+
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
@@ -396,17 +400,17 @@ int parseCommandAbor(ftpDataType * data, int socketId)
         }
         pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
 
-        returnCode = dprintf(data->clients[socketId].socketDescriptor, "426 ABORT\r\n");
+        returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");
         if (returnCode <= 0) 
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-         
-        returnCode = dprintf(data->clients[socketId].socketDescriptor, "226 Transfer aborted\r\n");
+
+        returnCode = socketPrintf(data, socketId, "s", "226 Transfer aborted\r\n");
         if (returnCode <= 0) 
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
     else
     {
-        returnCode = dprintf(data->clients[socketId].socketDescriptor, "226 Since you see this ABOR must've succeeded\r\n");
+    	returnCode = socketPrintf(data, socketId, "s", "226 Since you see this ABOR must've succeeded\r\n");
         if (returnCode <= 0) 
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -559,7 +563,7 @@ int parseCommandStor(ftpDataType * data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandCwd(clientDataType *theClientData)
+int parseCommandCwd(ftpDataType * data, int socketId)
 {
     dynamicStringDataType absolutePathPrevious, ftpPathPrevious, theSafePath;
     int isSafePath;
@@ -570,62 +574,62 @@ int parseCommandCwd(clientDataType *theClientData)
     cleanDynamicStringDataType(&ftpPathPrevious, 1);
     cleanDynamicStringDataType(&theSafePath, 1);
 
-    thePath = getFtpCommandArg("CWD", theClientData->theCommandReceived, 0);
+    thePath = getFtpCommandArg("CWD", data->clients[socketId].theCommandReceived, 0);
 
     if (strlen(thePath) > 0)
     {
-        isSafePath = getSafePath(&theSafePath, thePath, &theClientData->login);
+        isSafePath = getSafePath(&theSafePath, thePath, &data->clients[socketId].login);
     }
 
     if (isSafePath == 1)
     {
         printf("\n The Path requested for CWD IS:%s", theSafePath.text);
-        setDynamicStringDataType(&absolutePathPrevious, theClientData->login.absolutePath.text, theClientData->login.absolutePath.textLen);
-        setDynamicStringDataType(&ftpPathPrevious, theClientData->login.ftpPath.text, theClientData->login.ftpPath.textLen);
+        setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
+        setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen);
         
         if (theSafePath.text[0] != '/')
         {
-            if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] != '/')
-                appendToDynamicStringDataType(&theClientData->login.absolutePath, "/", 1);
+            if (data->clients[socketId].login.absolutePath.text[data->clients[socketId].login.absolutePath.textLen-1] != '/')
+                appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, "/", 1);
 
-            if (theClientData->login.ftpPath.text[theClientData->login.ftpPath.textLen-1] != '/')
-                appendToDynamicStringDataType(&theClientData->login.ftpPath, "/", 1);
+            if (data->clients[socketId].login.ftpPath.text[data->clients[socketId].login.ftpPath.textLen-1] != '/')
+                appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1);
 
-            appendToDynamicStringDataType(&theClientData->login.absolutePath, theSafePath.text, theSafePath.textLen);
-            appendToDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, theSafePath.textLen);
+            appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theSafePath.text, theSafePath.textLen);
+            appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen);
         }
         else if (theSafePath.text[0] == '/')
         {
-            cleanDynamicStringDataType(&theClientData->login.ftpPath, 0);
-            cleanDynamicStringDataType(&theClientData->login.absolutePath, 0);
+            cleanDynamicStringDataType(&data->clients[socketId].login.ftpPath, 0);
+            cleanDynamicStringDataType(&data->clients[socketId].login.absolutePath, 0);
 
-            setDynamicStringDataType(&theClientData->login.ftpPath, theSafePath.text, theSafePath.textLen);
-            setDynamicStringDataType(&theClientData->login.absolutePath, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen);
+            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen);
 
             if (strlen(theSafePath.text)> 0)
             {
                 char *theDirPointer = theSafePath.text;
                 
-                if (theClientData->login.absolutePath.text[theClientData->login.absolutePath.textLen-1] == '/')
+                if (data->clients[socketId].login.absolutePath.text[data->clients[socketId].login.absolutePath.textLen-1] == '/')
                 {
                     while(theDirPointer[0] == '/')
                         theDirPointer++;
                 }
                 
                 if (strlen(theDirPointer) > 0)
-                    appendToDynamicStringDataType(&theClientData->login.absolutePath, theDirPointer, strlen(theDirPointer));
+                    appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theDirPointer, strlen(theDirPointer));
             }
         }
 
-        if (FILE_IsDirectory(theClientData->login.absolutePath.text) == 1)
+        if (FILE_IsDirectory(data->clients[socketId].login.absolutePath.text) == 1)
         {
-            returnCode = dprintf(theClientData->socketDescriptor, "250 OK. Current directory is  %s\r\n", theClientData->login.ftpPath.text);
+        	returnCode = socketPrintf(data, socketId, "sss", "250 OK. Current directory is  ", data->clients[socketId].login.ftpPath.text, "\r\n");
         }
         else
         {
-            setDynamicStringDataType(&theClientData->login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
-            setDynamicStringDataType(&theClientData->login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
-            returnCode = dprintf(theClientData->socketDescriptor, "530 Can't change directory to %s: No such file or directory\r\n", theClientData->login.absolutePath.text);
+            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
+            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
+            returnCode = socketPrintf(data, socketId, "sss", "530 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": No such file or directory\r\n");
         }
         
         cleanDynamicStringDataType(&absolutePathPrevious, 0);
@@ -647,7 +651,7 @@ int parseCommandCwd(clientDataType *theClientData)
     }
 }
 
-int parseCommandRest(clientDataType *theClientData)
+int parseCommandRest(ftpDataType * data, int socketId)
 {
     int returnCode;
     int i, theSizeIndex;
@@ -655,33 +659,33 @@ int parseCommandRest(clientDataType *theClientData)
     memset(theSize, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
     theSizeIndex = 0;
 
-    for (i = strlen("REST")+1; i < theClientData->commandIndex; i++)
+    for (i = strlen("REST")+1; i < data->clients[socketId].commandIndex; i++)
     {
-        if (theClientData->theCommandReceived[i] == '\r' ||
-            theClientData->theCommandReceived[i] == '\0' ||
-            theClientData->theCommandReceived[i] == '\n')
+        if (data->clients[socketId].theCommandReceived[i] == '\r' ||
+        	data->clients[socketId].theCommandReceived[i] == '\0' ||
+			data->clients[socketId].theCommandReceived[i] == '\n')
             {
             break;
             }
         
         if (theSizeIndex < FTP_COMMAND_ELABORATE_CHAR_BUFFER &&
-            (theClientData->theCommandReceived[i] == '0' ||
-            theClientData->theCommandReceived[i] == '1' ||
-            theClientData->theCommandReceived[i] == '2' ||
-            theClientData->theCommandReceived[i] == '3' ||
-            theClientData->theCommandReceived[i] == '4' ||
-            theClientData->theCommandReceived[i] == '5' ||
-            theClientData->theCommandReceived[i] == '6' ||
-            theClientData->theCommandReceived[i] == '7' ||
-            theClientData->theCommandReceived[i] == '8' ||
-            theClientData->theCommandReceived[i] == '9' ))
+            (data->clients[socketId].theCommandReceived[i] == '0' ||
+			 data->clients[socketId].theCommandReceived[i] == '1' ||
+			 data->clients[socketId].theCommandReceived[i] == '2' ||
+			 data->clients[socketId].theCommandReceived[i] == '3' ||
+			 data->clients[socketId].theCommandReceived[i] == '4' ||
+			 data->clients[socketId].theCommandReceived[i] == '5' ||
+			 data->clients[socketId].theCommandReceived[i] == '6' ||
+			 data->clients[socketId].theCommandReceived[i] == '7' ||
+			 data->clients[socketId].theCommandReceived[i] == '8' ||
+			 data->clients[socketId].theCommandReceived[i] == '9' ))
         {
-            theSize[theSizeIndex++] = theClientData->theCommandReceived[i];
+            theSize[theSizeIndex++] = data->clients[socketId].theCommandReceived[i];
         }
     }
 
-    theClientData->workerData.retrRestartAtByte = atoll(theSize);
-    returnCode = dprintf(theClientData->socketDescriptor, "350 Restarting at %s\r\n", theSize);
+    data->clients[socketId].workerData.retrRestartAtByte = atoll(theSize);
+	returnCode = socketPrintf(data, socketId, "sss", "350 Restarting at ", theSize, "\r\n");
 
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -689,7 +693,7 @@ int parseCommandRest(clientDataType *theClientData)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandMkd(clientDataType *theClientData)
+int parseCommandMkd(ftpDataType * data, int socketId)
 {
     int returnCode;
     int functionReturnCode = FTP_COMMAND_NOT_RECONIZED;
@@ -697,11 +701,11 @@ int parseCommandMkd(clientDataType *theClientData)
     char *theDirectoryFilename;
     dynamicStringDataType mkdFileName;
 
-    theDirectoryFilename = getFtpCommandArg("MKD", theClientData->theCommandReceived, 0);
+    theDirectoryFilename = getFtpCommandArg("MKD", data->clients[socketId].theCommandReceived, 0);
     
     cleanDynamicStringDataType(&mkdFileName, 1);
     
-    isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &theClientData->login);
+    isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &data->clients[socketId].login);
     
     if (isSafePath == 1)
     {
@@ -710,8 +714,7 @@ int parseCommandMkd(clientDataType *theClientData)
 
         if (returnStatus == -1)
         {
-            returnCode = dprintf(theClientData->socketDescriptor, "550 error while creating directory %s\r\n", theDirectoryFilename);
-
+        	returnCode = socketPrintf(data, socketId, "sss", "550 error while creating directory ", theDirectoryFilename, "\r\n");
             if (returnCode <= 0) 
             {
                 functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -723,12 +726,12 @@ int parseCommandMkd(clientDataType *theClientData)
         }
         else
         {
-            if (theClientData->login.ownerShip.ownerShipSet == 1)
+            if (data->clients[socketId].login.ownerShip.ownerShipSet == 1)
             {
-                returnStatus = FILE_doChownFromUidGid(mkdFileName.text, theClientData->login.ownerShip.uid, theClientData->login.ownerShip.gid);
+                returnStatus = FILE_doChownFromUidGid(mkdFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid);
             }
 
-            returnCode = dprintf(theClientData->socketDescriptor, "257 \"%s\" : The directory was successfully created\r\n", theDirectoryFilename);
+            returnCode = socketPrintf(data, socketId, "sss", "257 \"", theDirectoryFilename, "\" : The directory was successfully created\r\n");
 
             if (returnCode <= 0) 
             {
@@ -750,10 +753,10 @@ int parseCommandMkd(clientDataType *theClientData)
     return functionReturnCode;
 }
 
-int parseCommandOpts(clientDataType *theClientData)
+int parseCommandOpts(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "200 OK\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "200 OK\r\n");
 
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -761,7 +764,7 @@ int parseCommandOpts(clientDataType *theClientData)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandDele(clientDataType *theClientData)
+int parseCommandDele(ftpDataType * data, int socketId)
 {
     int functionReturnCode = 0;
     int returnCode;
@@ -770,10 +773,10 @@ int parseCommandDele(clientDataType *theClientData)
     char *theFileToDelete;
     dynamicStringDataType deleFileName;
 
-    theFileToDelete = getFtpCommandArg("DELE", theClientData->theCommandReceived, 0);
+    theFileToDelete = getFtpCommandArg("DELE", data->clients[socketId].theCommandReceived, 0);
 
     cleanDynamicStringDataType(&deleFileName, 1);
-    isSafePath = getSafePath(&deleFileName, theFileToDelete, &theClientData->login);
+    isSafePath = getSafePath(&deleFileName, theFileToDelete, &data->clients[socketId].login);
     
     if (isSafePath == 1)
     {
@@ -784,11 +787,11 @@ int parseCommandDele(clientDataType *theClientData)
             
             if (returnStatus == -1)
             {
-                returnCode = dprintf(theClientData->socketDescriptor, "550 Could not delete the file:  %s some errors occoured\r\n", theFileToDelete);
+                returnCode = socketPrintf(data, socketId, "sss", "550 Could not delete the file: ", theFileToDelete, " some errors occurred\r\n");
             }
             else
             {
-                returnCode = dprintf(theClientData->socketDescriptor, "250 Deleted %s\r\n", theFileToDelete);
+            	returnCode = socketPrintf(data, socketId, "sss", "250 Deleted ", theFileToDelete, "\r\n");
             }
 
             functionReturnCode = FTP_COMMAND_PROCESSED;
@@ -798,7 +801,7 @@ int parseCommandDele(clientDataType *theClientData)
         }
         else
         {
-            returnCode = dprintf(theClientData->socketDescriptor, "550 Could not delete the file: No such file or file is a directory\r\n");
+            returnCode = socketPrintf(data, socketId, "s", "550 Could not delete the file: No such file or file is a directory\r\n");
             functionReturnCode = FTP_COMMAND_PROCESSED;
 
             if (returnCode <= 0) 
@@ -814,11 +817,11 @@ int parseCommandDele(clientDataType *theClientData)
     return functionReturnCode;
 }
 
-int parseCommandNoop(clientDataType *theClientData)
+int parseCommandNoop(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "200 Zzz...\r\n");
-   
+
+    returnCode = socketPrintf(data, socketId, "s", "200 Zzz...\r\n");
     if (returnCode <= 0) {
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -826,10 +829,11 @@ int parseCommandNoop(clientDataType *theClientData)
     return FTP_COMMAND_PROCESSED;
 }
 
-int notLoggedInMessage(clientDataType *theClientData)
+int notLoggedInMessage(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(theClientData->socketDescriptor, "530 You aren't logged in\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "530 You aren't logged in\r\n");
+
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
@@ -839,7 +843,8 @@ int notLoggedInMessage(clientDataType *theClientData)
 int parseCommandQuit(ftpDataType * data, int socketId)
 {
     int returnCode;
-    returnCode = dprintf(data->clients[socketId].socketDescriptor, "221 Logout.\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "221 Logout.\r\n");
+
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
@@ -848,7 +853,7 @@ int parseCommandQuit(ftpDataType * data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandRmd(clientDataType *theClientData)
+int parseCommandRmd(ftpDataType * data, int socketId)
 {
     int functionReturnCode = 0;
     int returnCode;
@@ -857,11 +862,9 @@ int parseCommandRmd(clientDataType *theClientData)
     char *theDirectoryFilename;
     dynamicStringDataType rmdFileName;
 
-    theDirectoryFilename = getFtpCommandArg("RMD", theClientData->theCommandReceived, 0);
-
+    theDirectoryFilename = getFtpCommandArg("RMD", data->clients[socketId].theCommandReceived, 0);
     cleanDynamicStringDataType(&rmdFileName, 1);
-    
-    isSafePath = getSafePath(&rmdFileName, theDirectoryFilename, &theClientData->login);
+    isSafePath = getSafePath(&rmdFileName, theDirectoryFilename, &data->clients[socketId].login);
     
     if (isSafePath == 1)
     {
@@ -871,11 +874,11 @@ int parseCommandRmd(clientDataType *theClientData)
 
             if (returnStatus == -1)
             {
-                returnCode = dprintf(theClientData->socketDescriptor, "550 Could not remove the directory, some errors occoured.\r\n");
+            	returnCode = socketPrintf(data, socketId, "s", "550 Could not remove the directory, some errors occurred.\r\n");
             }
             else
             {
-                returnCode = dprintf(theClientData->socketDescriptor, "250 The directory was successfully removed\r\n");
+            	returnCode = socketPrintf(data, socketId, "s", "250 The directory was successfully removed\r\n");
             }
 
             functionReturnCode = FTP_COMMAND_PROCESSED;
@@ -885,7 +888,7 @@ int parseCommandRmd(clientDataType *theClientData)
         }
         else
         {
-            returnCode = dprintf(theClientData->socketDescriptor, "550 Could not delete the directory:No such directory\r\n");
+        	returnCode = socketPrintf(data, socketId, "s", "550 Could not delete the directory:No such directory\r\n");
             functionReturnCode = FTP_COMMAND_PROCESSED;
 
             if (returnCode <= 0) 
@@ -902,7 +905,7 @@ int parseCommandRmd(clientDataType *theClientData)
     return functionReturnCode;
 }
 
-int parseCommandSize(clientDataType *theClientData)
+int parseCommandSize(ftpDataType * data, int socketId)
 {
     int returnCode;
     int isSafePath;
@@ -910,11 +913,11 @@ int parseCommandSize(clientDataType *theClientData)
     char *theFileName;
     dynamicStringDataType getSizeFromFileName;
 
-    theFileName = getFtpCommandArg("SIZE", theClientData->theCommandReceived, 0);
+    theFileName = getFtpCommandArg("SIZE", data->clients[socketId].theCommandReceived, 0);
 
     cleanDynamicStringDataType(&getSizeFromFileName, 1);
     
-    isSafePath = getSafePath(&getSizeFromFileName, theFileName, &theClientData->login);
+    isSafePath = getSafePath(&getSizeFromFileName, theFileName, &data->clients[socketId].login);
 
     if (isSafePath == 1)
     {
@@ -922,16 +925,16 @@ int parseCommandSize(clientDataType *theClientData)
         if (FILE_IsFile(getSizeFromFileName.text)== 1)
         {
             theSize = FILE_GetFileSizeFromPath(getSizeFromFileName.text);
-            returnCode = dprintf(theClientData->socketDescriptor, "213 %lld\r\n", theSize);
+            returnCode = socketPrintf(data, socketId, "sls", "213 ", theSize, "\r\n");
         }
         else
         {
-            returnCode = dprintf(theClientData->socketDescriptor, "550 Can't check for file existence\r\n");
+        	returnCode = socketPrintf(data, socketId, "s", "550 Can't check for file existence\r\n");
         }
     }
     else
     {
-        returnCode = dprintf(theClientData->socketDescriptor, "550 Can't check for file existence\r\n");
+    	returnCode = socketPrintf(data, socketId, "s", "550 Can't check for file existence\r\n");
     }
     cleanDynamicStringDataType(&getSizeFromFileName, 0);
 
@@ -941,34 +944,34 @@ int parseCommandSize(clientDataType *theClientData)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandRnfr(clientDataType *theClientData)
+int parseCommandRnfr(ftpDataType * data, int socketId)
 {
     int returnCode;
     int isSafePath;
     char *theRnfrFileName;
 
-    theRnfrFileName = getFtpCommandArg("RNFR", theClientData->theCommandReceived, 0);
-    cleanDynamicStringDataType(&theClientData->renameFromFile, 0);
+    theRnfrFileName = getFtpCommandArg("RNFR", data->clients[socketId].theCommandReceived, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].renameFromFile, 0);
     
-    isSafePath = getSafePath(&theClientData->renameFromFile, theRnfrFileName, &theClientData->login);
+    isSafePath = getSafePath(&data->clients[socketId].renameFromFile, theRnfrFileName, &data->clients[socketId].login);
     
     if (isSafePath == 1&&
-        (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
-         FILE_IsDirectory(theClientData->renameFromFile.text) == 1))
+        (FILE_IsFile(data->clients[socketId].renameFromFile.text) == 1 ||
+         FILE_IsDirectory(data->clients[socketId].renameFromFile.text) == 1))
     {
-        if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
-            FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
+        if (FILE_IsFile(data->clients[socketId].renameFromFile.text) == 1 ||
+            FILE_IsDirectory(data->clients[socketId].renameFromFile.text) == 1)
         {
-            returnCode = dprintf(theClientData->socketDescriptor, "350 RNFR accepted - file exists, ready for destination\r\n");
+        	returnCode = socketPrintf(data, socketId, "s", "350 RNFR accepted - file exists, ready for destination\r\n");
         }
         else
         {
-            returnCode = dprintf(theClientData->socketDescriptor, "550 Sorry, but that file doesn't exist\r\n");
+        	returnCode = socketPrintf(data, socketId, "s", "550 Sorry, but that file doesn't exist\r\n");
         }
     }
     else
     {
-        returnCode = dprintf(theClientData->socketDescriptor, "550 Sorry, but that file doesn't exist\r\n");
+    	returnCode = socketPrintf(data, socketId, "s", "550 Sorry, but that file doesn't exist\r\n");
     }
     
 
@@ -976,74 +979,70 @@ int parseCommandRnfr(clientDataType *theClientData)
     return FTP_COMMAND_PROCESSED;
 }
 
-int parseCommandRnto(clientDataType *theClientData)
+int parseCommandRnto(ftpDataType * data, int socketId)
 {
     int returnCode = 0;
     int isSafePath;
     char *theRntoFileName;
 
-    theRntoFileName = getFtpCommandArg("RNTO", theClientData->theCommandReceived, 0);
-    cleanDynamicStringDataType(&theClientData->renameToFile, 0);
+    theRntoFileName = getFtpCommandArg("RNTO", data->clients[socketId].theCommandReceived, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].renameToFile, 0);
     
-    isSafePath = getSafePath(&theClientData->renameToFile, theRntoFileName, &theClientData->login);
+    isSafePath = getSafePath(&data->clients[socketId].renameToFile, theRntoFileName, &data->clients[socketId].login);
 
     if (isSafePath == 1 &&
-        theClientData->renameFromFile.textLen > 0)
+    		data->clients[socketId].renameFromFile.textLen > 0)
     {
 
-        if (FILE_IsFile(theClientData->renameFromFile.text) == 1 ||
-            FILE_IsDirectory(theClientData->renameFromFile.text) == 1)
+        if (FILE_IsFile(data->clients[socketId].renameFromFile.text) == 1 ||
+            FILE_IsDirectory(data->clients[socketId].renameFromFile.text) == 1)
         {
-            returnCode = rename (theClientData->renameFromFile.text, theClientData->renameToFile.text);
+            returnCode = rename (data->clients[socketId].renameFromFile.text, data->clients[socketId].renameToFile.text);
             if (returnCode == 0) 
             {
-            	printf("\n250 File successfully renamed or moved");
-                returnCode = dprintf(theClientData->socketDescriptor, "250 File successfully renamed or moved\r\n");
+            	returnCode = socketPrintf(data, socketId, "s",  "250 File successfully renamed or moved\r\n");
             }
             else
             {
-            	printf("\n503 Error Renaming the file");
-                returnCode = dprintf(theClientData->socketDescriptor, "503 Error Renaming the file\r\n");
+            	returnCode = socketPrintf(data, socketId, "s",  "503 Error Renaming the file\r\n");
             }
         }
         else
         {
-        	printf("\n503 Need RNFR before RNTO");
-            returnCode = dprintf(theClientData->socketDescriptor, "503 Need RNFR before RNTO\r\n");
+        	returnCode = socketPrintf(data, socketId, "s", "503 Need RNFR before RNTO\r\n");
         }
     }
     else
     {
-    	printf("\n503 Error Renaming the file");
-        returnCode = dprintf(theClientData->socketDescriptor, "503 Error Renaming the file\r\n");
+    	returnCode = socketPrintf(data, socketId, "s", "503 Error Renaming the file\r\n");
     }
 
     if (returnCode <= 0)
     {
-    	printf("\, parseCommandRnto return code: %d", returnCode);
     	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
-    else {
+    else
+	{
     	return FTP_COMMAND_PROCESSED;
     }
 
 }
 
-int parseCommandCdup(clientDataType *theClientData)
+int parseCommandCdup(ftpDataType * data, int socketId)
 {
     int returnCode;
 
-    FILE_DirectoryToParent(&theClientData->login.absolutePath.text);
-    FILE_DirectoryToParent(&theClientData->login.ftpPath.text);
-    theClientData->login.absolutePath.textLen = strlen(theClientData->login.absolutePath.text);
-    theClientData->login.ftpPath.textLen = strlen(theClientData->login.ftpPath.text);
+    FILE_DirectoryToParent(&data->clients[socketId].login.absolutePath.text);
+    FILE_DirectoryToParent(&data->clients[socketId].login.ftpPath.text);
+    data->clients[socketId].login.absolutePath.textLen = strlen(data->clients[socketId].login.absolutePath.text);
+    data->clients[socketId].login.ftpPath.textLen = strlen(data->clients[socketId].login.ftpPath.text);
 
-    if(strncmp(theClientData->login.absolutePath.text, theClientData->login.homePath.text, theClientData->login.homePath.textLen) != 0)
+    if(strncmp(data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen) != 0)
     {
-        setDynamicStringDataType(&theClientData->login.absolutePath, theClientData->login.homePath.text, theClientData->login.homePath.textLen);
+        setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen);
     }
 
-    returnCode = dprintf(theClientData->socketDescriptor, "250 OK. Current directory is %s\r\n", theClientData->login.ftpPath.text);
+    returnCode = socketPrintf(data, socketId, "sss", "250 OK. Current directory is ", data->clients[socketId].login.ftpPath.text, "\r\n");
 
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;

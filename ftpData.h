@@ -117,8 +117,6 @@ struct ipData
 
 struct workerData
 {
-    
-    
     int threadIsAlive;
     int connectionPort;
     int passiveModeOn;
@@ -152,6 +150,7 @@ struct clientData
 {
     SSL *ssl;
     int tlsIsEnabled;
+    pthread_mutex_t writeMutex;
     
     int clientProgressiveNumber;
     int socketDescriptor;

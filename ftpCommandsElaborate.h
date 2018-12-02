@@ -47,37 +47,39 @@ extern "C" {
 
 
 /* Elaborate the User login command */
-int parseCommandUser(clientDataType *theClientData);
-int parseCommandSite(clientDataType *theClientData);
+int parseCommandUser(ftpDataType * data, int socketId);
+int parseCommandSite(ftpDataType * data, int socketId);
 int parseCommandPass(ftpDataType * data, int socketId);
+
 int parseCommandAuth(clientDataType *theClientData, SSL_CTX *);
-int parseCommandPwd(clientDataType *theClientData);
-int parseCommandSyst(clientDataType *theClientData);
-int parseCommandFeat(clientDataType *theClientData);
-int parseCommandStruF(clientDataType *theClientData);
-int parseCommandTypeI(clientDataType *theClientData);
-int parseCommandModeS(clientDataType *theClientData);
-int parseCommandTypeA(clientDataType *theClientData);
+
+int parseCommandPwd(ftpDataType * data, int socketId);
+int parseCommandSyst(ftpDataType * data, int socketId);
+int parseCommandFeat(ftpDataType * data, int socketId);
+int parseCommandStruF(ftpDataType * data, int socketId);
+int parseCommandTypeI(ftpDataType * data, int socketId);
+int parseCommandModeS(ftpDataType * data, int socketId);
+int parseCommandTypeA(ftpDataType * data, int socketId);
 int parseCommandAbor(ftpDataType * data, int socketId);
 int parseCommandPasv(ftpDataType * data, int socketId);
 int parseCommandPort(ftpDataType * data, int socketId);
 int parseCommandList(ftpDataType * data, int socketId);
 int parseCommandNlst(ftpDataType * data, int socketId);
 int parseCommandRetr(ftpDataType * data, int socketId);
-int parseCommandMkd(clientDataType *theClientData);
-int parseCommandNoop(clientDataType *theClientData);
-int notLoggedInMessage(clientDataType *theClientData);
-int parseCommandRmd(clientDataType *theClientData);
+int parseCommandMkd(ftpDataType * data, int socketId);
+int parseCommandNoop(ftpDataType * data, int socketId);
+int notLoggedInMessage(ftpDataType * data, int socketId);
+int parseCommandRmd(ftpDataType * data, int socketId);
 int parseCommandQuit(ftpDataType * data, int socketId);
-int parseCommandSize(clientDataType *theClientData);
+int parseCommandSize(ftpDataType * data, int socketId);
 int parseCommandStor(ftpDataType * data, int socketId);
-int parseCommandCwd(clientDataType *theClientData);
-int parseCommandRest(clientDataType *theClientData);
-int parseCommandCdup(clientDataType *theClientData);
-int parseCommandDele(clientDataType *theClientData);
-int parseCommandOpts(clientDataType *theClientData);
-int parseCommandRnfr(clientDataType *theClientData);
-int parseCommandRnto(clientDataType *theClientData);
+int parseCommandCwd(ftpDataType * data, int socketId);
+int parseCommandRest(ftpDataType * data, int socketId);
+int parseCommandCdup(ftpDataType * data, int socketId);
+int parseCommandDele(ftpDataType * data, int socketId);
+int parseCommandOpts(ftpDataType * data, int socketId);
+int parseCommandRnfr(ftpDataType * data, int socketId);
+int parseCommandRnto(ftpDataType * data, int socketId);
 
 long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, long long int startFrom, FILE *retrFP);
 char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs);
