@@ -27,7 +27,9 @@
 #define FTPSERVER_H
 
 #define MAX_FTP_CLIENTS                 10
-#define UFTP_SERVER_VERSION             "1.0.1 beta"
+#define UFTP_SERVER_VERSION             "2.0.0 beta"
+#warning remove in final release, must be specified by makefile
+#define OPENSSL_ENABLED
 
 void runFtpServer(void);
 void *connectionWorkerHandle(void * socketId);

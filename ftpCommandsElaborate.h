@@ -50,9 +50,7 @@ extern "C" {
 int parseCommandUser(ftpDataType * data, int socketId);
 int parseCommandSite(ftpDataType * data, int socketId);
 int parseCommandPass(ftpDataType * data, int socketId);
-
-int parseCommandAuth(clientDataType *theClientData, SSL_CTX *);
-
+int parseCommandAuth(ftpDataType * data, int socketId);
 int parseCommandPwd(ftpDataType * data, int socketId);
 int parseCommandSyst(ftpDataType * data, int socketId);
 int parseCommandFeat(ftpDataType * data, int socketId);

@@ -21,7 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
+#ifdef OPENSSL_ENABLED
+#warning SSL ENABLED
 #ifndef OPENSSL_H
 #define OPENSSL_H
 
@@ -43,4 +44,4 @@ void configureContext(SSL_CTX *ctx);
 #endif
 
 #endif /* OPENSSL_H */
-
+#endif

@@ -603,66 +603,76 @@ void resetWorkerData(workerDataType *workerData, int isInitialization)
     }
 }
 
-void resetClientData(clientDataType *clientData, int isInitialization)
+void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
+
     if (isInitialization != 1)
     {
-        if (clientData->workerData.threadIsAlive == 1)
+        if (data->clients[clientId].workerData.threadIsAlive == 1)
         {
             void *pReturn;
-            pthread_cancel(clientData->workerData.workerThread);
-            pthread_join(clientData->workerData.workerThread, &pReturn);
+            pthread_cancel(data->clients[clientId].workerData.workerThread);
+            pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
         }
         else
         {
             void *pReturn = NULL;
-            pthread_join(clientData->workerData.workerThread, &pReturn);
+            pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
         }
 
-        pthread_mutex_destroy(&clientData->writeMutex);
+        pthread_mutex_destroy(&data->clients[clientId].writeMutex);
+
+		#ifdef OPENSSL_ENABLED
+        SSL_free(data->clients[clientId].ssl);
+		#endif
     }
     
-    if (pthread_mutex_init(&clientData->writeMutex, NULL) != 0)
+    if (pthread_mutex_init(&data->clients[clientId].writeMutex, NULL) != 0)
     {
         printf("\nclientData->writeMutex init failed\n");
         exit(0);
     }
 
-    clientData->socketDescriptor = -1;
-    clientData->socketCommandReceived = 0;
-    clientData->socketIsConnected = 0;
-    clientData->bufferIndex = 0;
-    clientData->commandIndex = 0;
-    clientData->closeTheClient = 0;
-    clientData->sockaddr_in_size = sizeof(struct sockaddr_in);
-    clientData->sockaddr_in_server_size = sizeof(struct sockaddr_in);
+    data->clients[clientId].tlsIsEnabled = 0;
+    data->clients[clientId].socketDescriptor = -1;
+    data->clients[clientId].socketCommandReceived = 0;
+    data->clients[clientId].socketIsConnected = 0;
+    data->clients[clientId].bufferIndex = 0;
+    data->clients[clientId].commandIndex = 0;
+    data->clients[clientId].closeTheClient = 0;
+    data->clients[clientId].sockaddr_in_size = sizeof(struct sockaddr_in);
+    data->clients[clientId].sockaddr_in_server_size = sizeof(struct sockaddr_in);
     
-    clientData->serverIpAddressInteger[0] = 0;
-    clientData->serverIpAddressInteger[1] = 0;
-    clientData->serverIpAddressInteger[2] = 0;
-    clientData->serverIpAddressInteger[3] = 0;
+    data->clients[clientId].serverIpAddressInteger[0] = 0;
+    data->clients[clientId].serverIpAddressInteger[1] = 0;
+    data->clients[clientId].serverIpAddressInteger[2] = 0;
+    data->clients[clientId].serverIpAddressInteger[3] = 0;
     
     
-    memset(&clientData->client_sockaddr_in, 0, clientData->sockaddr_in_size);
-    memset(&clientData->server_sockaddr_in, 0, clientData->sockaddr_in_server_size);
-    memset(clientData->clientIpAddress, 0, INET_ADDRSTRLEN);
-    memset(clientData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-    memset(clientData->theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    cleanLoginData(&clientData->login, isInitialization);
+    memset(&data->clients[clientId].client_sockaddr_in, 0, data->clients[clientId].sockaddr_in_size);
+    memset(&data->clients[clientId].server_sockaddr_in, 0, data->clients[clientId].sockaddr_in_server_size);
+    memset(data->clients[clientId].clientIpAddress, 0, INET_ADDRSTRLEN);
+    memset(data->clients[clientId].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+    memset(data->clients[clientId].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+    cleanLoginData(&data->clients[clientId].login, isInitialization);
     
     //Rename from and to data init
-    cleanDynamicStringDataType(&clientData->renameFromFile, isInitialization);
-    cleanDynamicStringDataType(&clientData->renameToFile, isInitialization);
-    cleanDynamicStringDataType(&clientData->fileToStor, isInitialization);
-    cleanDynamicStringDataType(&clientData->fileToRetr, isInitialization);
-    cleanDynamicStringDataType(&clientData->listPath, isInitialization);
-    cleanDynamicStringDataType(&clientData->nlistPath, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].renameFromFile, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].renameToFile, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].fileToStor, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].fileToRetr, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].listPath, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].nlistPath, isInitialization);
 
-    cleanDynamicStringDataType(&clientData->ftpCommand.commandArgs, isInitialization);
-    cleanDynamicStringDataType(&clientData->ftpCommand.commandOps, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandArgs, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandOps, isInitialization);
 
-    clientData->connectionTimeStamp = 0;
-    clientData->lastActivityTimeStamp = 0;
+    data->clients[clientId].connectionTimeStamp = 0;
+    data->clients[clientId].lastActivityTimeStamp = 0;
+
+	#ifdef OPENSSL_ENABLED
+	data->clients[clientId].ssl = SSL_new(data->ctx);
+	#endif
 }
 
 int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)

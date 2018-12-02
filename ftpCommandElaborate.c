@@ -218,30 +218,61 @@ int parseCommandPass(ftpDataType * data, int socketId)
     }
 }
 
-int parseCommandAuth(clientDataType *theClientData, SSL_CTX *ctx)
+int parseCommandAuth(ftpDataType * data, int socketId)
 {
     int returnCode;
-    //returnCode = socketPrintf(data, socketId, "s", "234 AUTH TLS OK..\r\n");
-    if (returnCode <= 0) 
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-    
 
-    theClientData->tlsIsEnabled = 1;
-    SSL *ssl;
-    ssl = SSL_new(ctx);
-        SSL_set_fd(ssl, theClientData->socketDescriptor);
+	#ifndef OPENSSL_ENABLED
+    	returnCode = socketPrintf(data, socketId, "s", "502 Security extensions not implemented.\r\n");
+		if (returnCode <= 0)
+			return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
-        if (SSL_accept(ssl) <= 0) {
-                        printf("\nSSL ERRORS");
-            ERR_print_errors_fp(stderr);
+		return FTP_COMMAND_PROCESSED;
+	#endif
+
+	#ifdef OPENSSL_ENABLED
+		returnCode = socketPrintf(data, socketId, "s", "234 AUTH TLS OK..\r\n");
+		if (returnCode <= 0)
+			return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+		data->clients[socketId].tlsIsEnabled = 1;
+
+		printf("\n SSL_set_fd");
+		fflush(0);
+
+        SSL_set_fd(data->clients[socketId].ssl, data->clients[socketId].socketDescriptor);
+
+		printf("\n SSL_set_fd OK");
+		fflush(0);
+
+        int sslAcceptTimeout = 0;
+        do {
+            returnCode = SSL_accept(data->clients[socketId].ssl);
+
+    		printf("\n SSL_accept");
+    		fflush(0);
+
+            printf("\nSSL waiting handshake %d.. return code = %d", sslAcceptTimeout, returnCode);
+            fflush(0);
+            if (returnCode <= 0) {
+                printf("\nSSL ERRORS");
+                fflush(0);
+                ERR_print_errors_fp(stderr);
+            }
+            else {
+                printf("\nSSL ACCEPTED");
+                fflush(0);
+            }
+            sslAcceptTimeout++;
+            sleep(1);
         }
-        else {
-            printf("\nSSL ACCEPTED");
-            SSL_write(ssl, "ciao prova\r\n", strlen("ciao prova\r\n"));
-        }    
-    
-    //client -> AUTH TLS
-    //server -> 234 AUTH TLS OK.
+        while(returnCode <=0 &&
+        	  sslAcceptTimeout < 3);
+
+		return FTP_COMMAND_PROCESSED;
+	#endif
+
+
 
     return FTP_COMMAND_PROCESSED;
 }
@@ -346,22 +377,31 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 {
     /* Create worker thread */
     void *pReturn;
+    int returnCode;
     printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
     if (data->clients[socketId].workerData.threadIsAlive == 1) 
     {
-        pthread_cancel(data->clients[socketId].workerData.workerThread);
+    	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
     }
     
-    pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+    returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.activeModeOn = 0;    
-    pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+
+    if (returnCode != 0)
+    {
+    	printf("\nError in pthread_create %d", returnCode);
+    	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
     return FTP_COMMAND_PROCESSED;
 }
 
 int parseCommandPort(ftpDataType * data, int socketId)
 {
+	int returnCode;
     char *theIpAndPort;
     int ipAddressBytes[4];
     int portBytes[2];
@@ -373,12 +413,20 @@ int parseCommandPort(ftpDataType * data, int socketId)
     void *pReturn;
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
-        pthread_cancel(data->clients[socketId].workerData.workerThread);
+    	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
     }
-    pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+    returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
     data->clients[socketId].workerData.passiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;    
-    pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+
+    if (returnCode != 0)
+    {
+    	printf("\nError in pthread_create %d", returnCode);
+    	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+
     return FTP_COMMAND_PROCESSED;
 }
 
@@ -1058,11 +1106,13 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
     long long int theFileSize;
     char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
 
-    #ifdef _LARGEFILE64_SOURCE
+    #ifdef LARGE_FILE_SUPPORT_ENABLED
+		//#warning LARGE FILE SUPPORT IS ENABLED!
         retrFP = fopen64(theFilename, "rb");
     #endif
 
-    #ifndef _LARGEFILE64_SOURCE
+    #ifndef LARGE_FILE_SUPPORT_ENABLED
+		#warning LARGE FILE SUPPORT IS NOT ENABLED!
         retrFP = fopen(theFilename, "rb");
     #endif
 
@@ -1076,11 +1126,13 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
     if (startFrom > 0)
     {
 
-        #ifdef _LARGEFILE64_SOURCE
+        #ifdef LARGE_FILE_SUPPORT_ENABLED
+			//#warning LARGE FILE SUPPORT IS ENABLED!
             currentPosition = (long long int) lseek64(fileno(retrFP), startFrom, SEEK_SET);
         #endif
 
-        #ifndef _LARGEFILE64_SOURCE
+        #ifndef LARGE_FILE_SUPPORT_ENABLED
+			#warning LARGE FILE SUPPORT IS NOT ENABLED!
             currentPosition = (long long int) lseek(fileno(retrFP), startFrom, SEEK_SET);
         #endif
 

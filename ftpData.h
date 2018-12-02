@@ -148,7 +148,10 @@ struct workerData
 
 struct clientData
 {
+	#ifdef OPENSSL_ENABLED
     SSL *ssl;
+	#endif
+
     int tlsIsEnabled;
     pthread_mutex_t writeMutex;
     
@@ -207,7 +210,10 @@ struct ConnectionParameters
 
 struct ftpData
 {
-    
+	#ifdef OPENSSL_ENABLED
+	SSL_CTX *ctx;
+	#endif
+
     int connectedClients;
     char welcomeMessage[1024];
     ConnectionData_DataType connectionData;
@@ -247,8 +253,10 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
 int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);
 void deleteListDataInfoVector(void *TheElementToDelete);
+
 void resetWorkerData(workerDataType *pasvData, int isInitialization);
-void resetClientData(clientDataType *clientData, int isInitialization);
+void resetClientData(ftpDataType *data, int clientId, int isInitialization);
+
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
 int isCharInString(char *theString, int stringLen, char theChar);
 void destroyConfigurationVectorElement(void * data);
