@@ -80,7 +80,7 @@
             <pElem>library/fileManagement.h</pElem>
           </incFile>
           <preprocessorList>
-            <Elem>_LARGEFILE64_SOURCE</Elem>
+            <Elem>_LARGE_FILE_SUPPORT_ENABLED</Elem>
           </preprocessorList>
           <warningLevel>2</warningLevel>
         </cTool>

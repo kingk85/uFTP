@@ -48,7 +48,6 @@
 #include "ftpCommandsElaborate.h"
 
 ftpDataType ftpData;
-SSL_CTX *ctx;
 
 static int processCommand(int processingElement);
 
@@ -160,11 +159,13 @@ void *connectionWorkerHandle(void * socketId)
             ftpData.clients[theSocketId].fileToStor.textLen > 0)
         {
 
-            #ifdef _LARGEFILE64_SOURCE
+            #ifdef LARGE_FILE_SUPPORT_ENABLED
+					//#warning LARGE FILE SUPPORT IS ENABLED!
                     ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
             #endif
 
-            #ifndef _LARGEFILE64_SOURCE
+            #ifndef LARGE_FILE_SUPPORT_ENABLED
+					#warning LARGE FILE SUPPORT IS NOT ENABLED!
                     ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
             #endif
 
@@ -325,9 +326,9 @@ void runFtpServer(void)
 {
     printf("\nHello uFTP server v%s starting..\n", UFTP_SERVER_VERSION);
 
-
     /* Needed for Select*/
-    static int processingSock = 0, returnCode = 0;
+    static int processingSock = 0,
+    		   returnCode = 0;
 
     /* Handle signals */
     signalHandlerInstall();
@@ -351,9 +352,6 @@ void runFtpServer(void)
     /* the maximum socket fd is now the main socket descriptor */
     ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
     
-    initOpenssl();
-    ctx = createContext();
-    configureContext(ctx);
 
   //Endless loop ftp process
     while (1)
@@ -391,8 +389,20 @@ void runFtpServer(void)
           if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rset) || 
               FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset))
           {
+
+        	  if (ftpData.clients[processingSock].tlsIsEnabled == 1)
+        	  {
+				  #ifdef OPENSSL_ENABLED
+        		  ftpData.clients[processingSock].bufferIndex = SSL_read(ftpData.clients[processingSock].ssl, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE);
+				  #endif
+        	  }
+        	  else
+        	  {
+        		  ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE);
+        	  }
+
             //The client is not connected anymore
-            if ((ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE)) == 0)
+            if ((ftpData.clients[processingSock].bufferIndex) == 0)
             {
               fdRemove(&ftpData, processingSock);
               closeSocket(&ftpData, processingSock);
@@ -519,12 +529,12 @@ static int processCommand(int processingElement)
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) == 1)
     {
         printf("\nAUTH COMMAND RECEIVED");
+        toReturn = parseCommandAuth(&ftpData, processingElement);
         
-    int returnCode;
-    //returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
-    returnCode = dprintf(ftpData.clients[processingElement].socketDescriptor, "234 AUTH TLS OK..\r\n");
+		//returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
+		//returnCode = dprintf(ftpData.clients[processingElement].socketDescriptor, "234 AUTH TLS OK..\r\n");
 
-
+/*
         ftpData.clients[processingElement].tlsIsEnabled = 1;
         SSL *ssl;
         ssl = SSL_new(ctx);
@@ -559,8 +569,8 @@ static int processCommand(int processingElement)
             sleep(1);
             
         }
+*/
 
-       // toReturn = parseCommandAuth(&ftpData.clients[processingElement], ctx);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PWD", strlen("PWD")) == 1)
     {
@@ -721,4 +731,8 @@ static int processCommand(int processingElement)
 void deallocateMemory(void)
 {
     printf("\n Deallocating the memory.. ");
+	#ifndef OPENSSL_ENABLED
+    SSL_CTX_free(ftpData.ctx);
+    cleanup_openssl();
+	#endif
 }

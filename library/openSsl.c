@@ -21,7 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
+#ifdef OPENSSL_ENABLED
+#warning SSL ENABLED
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -75,3 +76,4 @@ void configureContext(SSL_CTX *ctx)
 	exit(EXIT_FAILURE);
     }
 }
+#endif

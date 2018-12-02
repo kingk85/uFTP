@@ -120,7 +120,18 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 				theStringSize > 0)
 		{
 			int theReturnCode = 0;
-			theReturnCode = write(ftpData->clients[clientId].socketDescriptor, theBuffer, theStringSize);
+
+			if (ftpData->clients[clientId].tlsIsEnabled != 1)
+			{
+				theReturnCode = write(ftpData->clients[clientId].socketDescriptor, theBuffer, theStringSize);
+			}
+			else if (ftpData->clients[clientId].tlsIsEnabled == 1)
+			{
+				#ifdef OPENSSL_ENABLED
+				theReturnCode = SSL_write(ftpData->clients[clientId].ssl, theBuffer, theStringSize);
+				#endif
+			}
+
 			printf("%s", theBuffer);
 
 			if (theReturnCode > 0)
@@ -320,7 +331,7 @@ void closeSocket(ftpDataType * ftpData, int processingSocket)
     shutdown(ftpData->clients[processingSocket].socketDescriptor, SHUT_RDWR);
     close(ftpData->clients[processingSocket].socketDescriptor);
 
-    resetClientData(&ftpData->clients[processingSocket], 0);
+    resetClientData(ftpData, processingSocket, 0);
     resetWorkerData(&ftpData->clients[processingSocket].workerData, 0);
     
     //Update client connecteds
@@ -495,7 +506,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 }
                 else
                 {
-                	int returnCode = socketPrintf(&ftpData, availableSocketIndex, "s", ftpData->welcomeMessage);
+                	int returnCode = socketPrintf(ftpData, availableSocketIndex, "s", ftpData->welcomeMessage);
                 	if (returnCode <= 0)
                 	{
                 		ftpData->clients[availableSocketIndex].closeTheClient = 1;

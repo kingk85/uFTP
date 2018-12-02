@@ -5,18 +5,24 @@ OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
 
 #FOR DEBUG PURPOSE 
-CFLAGS=-c -Wall -I. -g -O0
-#CFLAGS=-c -Wall -I.
+CFLAGSTEMP=-c -Wall -I. -g -O0
+#CFLAGSTEMP=-c -Wall -I.
 OPTIMIZATION=-O3
 HEADERS=-I
 LIBPATH=./build/modules/
 BUILDFILES=start uFTP end
 LIBS=-lpthread -lssl -lcrypto
 
-#DEFINITIONS=
 
+#ENABLE_LARGE_FILE_SUPPORT=
 #TO ENABLE THE LARGE FILE SUPPORT UNCOMMENT THE NEXT LINE
-DEFINITIONS=-D_LARGEFILE64_SOURCE
+ENABLE_LARGE_FILE_SUPPORT=-D LARGE_FILE_SUPPORT_ENABLED -D _LARGEFILE64_SOURCE
+
+#ENABLE_OPENSSL_SUPPORT=
+#TO ENABLE OPENSSL SUPPORT UNCOMMENT THE NEXT LINE
+ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
+
+CFLAGS=$(CFLAGSTEMP) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT)
 
 all: $(BUILDFILES)
 
@@ -31,7 +37,7 @@ end:
 	@echo Build process end
 
 uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o
-	@$(CC) $(DEFINITIONS) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o -o $(OUTPATH)uFTP $(LIBS)
+	@$(CC) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o -o $(OUTPATH)uFTP $(LIBS)
 
 daemon.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)daemon.c -o $(LIBPATH)daemon.o

@@ -30,6 +30,7 @@
 #include "configRead.h"
 #include "../ftpData.h"
 #include "dynamicVectors.h"
+#include "openSsl.h"
 #include "fileManagement.h"
 #include "daemon.h"
 
@@ -122,9 +123,16 @@ void applyConfiguration(ftpParameters_DataType *ftpParameters)
 
 void initFtpData(ftpDataType *ftpData)
 {
-    int i;    
+    int i;
      /* Intializes random number generator */
     srand(time(NULL));    
+
+	#ifdef OPENSSL_ENABLED
+	#warning OPENSSL ENABLED!
+	initOpenssl();
+	ftpData->ctx = createContext();
+	configureContext(ftpData->ctx);
+	#endif
 
     ftpData->connectedClients = 0;
     ftpData->clients = (clientDataType *) malloc( sizeof(clientDataType) * ftpData->ftpParameters.maxClients);
@@ -143,7 +151,7 @@ void initFtpData(ftpDataType *ftpData)
     for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
     {
         resetWorkerData(&ftpData->clients[i].workerData, 1);
-        resetClientData(&ftpData->clients[i], 1);
+        resetClientData(ftpData, i, 1);
         ftpData->clients[i].clientProgressiveNumber = i;
     }
 
@@ -573,8 +581,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         printf("\nuserData.gid = %d", userData.ownerShip.gid);
         printf("\nuserData.uid = %d", userData.ownerShip.uid);
         printf("\nuserData.ownerShipSet = %d", userData.ownerShip.ownerShipSet);
-        
-        
+
         ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
     }
 
