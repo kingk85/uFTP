@@ -241,14 +241,10 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         data.fileNameWithPath = NULL;
         data.finalStringPath = NULL;
         data.linkPath = NULL;       
-
-        
         data.isFile = 0;
         data.isDirectory = 0;
-        
-        
+
         //printf("\nPROCESSING: %s", fileList[i]);
-        //fflush(0);
         
         if (FILE_IsDirectory(fileList[i]) == 1)
         {
@@ -329,7 +325,7 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
             
             case COMMAND_TYPE_NLST:
             {
-            returnCode = dprintf(theSocket, "%s\r\n",data.fileNameNoPath);    
+            	returnCode = dprintf(theSocket, "%s\r\n",data.fileNameNoPath);
             }
             break;
 
@@ -339,7 +335,6 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
                 printf("\nWarning switch default in function writeListDataInfoToSocket (%d)", commandType);
             }
             break;
-
         }
         
        
@@ -370,12 +365,12 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         }
         
         }
-        
-    if (fileList != NULL)
-    {
-        free (fileList);
-    }
-        
+
+		if (fileList != NULL)
+		{
+			free (fileList);
+		}
+
         return 1;
     }
 
@@ -584,9 +579,19 @@ void resetWorkerData(workerDataType *workerData, int isInitialization)
         workerData->workerThread = 0;
       }
 
-      pthread_mutex_init(&workerData->conditionMutex, NULL);
-      pthread_cond_init(&workerData->conditionVariable, NULL);
-      
+      if (pthread_mutex_init(&workerData->conditionMutex, NULL) != 0)
+      {
+          printf("\nworkerData->conditionMutex init failed\n");
+          exit(0);
+      }
+
+
+      if (pthread_cond_init(&workerData->conditionVariable, NULL) != 0)
+      {
+          printf("\nworkerData->conditionVariable init failed\n");
+          exit(0);
+      }
+
     //Clear the dynamic vector structure
     int theSize = workerData->directoryInfo.Size;
     char ** lastToDestroy = NULL;
@@ -613,8 +618,16 @@ void resetClientData(clientDataType *clientData, int isInitialization)
             void *pReturn = NULL;
             pthread_join(clientData->workerData.workerThread, &pReturn);
         }
+
+        pthread_mutex_destroy(&clientData->writeMutex);
     }
     
+    if (pthread_mutex_init(&clientData->writeMutex, NULL) != 0)
+    {
+        printf("\nclientData->writeMutex init failed\n");
+        exit(0);
+    }
+
     clientData->socketDescriptor = -1;
     clientData->socketCommandReceived = 0;
     clientData->socketIsConnected = 0;
