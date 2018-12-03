@@ -36,6 +36,7 @@
 #include "ftpData.h"
 #include "library/configRead.h"
 #include "library/fileManagement.h"
+#include "library/connection.h"
 
 void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init)
 {
@@ -218,15 +219,15 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
    printf("data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
 }
 
-int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, int commandType)
+int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType)
 {
     int i, x, returnCode;
     int fileAndFoldersCount = 0;
     char **fileList = NULL;
-    FILE_GetDirectoryInodeList(thePath, &fileList, &fileAndFoldersCount, 0);
+    FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0);
     *filesNumber = fileAndFoldersCount;
 
-    returnCode = dprintf(theSocket, "total %d\r\n", fileAndFoldersCount);
+    returnCode = socketWorkerPrintf(ftpData, clientId, "sds", "total ", fileAndFoldersCount ,"\r\n");
     if (returnCode <= 0)
     {
         return -1;
@@ -311,21 +312,37 @@ int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, i
         {
             case COMMAND_TYPE_LIST:
             {
+            			returnCode = socketWorkerPrintf(ftpData, clientId, "ssdssssslsssss",
+                        data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
+                        ," "
+                        ,data.numberOfSubDirectories
+                        ," "
+                        ,data.owner == NULL? "Unknown" : data.owner
+						," "
+                        ,data.groupOwner == NULL? "Unknown" : data.groupOwner
+						," "
+                        ,data.fileSize
+                        ," "
+                        ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
+						," "
+                        ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath
+						,"\r\n");
+            		/*
                 returnCode = dprintf(theSocket, "%s %d %s %s %lld %s %s\r\n", 
-                data.inodePermissionString == NULL? "Uknown" : data.inodePermissionString
+                data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
                 ,data.numberOfSubDirectories
-                ,data.owner == NULL? "Uknown" : data.owner
-                ,data.groupOwner == NULL? "Uknown" : data.groupOwner
+                ,data.owner == NULL? "Unknown" : data.owner
+                ,data.groupOwner == NULL? "Unknown" : data.groupOwner
                 ,data.fileSize
-                ,data.lastModifiedDataString == NULL? "Uknown" : data.lastModifiedDataString
-                ,data.finalStringPath == NULL? "Uknown" : data.finalStringPath);
-                
+                ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
+                ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath);
+                */
             }
             break;
             
             case COMMAND_TYPE_NLST:
             {
-            	returnCode = dprintf(theSocket, "%s\r\n",data.fileNameNoPath);
+            	returnCode = socketWorkerPrintf(ftpData, clientId, "ss", data.fileNameNoPath, "\r\n");
             }
             break;
 
@@ -536,71 +553,81 @@ void deleteListDataInfoVector(void *TheElementToDelete)
     }
 }
 
-void resetWorkerData(workerDataType *workerData, int isInitialization)
+void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 {
-      workerData->connectionPort = 0;
-      workerData->passiveModeOn = 0;
-      workerData->socketIsConnected = 0;
-      workerData->commandIndex = 0;
-      workerData->passiveListeningSocket = 0;
-      workerData->socketConnection = 0;
-      workerData->bufferIndex = 0;
-      workerData->commandReceived = 0;
-      workerData->retrRestartAtByte = 0;
-      workerData->threadIsAlive = 0;
-      workerData->activeModeOn = 0;
-      workerData->passiveModeOn = 0;      
-      workerData->activeIpAddressIndex = 0;
 
-      memset(workerData->buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-      memset(workerData->activeIpAddress, 0, CLIENT_BUFFER_STRING_SIZE);
-      memset(workerData->theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
+      data->clients[clientId].workerData.connectionPort = 0;
+      data->clients[clientId].workerData.passiveModeOn = 0;
+      data->clients[clientId].workerData.socketIsConnected = 0;
+      data->clients[clientId].workerData.commandIndex = 0;
+      data->clients[clientId].workerData.passiveListeningSocket = 0;
+      data->clients[clientId].workerData.socketConnection = 0;
+      data->clients[clientId].workerData.bufferIndex = 0;
+      data->clients[clientId].workerData.commandReceived = 0;
+      data->clients[clientId].workerData.retrRestartAtByte = 0;
+      data->clients[clientId].workerData.threadIsAlive = 0;
+      data->clients[clientId].workerData.activeModeOn = 0;
+      data->clients[clientId].workerData.passiveModeOn = 0;
+      data->clients[clientId].workerData.activeIpAddressIndex = 0;
 
-      cleanDynamicStringDataType(&workerData->ftpCommand.commandArgs, isInitialization);
-      cleanDynamicStringDataType(&workerData->ftpCommand.commandOps, isInitialization);
+      memset(data->clients[clientId].workerData.buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(data->clients[clientId].workerData.activeIpAddress, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(data->clients[clientId].workerData.theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
+
+      cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandArgs, isInitialization);
+      cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandOps, isInitialization);
 
       /* wait main for action */
       if (isInitialization != 1)
       {
-        pthread_mutex_destroy(&workerData->conditionMutex);
-        pthread_cond_destroy(&workerData->conditionVariable);
+        pthread_mutex_destroy(&data->clients[clientId].workerData.conditionMutex);
+        pthread_cond_destroy(&data->clients[clientId].workerData.conditionVariable);
         
-        if (workerData->theStorFile != NULL) 
+        if (data->clients[clientId].workerData.theStorFile != NULL)
         {
-            fclose(workerData->theStorFile);
-            workerData->theStorFile = NULL;
+            fclose(data->clients[clientId].workerData.theStorFile);
+            data->clients[clientId].workerData.theStorFile = NULL;
         }
+
+		#ifdef OPENSSL_ENABLED
+		SSL_free(data->clients[clientId].workerData.ssl);
+		#endif
     
       }
       else
       {
-        DYNV_VectorGeneric_Init(&workerData->directoryInfo);
-        workerData->theStorFile = NULL;
-        workerData->workerThread = 0;
+        DYNV_VectorGeneric_Init(&data->clients[clientId].workerData.directoryInfo);
+        data->clients[clientId].workerData.theStorFile = NULL;
+        data->clients[clientId].workerData.workerThread = 0;
       }
 
-      if (pthread_mutex_init(&workerData->conditionMutex, NULL) != 0)
+      if (pthread_mutex_init(&data->clients[clientId].workerData.conditionMutex, NULL) != 0)
       {
-          printf("\nworkerData->conditionMutex init failed\n");
+          printf("\ndata->clients[clientId].workerData.conditionMutex init failed\n");
           exit(0);
       }
 
 
-      if (pthread_cond_init(&workerData->conditionVariable, NULL) != 0)
+      if (pthread_cond_init(&data->clients[clientId].workerData.conditionVariable, NULL) != 0)
       {
-          printf("\nworkerData->conditionVariable init failed\n");
+          printf("\ndata->clients[clientId].workerData.conditionVariable init failed\n");
           exit(0);
       }
 
     //Clear the dynamic vector structure
-    int theSize = workerData->directoryInfo.Size;
+    int theSize = data->clients[clientId].workerData.directoryInfo.Size;
     char ** lastToDestroy = NULL;
     if (theSize > 0)
     {
-        lastToDestroy = ((ftpListDataType *)workerData->directoryInfo.Data[0])->fileList;
-        workerData->directoryInfo.Destroy(&workerData->directoryInfo, deleteListDataInfoVector);
+        lastToDestroy = ((ftpListDataType *)data->clients[clientId].workerData.directoryInfo.Data[0])->fileList;
+        data->clients[clientId].workerData.directoryInfo.Destroy(&data->clients[clientId].workerData.directoryInfo, deleteListDataInfoVector);
         free(lastToDestroy);
     }
+
+	#ifdef OPENSSL_ENABLED
+	data->clients[clientId].ssl = SSL_new(data->ctx);
+	#endif
+
 }
 
 void resetClientData(ftpDataType *data, int clientId, int isInitialization)
@@ -634,6 +661,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     }
 
     data->clients[clientId].tlsIsEnabled = 0;
+    data->clients[clientId].dataChannelIsTls = 0;
     data->clients[clientId].socketDescriptor = -1;
     data->clients[clientId].socketCommandReceived = 0;
     data->clients[clientId].socketIsConnected = 0;
@@ -671,7 +699,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].lastActivityTimeStamp = 0;
 
 	#ifdef OPENSSL_ENABLED
-	data->clients[clientId].ssl = SSL_new(data->ctx);
+	data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
 	#endif
 }
 

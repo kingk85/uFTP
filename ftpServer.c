@@ -55,11 +55,19 @@ void workerCleanup(void *socketId)
 {
     int theSocketId = *(int *)socketId;
     //printf("\nClosing pasv socket (%d) ok!", theSocketId);
+	#ifdef OPENSSL_ENABLED
+    if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
+    {
+    	printf("\nSSL worker Shutdown!");
+    	SSL_shutdown(ftpData.clients[theSocketId].workerData.ssl);
+    }
+	#endif
+
     shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
     shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
     close(ftpData.clients[theSocketId].workerData.socketConnection);
     close(ftpData.clients[theSocketId].workerData.passiveListeningSocket);  
-    resetWorkerData(&ftpData.clients[theSocketId].workerData, 0);
+    resetWorkerData(&ftpData, theSocketId, 0);
 }
 
 void *connectionWorkerHandle(void * socketId)
@@ -94,7 +102,6 @@ void *connectionWorkerHandle(void * socketId)
 
     if (ftpData.clients[theSocketId].workerData.socketIsConnected == 0)
     {
-
     	returnCode = socketPrintf(&ftpData, theSocketId, "sdsdsdsdsdsds", "227 Entering Passive Mode (", ftpData.clients[theSocketId].serverIpAddressInteger[0], ",", ftpData.clients[theSocketId].serverIpAddressInteger[1], ",", ftpData.clients[theSocketId].serverIpAddressInteger[2], ",", ftpData.clients[theSocketId].serverIpAddressInteger[3], ",", (ftpData.clients[theSocketId].workerData.connectionPort / 256), ",", (ftpData.clients[theSocketId].workerData.connectionPort % 256), ")\r\n");
         if (returnCode <= 0)
         {
@@ -107,6 +114,20 @@ void *connectionWorkerHandle(void * socketId)
         if ((ftpData.clients[theSocketId].workerData.socketConnection = accept(ftpData.clients[theSocketId].workerData.passiveListeningSocket, 0, 0))!=-1)
         {
             ftpData.clients[theSocketId].workerData.socketIsConnected = 1;
+			#ifdef OPENSSL_ENABLED
+            if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
+            {
+
+                SSL_set_fd(ftpData.clients[theSocketId].workerData.ssl, ftpData.clients[theSocketId].workerData.socketConnection);
+                returnCode = SSL_accept(ftpData.clients[theSocketId].workerData.ssl);
+                    if (returnCode <= 0) {
+                        printf("\nSSL ERRORS ON WORKER");
+                    }
+                    else {
+                        printf("\nSSL ACCEPTED ON WORKER");
+                    }
+            }
+			#endif
         }
         else
         {
@@ -250,7 +271,8 @@ void *connectionWorkerHandle(void * socketId)
               pthread_exit(NULL);
           }
 
-          returnCode = writeListDataInfoToSocket(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].workerData.socketConnection, &theFiles, theCommandType);
+          //returnCode = writeListDataInfoToSocket(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].workerData.socketConnection, &theFiles, theCommandType);
+          returnCode = writeListDataInfoToSocket(&ftpData, theSocketId, &theFiles, theCommandType);
           if (returnCode <= 0)
           {
               ftpData.clients[theSocketId].closeTheClient = 1;
@@ -530,47 +552,21 @@ static int processCommand(int processingElement)
     {
         printf("\nAUTH COMMAND RECEIVED");
         toReturn = parseCommandAuth(&ftpData, processingElement);
-        
-		//returnCode = dprintf(theClientData->socketDescriptor, "502 Security extensions not implemented.\r\n");
-		//returnCode = dprintf(ftpData.clients[processingElement].socketDescriptor, "234 AUTH TLS OK..\r\n");
-
-/*
-        ftpData.clients[processingElement].tlsIsEnabled = 1;
-        SSL *ssl;
-        ssl = SSL_new(ctx);
-        SSL_set_fd(ssl, ftpData.clients[processingElement].socketDescriptor);
-
-        int sslAcceptTimeout = 0;
-        do {
-            returnCode = SSL_accept(ssl);
-            printf("\nSSL waiting handshake %d.. return code = %d", sslAcceptTimeout, returnCode);
-            if (returnCode <= 0) {
-                printf("\nSSL ERRORS");
-                ERR_print_errors_fp(stderr);
-            }
-            else {
-                printf("\nSSL ACCEPTED");
-                fflush(0);
-                SSL_write(ssl, "ciao prova\r\n", strlen("ciao prova\r\n"));
-            }
-            sslAcceptTimeout++;
-            
-            sleep(1);
-        }
-        while(returnCode <=0 && sslAcceptTimeout < 3);
-        printf("\nReading ssl");
-        char buffer[100];
-        int readenb = 0;
-        while(1)
-        {
-            readenb =  SSL_read(ssl, buffer, 100);
-            if (readenb > 0)
-                printf("\nSslReaden: %s", buffer);
-            sleep(1);
-            
-        }
-*/
-
+    }
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PROT", strlen("PROT")) == 1)
+    {
+        printf("\nPROT COMMAND RECEIVED");
+        toReturn = parseCommandProt(&ftpData, processingElement);
+    }
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PBSZ", strlen("PBSZ")) == 1)
+    {
+        printf("\nPBSZ COMMAND RECEIVED");
+        toReturn = parseCommandPbsz(&ftpData, processingElement);
+    }
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CCC", strlen("CCC")) == 1)
+    {
+        printf("\nCCC COMMAND RECEIVED");
+        toReturn = parseCommandCcc(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PWD", strlen("PWD")) == 1)
     {
