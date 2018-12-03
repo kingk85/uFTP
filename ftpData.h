@@ -117,6 +117,10 @@ struct ipData
 
 struct workerData
 {
+	#ifdef OPENSSL_ENABLED
+	SSL *ssl;
+	#endif
+
     int threadIsAlive;
     int connectionPort;
     int passiveModeOn;
@@ -153,6 +157,7 @@ struct clientData
 	#endif
 
     int tlsIsEnabled;
+    int dataChannelIsTls;
     pthread_mutex_t writeMutex;
     
     int clientProgressiveNumber;
@@ -249,12 +254,12 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
-int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, int commandType);
+int writeListDataInfoToSocket(ftpDataType *data, int clientId, int *filesNumber, int commandType);
 int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);
 void deleteListDataInfoVector(void *TheElementToDelete);
 
-void resetWorkerData(workerDataType *pasvData, int isInitialization);
+void resetWorkerData(ftpDataType *data, int clientId, int isInitialization);
 void resetClientData(ftpDataType *data, int clientId, int isInitialization);
 
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);

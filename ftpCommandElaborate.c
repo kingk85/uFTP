@@ -321,9 +321,92 @@ int parseCommandFeat(ftpDataType * data, int socketId)
      SPSV
      ESTP
     211 End.
+
+
+211-Extensions supported:
+ EPRT
+ IDLE
+ MDTM
+ SIZE
+ MFMT
+ REST STREAM
+ MLST type*;size*;sizd*;modify*;UNIX.mode*;UNIX.uid*;UNIX.gid*;unique*;
+ MLSD
+ AUTH TLS
+ PBSZ
+ PROT
+ UTF8
+ TVFS
+ ESTA
+ PASV
+ EPSV
+ SPSV
+ ESTP
+211 End.
+
      */
     int returnCode;
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\n PASV\r\nUTF8\r\nAUTH TLS\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\n PASV\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\n211 End.\r\n");
+    if (returnCode <= 0)
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+    return FTP_COMMAND_PROCESSED;
+}
+
+int parseCommandProt(ftpDataType * data, int socketId)
+{
+    int returnCode;
+    char *theProtArg;
+    theProtArg = getFtpCommandArg("PROT", data->clients[socketId].theCommandReceived, 0);
+
+    if (theProtArg[0] == 'C' || theProtArg[0] == 'c')
+    {
+    	//Clear
+    	printf("\nSet data channel to clear");
+    	data->clients[socketId].dataChannelIsTls = 0;
+    	returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
+
+    }
+    else if (theProtArg[0] == 'P' || theProtArg[0] == 'p')
+    {
+    	//Private
+    	printf("\nSet data channel to private");
+    	data->clients[socketId].dataChannelIsTls = 1;
+    	returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
+    }
+    else
+    {
+    	returnCode = socketPrintf(data, socketId, "scs", "502 Mode ", theProtArg[0]," is not implemented\r\n");
+    }
+
+    if (returnCode <= 0)
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+    return FTP_COMMAND_PROCESSED;
+}
+
+int parseCommandCcc(ftpDataType * data, int socketId)
+{
+	#ifdef OPENSSL_ENABLED
+    int returnCode;
+    returnCode = socketPrintf(data, socketId, "s", "200 TLS connection aborted\r\n");
+    SSL_set_shutdown(data->clients[socketId].ssl, SSL_SENT_SHUTDOWN);
+    data->clients[socketId].tlsIsEnabled = 0;
+
+    if (returnCode <= 0)
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+    return FTP_COMMAND_PROCESSED;
+	#endif
+}
+
+int parseCommandPbsz(ftpDataType * data, int socketId)
+{
+    int returnCode;
+    char *thePbszSize;
+    thePbszSize = getFtpCommandArg("PBSZ", data->clients[socketId].theCommandReceived, 0);
+
+    returnCode = socketPrintf(data, socketId, "sss", "200 PBSZ set to ", thePbszSize, "\r\n");
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 

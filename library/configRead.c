@@ -150,7 +150,7 @@ void initFtpData(ftpDataType *ftpData)
     //Client data reset to zero
     for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
     {
-        resetWorkerData(&ftpData->clients[i].workerData, 1);
+        resetWorkerData(ftpData, i, 1);
         resetClientData(ftpData, i, 1);
         ftpData->clients[i].clientProgressiveNumber = i;
     }
