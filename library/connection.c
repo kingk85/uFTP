@@ -50,7 +50,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	char theBuffer[2048];
 	int theStringSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	printf("\nWriting to socket id %d: ", clientId);
+	printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
 
 	va_list args;
 	va_start(args, __fmt);
@@ -165,8 +165,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 	char theBuffer[2048];
 	int theStringSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	printf("\nWriting to worker socket id %d: ", clientId);
-
+	printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
 	va_list args;
 	va_start(args, __fmt);
 	while (*__fmt != '\0')
