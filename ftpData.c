@@ -592,7 +592,6 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 		#ifdef OPENSSL_ENABLED
 		SSL_free(data->clients[clientId].workerData.ssl);
 		#endif
-    
       }
       else
       {
@@ -623,11 +622,9 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         data->clients[clientId].workerData.directoryInfo.Destroy(&data->clients[clientId].workerData.directoryInfo, deleteListDataInfoVector);
         free(lastToDestroy);
     }
-
 	#ifdef OPENSSL_ENABLED
-	data->clients[clientId].ssl = SSL_new(data->ctx);
+	data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
 	#endif
-
 }
 
 void resetClientData(ftpDataType *data, int clientId, int isInitialization)
@@ -651,6 +648,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 
 		#ifdef OPENSSL_ENABLED
         SSL_free(data->clients[clientId].ssl);
+        //SSL_free(data->clients[clientId].workerData.ssl);
 		#endif
     }
     
@@ -699,7 +697,8 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].lastActivityTimeStamp = 0;
 
 	#ifdef OPENSSL_ENABLED
-	data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
+	//data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
+	data->clients[clientId].ssl = SSL_new(data->ctx);
 	#endif
 }
 

@@ -1181,7 +1181,7 @@ int parseCommandCdup(ftpDataType * data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
-long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, long long int startFrom, FILE *retrFP)
+long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int startFrom, FILE *retrFP)
 {
     long long int readen = 0;
     long long int toReturn = 0, writtenSize = 0;
@@ -1191,12 +1191,12 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
 
     #ifdef LARGE_FILE_SUPPORT_ENABLED
 		//#warning LARGE FILE SUPPORT IS ENABLED!
-        retrFP = fopen64(theFilename, "rb");
+        retrFP = fopen64(data->clients[theSocketId].fileToRetr.text, "rb");
     #endif
 
     #ifndef LARGE_FILE_SUPPORT_ENABLED
 		#warning LARGE FILE SUPPORT IS NOT ENABLED!
-        retrFP = fopen(theFilename, "rb");
+        retrFP = fopen(data->clients[theSocketId].fileToRetr.text, "rb");
     #endif
 
     if (retrFP == NULL)
@@ -1208,7 +1208,6 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
 
     if (startFrom > 0)
     {
-
         #ifdef LARGE_FILE_SUPPORT_ENABLED
 			//#warning LARGE FILE SUPPORT IS ENABLED!
             currentPosition = (long long int) lseek64(fileno(retrFP), startFrom, SEEK_SET);
@@ -1229,8 +1228,16 @@ long long int writeRetrFile(char * theFilename, int thePasvSocketConnection, lon
 
     while ((readen = (long long int) fread(buffer, sizeof(char), FTP_COMMAND_ELABORATE_CHAR_BUFFER, retrFP)) > 0)
     {
-      writtenSize = write(thePasvSocketConnection, buffer, readen);
- 
+
+    	if (data->clients[theSocketId].dataChannelIsTls != 1)
+    	{
+    		writtenSize = write(data->clients[theSocketId].workerData.socketConnection, buffer, readen);
+    	}
+    	else
+    	{
+    		writtenSize = SSL_write(data->clients[theSocketId].workerData.ssl, buffer, readen);
+    	}
+
       if (writtenSize <= 0)
       {
           fclose(retrFP);

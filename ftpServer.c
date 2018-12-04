@@ -53,14 +53,30 @@ static int processCommand(int processingElement);
 
 void workerCleanup(void *socketId)
 {
-    int theSocketId = *(int *)socketId;
-    //printf("\nClosing pasv socket (%d) ok!", theSocketId);
+	int theSocketId = *(int *)socketId;
+	int returnCode = 0;
+
 	#ifdef OPENSSL_ENABLED
-    if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
-    {
-    	printf("\nSSL worker Shutdown!");
-    	SSL_shutdown(ftpData.clients[theSocketId].workerData.ssl);
-    }
+	if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
+	{
+		printf("\nSSL worker Shutdown 1");
+		returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.ssl);
+		printf(" return code : %d", returnCode);
+
+		if (returnCode < 0)
+		{
+			printf("SSL_shutdown failed return code %d", returnCode);
+		}
+		else if (returnCode == 0)
+		{
+			returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.ssl);
+
+			if (returnCode <= 0)
+			{
+				printf("SSL_shutdown (2nd time) failed");
+			}
+		}
+	}
 	#endif
 
     shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
@@ -190,7 +206,6 @@ void *connectionWorkerHandle(void * socketId)
                     ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
             #endif
 
-
             if (ftpData.clients[theSocketId].workerData.theStorFile == NULL)
             {
             	returnCode = socketPrintf(&ftpData, theSocketId, "s", "553 Unable to write the file\r\n");
@@ -216,8 +231,19 @@ void *connectionWorkerHandle(void * socketId)
 
             while(1)
             {
-                ftpData.clients[theSocketId].workerData.bufferIndex = read(ftpData.clients[theSocketId].workerData.socketConnection, ftpData.clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
-                
+            	if (ftpData.clients[theSocketId].dataChannelIsTls != 1)
+            	{
+            		ftpData.clients[theSocketId].workerData.bufferIndex = read(ftpData.clients[theSocketId].workerData.socketConnection, ftpData.clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+            	}
+            	else if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
+            	{
+            		ftpData.clients[theSocketId].workerData.bufferIndex = SSL_read(ftpData.clients[theSocketId].workerData.ssl, ftpData.clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+            	}
+            	else
+            	{
+            		printf("\nError state");
+            	}
+
                 if (ftpData.clients[theSocketId].workerData.bufferIndex == 0)
                 {
                     break;
@@ -234,8 +260,7 @@ void *connectionWorkerHandle(void * socketId)
             }
             fclose(ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.theStorFile = NULL;
-            
-            
+
             if (ftpData.clients[theSocketId].login.ownerShip.ownerShipSet == 1)
             {
                 FILE_doChownFromUidGid(ftpData.clients[theSocketId].fileToStor.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid);
@@ -303,7 +328,7 @@ void *connectionWorkerHandle(void * socketId)
             }
 
 
-            writenSize = writeRetrFile(ftpData.clients[theSocketId].fileToRetr.text, ftpData.clients[theSocketId].workerData.socketConnection, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
+            writenSize = writeRetrFile(&ftpData, theSocketId, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.retrRestartAtByte = 0;
 
             if (writenSize == -1)
