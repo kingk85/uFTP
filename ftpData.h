@@ -32,8 +32,9 @@
 #include "library/dynamicVectors.h"
 
 
-#define CLIENT_COMMAND_STRING_SIZE                  2048
-#define CLIENT_BUFFER_STRING_SIZE                   2048
+#define CLIENT_COMMAND_STRING_SIZE                  4096
+#define CLIENT_BUFFER_STRING_SIZE                   4096
+#define MAXIMUM_INODE_NAME							4096
 
 #define LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE       1024
 
@@ -81,10 +82,11 @@ struct ftpParameters
     int singleInstanceModeOn;
     DYNV_VectorGenericDataType usersVector;
     int maximumIdleInactivity;
-    
     int maximumConnectionsPerIp;
     int maximumUserAndPassowrdLoginTries;
-    
+
+    char certificatePath[MAXIMUM_INODE_NAME];
+    char privateCertificatePath[MAXIMUM_INODE_NAME];
 } typedef ftpParameters_DataType;
     
 struct dynamicStringData
@@ -118,7 +120,8 @@ struct ipData
 struct workerData
 {
 	#ifdef OPENSSL_ENABLED
-	SSL *ssl;
+	SSL *serverSsl;
+	SSL *clientSsl;
 	#endif
 
     int threadIsAlive;
@@ -157,6 +160,8 @@ struct clientData
 	#endif
 
     int tlsIsEnabled;
+    int tlsIsNegotiating;
+    unsigned long long int tlsNegotiatingTimeStart;
     int dataChannelIsTls;
     pthread_mutex_t writeMutex;
     
@@ -216,7 +221,8 @@ struct ConnectionParameters
 struct ftpData
 {
 	#ifdef OPENSSL_ENABLED
-	SSL_CTX *ctx;
+	SSL_CTX *serverCtx;
+	SSL_CTX *clientCtx;
 	#endif
 
     int connectedClients;
@@ -258,10 +264,8 @@ int writeListDataInfoToSocket(ftpDataType *data, int clientId, int *filesNumber,
 int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);
 void deleteListDataInfoVector(void *TheElementToDelete);
-
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization);
 void resetClientData(ftpDataType *data, int clientId, int isInitialization);
-
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
 int isCharInString(char *theString, int stringLen, char theChar);
 void destroyConfigurationVectorElement(void * data);

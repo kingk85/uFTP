@@ -91,6 +91,7 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData)
 {
+	#define STRING_SIZE		4096
     int theLen, i;
     char * theDirectoryNamePointer;
     theDirectoryNamePointer = theDirectoryName;
@@ -124,9 +125,9 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
         }
 
     //Check for /../
-    char theDirectoryToCheck[2048];
+    char theDirectoryToCheck[STRING_SIZE];
     int theDirectoryToCheckIndex = 0;
-    memset(theDirectoryToCheck, 0, 2048);
+    memset(theDirectoryToCheck, 0, STRING_SIZE);
     
     for (i = 0; i< theLen; i++)
     {
@@ -140,11 +141,11 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
             }
 
         theDirectoryToCheckIndex = 0;
-        memset(theDirectoryToCheck, 0, 2048);
+        memset(theDirectoryToCheck, 0, STRING_SIZE);
         continue;
         }
         
-        if (theDirectoryToCheckIndex<2048)
+        if (theDirectoryToCheckIndex<STRING_SIZE)
             {
             theDirectoryToCheck[theDirectoryToCheckIndex++] = theDirectoryName[i];
             }
@@ -216,7 +217,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
    
    
    data->clients[socketPosition].workerData.connectionPort = randomicPort;
-   printf("data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
+   //printf("data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
 }
 
 int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType)
@@ -404,7 +405,10 @@ int searchInLoginFailsVector(void * loginFailsVector, void *element)
             return i;
         }
     }
-
+    void cleanup_openssl()
+    {
+        EVP_cleanup();
+    }
     return -1;
 }
 
@@ -590,7 +594,8 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         }
 
 		#ifdef OPENSSL_ENABLED
-		SSL_free(data->clients[clientId].workerData.ssl);
+		SSL_free(data->clients[clientId].workerData.serverSsl);
+		SSL_free(data->clients[clientId].workerData.clientSsl);
 		#endif
       }
       else
@@ -623,7 +628,8 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         free(lastToDestroy);
     }
 	#ifdef OPENSSL_ENABLED
-	data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
+	data->clients[clientId].workerData.serverSsl = SSL_new(data->serverCtx);
+	data->clients[clientId].workerData.clientSsl = SSL_new(data->clientCtx);
 	#endif
 }
 
@@ -657,7 +663,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
         printf("\nclientData->writeMutex init failed\n");
         exit(0);
     }
-
+    data->clients[clientId].tlsIsNegotiating = 0;
     data->clients[clientId].tlsIsEnabled = 0;
     data->clients[clientId].dataChannelIsTls = 0;
     data->clients[clientId].socketDescriptor = -1;
@@ -694,11 +700,12 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandOps, isInitialization);
 
     data->clients[clientId].connectionTimeStamp = 0;
+    data->clients[clientId].tlsNegotiatingTimeStart = 0;
     data->clients[clientId].lastActivityTimeStamp = 0;
 
 	#ifdef OPENSSL_ENABLED
 	//data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
-	data->clients[clientId].ssl = SSL_new(data->ctx);
+	data->clients[clientId].ssl = SSL_new(data->serverCtx);
 	#endif
 }
 

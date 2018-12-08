@@ -47,10 +47,10 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	#define SOCKET_PRINTF_BUFFER						2048
 
 	int bytesWritten = 0;
-	char theBuffer[2048];
+	char theBuffer[SOCKET_PRINTF_BUFFER];
 	int theStringSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
+	//printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
 
 	va_list args;
 	va_start(args, __fmt);
@@ -132,7 +132,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 				#endif
 			}
 
-			printf("%s", theBuffer);
+			//printf("%s", theBuffer);
 
 			if (theReturnCode > 0)
 			{
@@ -162,10 +162,10 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 	#define SOCKET_PRINTF_BUFFER						2048
 
 	int bytesWritten = 0;
-	char theBuffer[2048];
+	char theBuffer[SOCKET_PRINTF_BUFFER];
 	int theStringSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
+	//printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
 	va_list args;
 	va_start(args, __fmt);
 	while (*__fmt != '\0')
@@ -239,12 +239,16 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			}
 			else if (ftpData->clients[clientId].dataChannelIsTls == 1)
 			{
+
 				#ifdef OPENSSL_ENABLED
-				theReturnCode = SSL_write(ftpData->clients[clientId].workerData.ssl, theBuffer, theStringSize);
+				if (ftpData->clients[clientId].workerData.passiveModeOn == 1)
+					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, theBuffer, theStringSize);
+				else if (ftpData->clients[clientId].workerData.activeModeOn == 1)
+					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, theBuffer, theStringSize);
 				#endif
 			}
 
-			printf("%s", theBuffer);
+			//printf("%s", theBuffer);
 
 			if (theReturnCode > 0)
 			{

@@ -54,12 +54,9 @@ int parseCommandAuth(ftpDataType * data, int socketId);
 int parseCommandPwd(ftpDataType * data, int socketId);
 int parseCommandSyst(ftpDataType * data, int socketId);
 int parseCommandFeat(ftpDataType * data, int socketId);
-
 int parseCommandProt(ftpDataType * data, int socketId);
 int parseCommandCcc(ftpDataType * data, int socketId);
 int parseCommandPbsz(ftpDataType * data, int socketId);
-
-
 int parseCommandStruF(ftpDataType * data, int socketId);
 int parseCommandTypeI(ftpDataType * data, int socketId);
 int parseCommandModeS(ftpDataType * data, int socketId);
