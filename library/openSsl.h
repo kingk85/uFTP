@@ -22,13 +22,13 @@
  * THE SOFTWARE.
  */
 #ifdef OPENSSL_ENABLED
-#warning SSL ENABLED
 #ifndef OPENSSL_H
 #define OPENSSL_H
 
-
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+
+#define TLS_NEGOTIATING_TIMEOUT	30
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,9 +36,10 @@ extern "C" {
 
 void initOpenssl();
 void cleanupOpenssl();
-SSL_CTX *createContext();
-void configureContext(SSL_CTX *ctx);
-
+SSL_CTX *createServerContext();
+SSL_CTX *createClientContext();
+void configureContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath);
+void ShowCerts(SSL* ssl);
 #ifdef __cplusplus
 }
 #endif

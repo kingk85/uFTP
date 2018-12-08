@@ -196,7 +196,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     
     if (FILE_IsDirectory(DirectoryInodeName))
     {
-        printf("\nReading directory: %s", DirectoryInodeName);
+        //printf("\nReading directory: %s", DirectoryInodeName);
         
         DIR *TheDirectory;
         struct dirent *dir;

@@ -26,7 +26,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>     
@@ -59,21 +58,24 @@ void workerCleanup(void *socketId)
 	#ifdef OPENSSL_ENABLED
 	if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
 	{
-		printf("\nSSL worker Shutdown 1");
-		returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.ssl);
-		printf(" return code : %d", returnCode);
-
-		if (returnCode < 0)
+		if(ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
 		{
-			printf("SSL_shutdown failed return code %d", returnCode);
-		}
-		else if (returnCode == 0)
-		{
-			returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.ssl);
+			printf("\nSSL worker Shutdown 1");
+			returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.serverSsl);
+			printf(" return code : %d", returnCode);
 
-			if (returnCode <= 0)
+			if (returnCode < 0)
 			{
-				printf("SSL_shutdown (2nd time) failed");
+				printf("SSL_shutdown failed return code %d", returnCode);
+			}
+			else if (returnCode == 0)
+			{
+				returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.serverSsl);
+
+				if (returnCode <= 0)
+				{
+					printf("SSL_shutdown (2nd time) failed");
+				}
 			}
 		}
 	}
@@ -109,6 +111,7 @@ void *connectionWorkerHandle(void * socketId)
 
         tries--;
     }
+
     if (ftpData.clients[theSocketId].workerData.passiveListeningSocket == -1)
     {
         ftpData.clients[theSocketId].closeTheClient = 1;
@@ -134,14 +137,24 @@ void *connectionWorkerHandle(void * socketId)
             if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
             {
 
-                SSL_set_fd(ftpData.clients[theSocketId].workerData.ssl, ftpData.clients[theSocketId].workerData.socketConnection);
-                returnCode = SSL_accept(ftpData.clients[theSocketId].workerData.ssl);
-                    if (returnCode <= 0) {
-                        printf("\nSSL ERRORS ON WORKER");
-                    }
-                    else {
-                        printf("\nSSL ACCEPTED ON WORKER");
-                    }
+            	returnCode = SSL_set_fd(ftpData.clients[theSocketId].workerData.serverSsl, ftpData.clients[theSocketId].workerData.socketConnection);
+
+        		if (returnCode == 0)
+        		{
+        			printf("\nSSL ERRORS ON WORKER SSL_set_fd");
+        			ftpData.clients[theSocketId].closeTheClient = 1;
+        		}
+
+                returnCode = SSL_accept(ftpData.clients[theSocketId].workerData.serverSsl);
+				if (returnCode <= 0) {
+					printf("\nSSL ERRORS ON WORKER");
+					ERR_print_errors_fp(stderr);
+					ftpData.clients[theSocketId].closeTheClient = 1;
+
+				}
+				else {
+					printf("\nSSL ACCEPTED ON WORKER");
+				}
             }
 			#endif
         }
@@ -156,6 +169,31 @@ void *connectionWorkerHandle(void * socketId)
   else if (ftpData.clients[theSocketId].workerData.activeModeOn == 1)
   {
     ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);
+
+	#ifdef OPENSSL_ENABLED
+	if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
+	{
+		returnCode = SSL_set_fd(ftpData.clients[theSocketId].workerData.clientSsl, ftpData.clients[theSocketId].workerData.socketConnection);
+
+		if (returnCode == 0)
+		{
+			printf("\nSSL ERRORS ON WORKER SSL_set_fd");
+			ftpData.clients[theSocketId].closeTheClient = 1;
+		}
+
+		returnCode = SSL_connect(ftpData.clients[theSocketId].workerData.clientSsl);
+		if (returnCode <= 0)
+		{
+			printf("\nSSL ERRORS ON WORKER %d", returnCode);
+			ERR_print_errors_fp(stderr);
+			//ftpData.clients[theSocketId].closeTheClient = 1;
+		}
+		else
+		{
+			printf("\nSSL ACCEPTED ON WORKER");
+		}
+	}
+	#endif
 
     if (ftpData.clients[theSocketId].workerData.socketConnection < 0)
     {
@@ -231,13 +269,20 @@ void *connectionWorkerHandle(void * socketId)
 
             while(1)
             {
+
             	if (ftpData.clients[theSocketId].dataChannelIsTls != 1)
             	{
             		ftpData.clients[theSocketId].workerData.bufferIndex = read(ftpData.clients[theSocketId].workerData.socketConnection, ftpData.clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
             	}
             	else if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
             	{
-            		ftpData.clients[theSocketId].workerData.bufferIndex = SSL_read(ftpData.clients[theSocketId].workerData.ssl, ftpData.clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+
+					#ifdef OPENSSL_ENABLED
+            		if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
+            			ftpData.clients[theSocketId].workerData.bufferIndex = SSL_read(ftpData.clients[theSocketId].workerData.serverSsl, ftpData.clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+            		else if(ftpData.clients[theSocketId].workerData.activeModeOn == 1)
+            			ftpData.clients[theSocketId].workerData.bufferIndex = SSL_read(ftpData.clients[theSocketId].workerData.clientSsl, ftpData.clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+					#endif
             	}
             	else
             	{
@@ -437,6 +482,36 @@ void runFtpServer(void)
               FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset))
           {
 
+			#ifdef OPENSSL_ENABLED
+				if (ftpData.clients[processingSock].tlsIsNegotiating == 1)
+				{
+					returnCode = SSL_accept(ftpData.clients[processingSock].ssl);
+
+					if (returnCode <= 0)
+					{
+						printf("\nSSL NOT YET ACCEPTED: %d", returnCode);
+						ftpData.clients[processingSock].tlsIsEnabled = 0;
+						ftpData.clients[processingSock].tlsIsNegotiating = 1;
+
+						if ( ((int)time(NULL) - ftpData.clients[processingSock].tlsNegotiatingTimeStart) > TLS_NEGOTIATING_TIMEOUT )
+						{
+							ftpData.clients[processingSock].closeTheClient = 1;
+							printf("\nTLS timeout closing the client time:%lld, start time: %lls..", (int)time(NULL), ftpData.clients[processingSock].tlsNegotiatingTimeStart);
+						}
+
+					}
+					else
+					{
+						printf("\nSSL ACCEPTED");
+						ftpData.clients[processingSock].tlsIsEnabled = 1;
+						ftpData.clients[processingSock].tlsIsNegotiating = 0;
+					}
+
+
+					continue;
+				}
+			#endif
+
         	  if (ftpData.clients[processingSock].tlsIsEnabled == 1)
         	  {
 				  #ifdef OPENSSL_ENABLED
@@ -483,7 +558,7 @@ void runFtpServer(void)
                       if (ftpData.clients[processingSock].buffer[i] == '\n') 
                           {
                               ftpData.clients[processingSock].socketCommandReceived = 1;
-                              printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
+                              //printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
                               commandProcessStatus = processCommand(processingSock);
                               //Echo unrecognized commands
                               if (commandProcessStatus == FTP_COMMAND_NOT_RECONIZED) 
@@ -539,8 +614,8 @@ void runFtpServer(void)
 static int processCommand(int processingElement)
 {
     int toReturn = 0;
-    printTimeStamp();
-    printf ("Command received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
+    //printTimeStamp();
+    //printf ("Command received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
    
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandArgs, 0);
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandOps, 0);
@@ -752,8 +827,9 @@ static int processCommand(int processingElement)
 void deallocateMemory(void)
 {
     printf("\n Deallocating the memory.. ");
-	#ifndef OPENSSL_ENABLED
-    SSL_CTX_free(ftpData.ctx);
-    cleanup_openssl();
+
+	#ifdef OPENSSL_ENABLED
+    SSL_CTX_free(ftpData.serverCtx);
+    cleanupOpenssl();
 	#endif
 }

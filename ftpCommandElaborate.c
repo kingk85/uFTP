@@ -220,56 +220,42 @@ int parseCommandPass(ftpDataType * data, int socketId)
 
 int parseCommandAuth(ftpDataType * data, int socketId)
 {
-    int returnCode;
+    int returnCode, returnCodeTls;
 
 	#ifndef OPENSSL_ENABLED
     	returnCode = socketPrintf(data, socketId, "s", "502 Security extensions not implemented.\r\n");
 		if (returnCode <= 0)
 			return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-
-		return FTP_COMMAND_PROCESSED;
 	#endif
 
 	#ifdef OPENSSL_ENABLED
+
 		returnCode = socketPrintf(data, socketId, "s", "234 AUTH TLS OK..\r\n");
 		if (returnCode <= 0)
 			return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
-		data->clients[socketId].tlsIsEnabled = 1;
+		returnCode = SSL_set_fd(data->clients[socketId].ssl, data->clients[socketId].socketDescriptor);
 
-		printf("\n SSL_set_fd");
-		fflush(0);
+		if (returnCode == 0)
+		{
+			return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+		}
 
-        SSL_set_fd(data->clients[socketId].ssl, data->clients[socketId].socketDescriptor);
+		returnCodeTls = SSL_accept(data->clients[socketId].ssl);
+		data->clients[socketId].tlsNegotiatingTimeStart = (int)time(NULL);
 
-		printf("\n SSL_set_fd OK");
-		fflush(0);
-
-        int sslAcceptTimeout = 0;
-        do {
-            returnCode = SSL_accept(data->clients[socketId].ssl);
-
-    		printf("\n SSL_accept");
-    		fflush(0);
-
-            printf("\nSSL waiting handshake %d.. return code = %d", sslAcceptTimeout, returnCode);
-            fflush(0);
-            if (returnCode <= 0) {
-                printf("\nSSL ERRORS");
-                fflush(0);
-                ERR_print_errors_fp(stderr);
-            }
-            else {
-                printf("\nSSL ACCEPTED");
-                fflush(0);
-            }
-            sslAcceptTimeout++;
-            sleep(1);
-        }
-        while(returnCode <=0 &&
-        	  sslAcceptTimeout < 3);
-
-		return FTP_COMMAND_PROCESSED;
+		if (returnCodeTls <= 0)
+		{
+			printf("\nSSL NOT YET ACCEPTED: %d", returnCodeTls);
+			data->clients[socketId].tlsIsEnabled = 0;
+			data->clients[socketId].tlsIsNegotiating = 1;
+		}
+		else
+		{
+			printf("\nSSL ACCEPTED");
+			data->clients[socketId].tlsIsEnabled = 1;
+			data->clients[socketId].tlsIsNegotiating = 0;
+		}
 	#endif
 
 
@@ -343,10 +329,15 @@ int parseCommandFeat(ftpDataType * data, int socketId)
  SPSV
  ESTP
 211 End.
-
      */
+
     int returnCode;
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\n PASV\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\n211 End.\r\n");
+	#ifdef OPENSSL_ENABLED
+    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\n211 End.\r\n");
+	#endif
+	#ifndef OPENSSL_ENABLED
+	returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nUTF8\r\n211 End.\r\n");
+	#endif
     if (returnCode <= 0)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
@@ -395,9 +386,16 @@ int parseCommandCcc(ftpDataType * data, int socketId)
 
     if (returnCode <= 0)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+	#endif
+
+	#ifdef OPENSSL_ENABLED
+    returnCode = socketPrintf(data, socketId, "s", "500 command not supported\r\n");
+
+    if (returnCode <= 0)
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+	#endif
 
     return FTP_COMMAND_PROCESSED;
-	#endif
 }
 
 int parseCommandPbsz(ftpDataType * data, int socketId)
@@ -461,7 +459,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     /* Create worker thread */
     void *pReturn;
     int returnCode;
-    printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
+    //printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
     if (data->clients[socketId].workerData.threadIsAlive == 1) 
     {
@@ -491,7 +489,7 @@ int parseCommandPort(ftpDataType * data, int socketId)
     theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived, 0);    
     sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
     data->clients[socketId].workerData.connectionPort = (portBytes[0]*256)+portBytes[1];
-    sprintf(data->clients[socketId].workerData.activeIpAddress, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
+    returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
 
     void *pReturn;
     if (data->clients[socketId].workerData.threadIsAlive == 1)
@@ -574,9 +572,9 @@ int parseCommandList(ftpDataType * data, int socketId)
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived, 1);
     getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand);
  
-    printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
-    printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
-    printf("\ntheNameToList: %s", theNameToList);
+    ///printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    //printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+    //printf("\ntheNameToList: %s", theNameToList);
     
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0);
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0);    
@@ -714,7 +712,7 @@ int parseCommandCwd(ftpDataType * data, int socketId)
 
     if (isSafePath == 1)
     {
-        printf("\n The Path requested for CWD IS:%s", theSafePath.text);
+        //printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
         setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen);
         
@@ -1235,7 +1233,13 @@ long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int s
     	}
     	else
     	{
-    		writtenSize = SSL_write(data->clients[theSocketId].workerData.ssl, buffer, readen);
+
+		#ifdef OPENSSL_ENABLED
+		if (data->clients[theSocketId].workerData.passiveModeOn == 1)
+			writtenSize = SSL_write(data->clients[theSocketId].workerData.serverSsl, buffer, readen);
+		else if (data->clients[theSocketId].workerData.activeModeOn == 1)
+			writtenSize = SSL_write(data->clients[theSocketId].workerData.clientSsl, buffer, readen);
+		#endif
     	}
 
       if (writtenSize <= 0)
@@ -1364,6 +1368,7 @@ int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCo
 
 int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataType ownerShip)
 {
+	#define MAXIMUM_FILENAME_LEN			4096
     #define STATUS_INCREASE 0
     #define STATUS_PERMISSIONS 1
     #define STATUS_LOCAL_PATH 2
@@ -1372,14 +1377,14 @@ int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataTyp
     int returnCode = 0;
 
     int status = STATUS_INCREASE;
-    char thePermissionString[1024];
-    char theLocalPath[1024];
-    char theFinalFilename[2048];
+    char thePermissionString[MAXIMUM_FILENAME_LEN];
+    char theLocalPath[MAXIMUM_FILENAME_LEN];
+    char theFinalFilename[MAXIMUM_FILENAME_LEN];
     int returnCodeSetPermissions, returnCodeSetOwnership;
 
-    memset(theLocalPath, 0, 1024);
-    memset(thePermissionString, 0, 1024);
-    memset(theFinalFilename, 0, 2048);
+    memset(theLocalPath, 0, MAXIMUM_FILENAME_LEN);
+    memset(thePermissionString, 0, MAXIMUM_FILENAME_LEN);
+    memset(theFinalFilename, 0, MAXIMUM_FILENAME_LEN);
     int thePermissionStringCursor = 0, theLocalPathCursor = 0;
 
     while (permissionsCommand[permissionsCommandCursor] != '\r' &&
@@ -1401,14 +1406,14 @@ int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataTyp
                     status = STATUS_LOCAL_PATH;
                     break;
                 }
-                if (thePermissionStringCursor < 1024 )
+                if (thePermissionStringCursor < MAXIMUM_FILENAME_LEN )
                     thePermissionString[thePermissionStringCursor++] = permissionsCommand[permissionsCommandCursor];
                 else
                     return FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG;
             break;
             
             case STATUS_LOCAL_PATH:
-                    if (theLocalPathCursor < 1024)
+                    if (theLocalPathCursor < MAXIMUM_FILENAME_LEN)
                         theLocalPath[theLocalPathCursor++] = permissionsCommand[permissionsCommandCursor];
                     else
                         return FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG;
@@ -1418,20 +1423,24 @@ int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataTyp
         permissionsCommandCursor++;
     }
 
-    memset(theFinalFilename, 0, 2048);
-
-    if ((strlen(basePath) + strlen(theLocalPath) + 2) >= 2048)
+    if ((strlen(basePath) + strlen(theLocalPath) + 2) >= MAXIMUM_FILENAME_LEN)
     {
         return FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG;
     }
 
     if (basePath[strlen(basePath)-1] != '/') 
     {
-        sprintf(theFinalFilename, "%s/%s", basePath, theLocalPath);
+    	returnCode = snprintf(theFinalFilename, MAXIMUM_FILENAME_LEN, "%s/%s", basePath, theLocalPath);
+
+    	if (returnCode >= MAXIMUM_FILENAME_LEN)
+    		return FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG;
     }
     else 
     {
-        sprintf(theFinalFilename, "%s%s", basePath, theLocalPath);
+    	returnCode = snprintf(theFinalFilename, MAXIMUM_FILENAME_LEN, "%s%s", basePath, theLocalPath);
+
+    	if (returnCode >= MAXIMUM_FILENAME_LEN)
+    		return FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG;
     }
     
     if (FILE_IsFile(theFinalFilename) != 1 && 
