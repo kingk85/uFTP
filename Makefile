@@ -5,13 +5,13 @@ OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
 
 #FOR DEBUG PURPOSE 
-CFLAGSTEMP=-c -Wall -I. -g -O0
-#CFLAGSTEMP=-c -Wall -I.
+#CFLAGSTEMP=-c -Wall -I. -g -O0
+CFLAGSTEMP=-c -Wall -I.
 OPTIMIZATION=-O3
 HEADERS=-I
 LIBPATH=./build/modules/
 BUILDFILES=start uFTP end
-#LIBS=-lpthread -lssl -lcrypto
+LIBS=-lpthread
 
 
 #ENABLE_LARGE_FILE_SUPPORT=

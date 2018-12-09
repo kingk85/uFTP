@@ -146,13 +146,15 @@ void *connectionWorkerHandle(void * socketId)
         		}
 
                 returnCode = SSL_accept(ftpData.clients[theSocketId].workerData.serverSsl);
-				if (returnCode <= 0) {
+
+				if (returnCode <= 0)
+				{
 					printf("\nSSL ERRORS ON WORKER");
 					ERR_print_errors_fp(stderr);
 					ftpData.clients[theSocketId].closeTheClient = 1;
-
 				}
-				else {
+				else
+				{
 					printf("\nSSL ACCEPTED ON WORKER");
 				}
             }
@@ -180,13 +182,12 @@ void *connectionWorkerHandle(void * socketId)
 			printf("\nSSL ERRORS ON WORKER SSL_set_fd");
 			ftpData.clients[theSocketId].closeTheClient = 1;
 		}
-
+		//SSL_set_connect_state(ftpData.clients[theSocketId].workerData.clientSsl);
 		returnCode = SSL_connect(ftpData.clients[theSocketId].workerData.clientSsl);
 		if (returnCode <= 0)
 		{
-			printf("\nSSL ERRORS ON WORKER %d", returnCode);
+			printf("\nSSL ERRORS ON WORKER %d error code: %d", returnCode, SSL_get_error(ftpData.clients[theSocketId].workerData.clientSsl, returnCode));
 			ERR_print_errors_fp(stderr);
-			//ftpData.clients[theSocketId].closeTheClient = 1;
 		}
 		else
 		{
@@ -558,7 +559,7 @@ void runFtpServer(void)
                       if (ftpData.clients[processingSock].buffer[i] == '\n') 
                           {
                               ftpData.clients[processingSock].socketCommandReceived = 1;
-                              //printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
+                              printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
                               commandProcessStatus = processCommand(processingSock);
                               //Echo unrecognized commands
                               if (commandProcessStatus == FTP_COMMAND_NOT_RECONIZED) 

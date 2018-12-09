@@ -39,6 +39,7 @@ void cleanupOpenssl();
 SSL_CTX *createServerContext();
 SSL_CTX *createClientContext();
 void configureContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath);
+void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath);
 void ShowCerts(SSL* ssl);
 #ifdef __cplusplus
 }
