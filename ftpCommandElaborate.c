@@ -572,8 +572,10 @@ int parseCommandList(ftpDataType * data, int socketId)
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived, 1);
     getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand);
  
-    printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
-    printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+    if (data->clients[socketId].workerData.ftpCommand.commandArgs.text != NULL)
+    	printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    if (data->clients[socketId].workerData.ftpCommand.commandOps.text != NULL)
+    	printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
     printf("\ntheNameToList: %s", theNameToList);
     
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0);

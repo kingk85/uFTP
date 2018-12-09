@@ -44,20 +44,23 @@
 
 int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
 {
+	#define COMMAND_BUFFER								9600
 	#define SOCKET_PRINTF_BUFFER						2048
-
 	int bytesWritten = 0;
 	char theBuffer[SOCKET_PRINTF_BUFFER];
-	int theStringSize = 0;
+	char commandBuffer[COMMAND_BUFFER];
+	int theStringSize = 0, theCommandSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+	memset(&commandBuffer, 0, COMMAND_BUFFER);
 	printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
+
+	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
 
 	va_list args;
 	va_start(args, __fmt);
-	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
-
 	while (*__fmt != '\0')
 	{
+		int i = 0;
 		theStringSize = 0;
 		switch(*__fmt)
 		{
@@ -113,47 +116,34 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 			break;
 		}
 
-		if (theStringSize >= SOCKET_PRINTF_BUFFER) {
-			printf("\n String buffer is full!");
-		}
-		else if (theStringSize < SOCKET_PRINTF_BUFFER &&
-				theStringSize > 0)
+		for (i = 0; i <theStringSize; i++)
 		{
-			int theReturnCode = 0;
-
-			if (ftpData->clients[clientId].tlsIsEnabled != 1)
+			if (theCommandSize < COMMAND_BUFFER)
 			{
-				theReturnCode = write(ftpData->clients[clientId].socketDescriptor, theBuffer, theStringSize);
+				commandBuffer[theCommandSize++] = theBuffer[i];
 			}
-			else if (ftpData->clients[clientId].tlsIsEnabled == 1)
-			{
-				#ifdef OPENSSL_ENABLED
-				theReturnCode = SSL_write(ftpData->clients[clientId].ssl, theBuffer, theStringSize);
-				#endif
-			}
-
-			printf("%s", theBuffer);
-
-			if (theReturnCode > 0)
-			{
-				bytesWritten += theReturnCode;
-			}
-			else
-			{
-				bytesWritten = theReturnCode;
-				break;
-			}
-		}
-		else if(theStringSize == 0)
-		{
-			printf("\n Nothing to write.. ");
 		}
 
 		++__fmt;
 	}
+	va_end(args);
+
+
+	if (ftpData->clients[clientId].tlsIsEnabled != 1)
+	{
+		bytesWritten = write(ftpData->clients[clientId].socketDescriptor, commandBuffer, theCommandSize);
+	}
+	else if (ftpData->clients[clientId].tlsIsEnabled == 1)
+	{
+		#ifdef OPENSSL_ENABLED
+		bytesWritten = SSL_write(ftpData->clients[clientId].ssl, commandBuffer, theCommandSize);
+		#endif
+	}
+
+	printf("\n%s", commandBuffer);
 
 	pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
-	va_end(args);
+
 	return bytesWritten;
 }
 
@@ -241,14 +231,18 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			{
 
 				#ifdef OPENSSL_ENABLED
-				if (ftpData->clients[clientId].workerData.passiveModeOn == 1)
+				if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
 					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, theBuffer, theStringSize);
-				else if (ftpData->clients[clientId].workerData.activeModeOn == 1)
+					printf("passive: %s", theBuffer);
+				}
+				else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
 					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, theBuffer, theStringSize);
+					printf("Active: %s", theBuffer);
+				}
 				#endif
 			}
 
-			printf("%s", theBuffer);
+
 
 			if (theReturnCode > 0)
 			{
