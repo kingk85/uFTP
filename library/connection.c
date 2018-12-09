@@ -50,7 +50,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	char theBuffer[SOCKET_PRINTF_BUFFER];
 	int theStringSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	//printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
+	printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
 
 	va_list args;
 	va_start(args, __fmt);
@@ -132,7 +132,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 				#endif
 			}
 
-			//printf("%s", theBuffer);
+			printf("%s", theBuffer);
 
 			if (theReturnCode > 0)
 			{
@@ -165,7 +165,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 	char theBuffer[SOCKET_PRINTF_BUFFER];
 	int theStringSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	//printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
+	printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
 	va_list args;
 	va_start(args, __fmt);
 	while (*__fmt != '\0')
@@ -248,7 +248,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 				#endif
 			}
 
-			//printf("%s", theBuffer);
+			printf("%s", theBuffer);
 
 			if (theReturnCode > 0)
 			{
@@ -366,7 +366,9 @@ int createActiveSocket(int port, char *ipAddress)
 {
   int sockfd;
   struct sockaddr_in serv_addr;
-  
+
+  printf("\n Connection socket is going to start ip: %s:%d \n", ipAddress, port);
+  //sleep(100);
   memset(&serv_addr, 0, sizeof(struct sockaddr_in)); 
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port); 

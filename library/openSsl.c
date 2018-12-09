@@ -33,21 +33,12 @@
 #include "openSsl.h"
 #include "fileManagement.h"
 
-BIO *outbio;
-
 void initOpenssl()
 {
-
-	outbio = NULL;
     OpenSSL_add_all_algorithms();		/* Load cryptos, et.al. */
     SSL_load_error_strings();			/* Bring in and register error messages */
-    SSL_load_error_strings();
-    //OpenSSL_add_ssl_algorithms();
     ERR_load_BIO_strings();
     ERR_load_crypto_strings();
-    SSL_load_error_strings();
-    outbio    = BIO_new(BIO_s_file());
-    outbio    = BIO_new_fp(stdout, BIO_NOCLOSE);
     SSL_library_init();
 }
 
@@ -78,10 +69,13 @@ SSL_CTX *createClientContext(void)
 {
 	const SSL_METHOD *method;
     SSL_CTX *ctx;
-
     method = TLS_client_method();		/* Create new client-method instance */
     ctx = SSL_CTX_new(method);			/* Create new context */
-    if ( ctx == NULL )
+    //SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
+    //SSL_CTX_set_options(ctx, SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION | SSL_OP_CIPHER_SERVER_PREFERENCE| SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
+    //SSL_CTX_set_ecdh_auto(ctx, 1);
+
+    if (ctx == NULL)
     {
     	perror("Unable to create server SSL context");
         ERR_print_errors_fp(stderr);
@@ -91,6 +85,32 @@ SSL_CTX *createClientContext(void)
     return ctx;
 }
 
+
+void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath)
+{
+	if (FILE_IsFile(certificatePath) != 1)
+	{
+		printf("\ncertificate file: %s not found!", certificatePath);
+		exit(0);
+	}
+
+	if (FILE_IsFile(privateCertificatePath) != 1)
+	{
+		printf("\ncertificate file: %s not found!", privateCertificatePath);
+		exit(0);
+	}
+
+    /* Set the key and cert */
+    if (SSL_CTX_use_certificate_file(ctx, certificatePath, SSL_FILETYPE_PEM) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(ctx, privateCertificatePath, SSL_FILETYPE_PEM) <= 0 ) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+}
 
 void configureContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath)
 {
