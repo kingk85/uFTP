@@ -78,6 +78,27 @@ void workerCleanup(void *socketId)
 				}
 			}
 		}
+
+		if(ftpData.clients[theSocketId].workerData.activeModeOn == 1)
+		{
+			printf("\nSSL worker Shutdown 1");
+			returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.clientSsl);
+			printf(" return code : %d", returnCode);
+
+			if (returnCode < 0)
+			{
+				printf("SSL_shutdown failed return code %d", returnCode);
+			}
+			else if (returnCode == 0)
+			{
+				returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.clientSsl);
+
+				if (returnCode <= 0)
+				{
+					printf("SSL_shutdown (2nd time) failed");
+				}
+			}
+		}
 	}
 	#endif
 
@@ -94,6 +115,8 @@ void *connectionWorkerHandle(void * socketId)
   pthread_cleanup_push(workerCleanup,  (void *) &theSocketId);
   ftpData.clients[theSocketId].workerData.threadIsAlive = 1;
   int returnCode;
+
+  printf("\nWORKER CREATED!");
 
   //Passive data connection mode
   if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
@@ -215,6 +238,9 @@ void *connectionWorkerHandle(void * socketId)
     ftpData.clients[theSocketId].workerData.socketIsConnected = 1;
   }
 
+
+  printf("\nftpData.clients[theSocketId].workerData.socketIsConnected = %d", ftpData.clients[theSocketId].workerData.socketIsConnected);
+
 //Endless loop ftp process
   while (1)
   {
@@ -222,6 +248,7 @@ void *connectionWorkerHandle(void * socketId)
 
     if (ftpData.clients[theSocketId].workerData.socketIsConnected > 0)
     {
+    	printf("\nWorker is waiting for commands!");
         //Conditional lock on thread actions
         pthread_mutex_lock(&ftpData.clients[theSocketId].workerData.conditionMutex);
         while (ftpData.clients[theSocketId].workerData.commandReceived == 0)
@@ -497,7 +524,7 @@ void runFtpServer(void)
 						if ( ((int)time(NULL) - ftpData.clients[processingSock].tlsNegotiatingTimeStart) > TLS_NEGOTIATING_TIMEOUT )
 						{
 							ftpData.clients[processingSock].closeTheClient = 1;
-							printf("\nTLS timeout closing the client time:%lld, start time: %lls..", (int)time(NULL), ftpData.clients[processingSock].tlsNegotiatingTimeStart);
+							printf("\nTLS timeout closing the client time:%lld, start time: %lld..", (int)time(NULL), ftpData.clients[processingSock].tlsNegotiatingTimeStart);
 						}
 
 					}
@@ -625,6 +652,9 @@ static int processCommand(int processingElement)
         (compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) != 1 &&
          compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PASS", strlen("PASS")) != 1 &&
          compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "QUIT", strlen("QUIT")) != 1 &&
+		 compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PBSZ", strlen("PBSZ")) != 1 &&
+		 compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PROT", strlen("PROT")) != 1 &&
+		 compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CCC", strlen("CCC")) != 1 &&
          compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "AUTH", strlen("AUTH")) != 1))
         {
             toReturn = notLoggedInMessage(&ftpData, processingElement);

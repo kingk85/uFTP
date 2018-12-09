@@ -1,0 +1,10 @@
+#NOTES ONLY FOR DEVELOPERS
+#OPENSSL TEST COMMANDS
+openssl s_client -starttls ftp -connect 192.168.1.237:21
+sudo openssl s_server -key key.pem -cert cert.pem -accept 123
+
+USER username
+PASS password
+PROT P
+PORT 192,168,1,237,0,123
+LIST

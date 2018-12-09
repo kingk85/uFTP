@@ -87,7 +87,7 @@ SSL_CTX *createClientContext(void)
 
 
 void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath)
-{
+{/*
 	if (FILE_IsFile(certificatePath) != 1)
 	{
 		printf("\ncertificate file: %s not found!", certificatePath);
@@ -100,7 +100,7 @@ void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCe
 		exit(0);
 	}
 
-    /* Set the key and cert */
+     Set the key and cert
     if (SSL_CTX_use_certificate_file(ctx, certificatePath, SSL_FILETYPE_PEM) <= 0) {
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
@@ -109,7 +109,7 @@ void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCe
     if (SSL_CTX_use_PrivateKey_file(ctx, privateCertificatePath, SSL_FILETYPE_PEM) <= 0 ) {
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
-    }
+    } */
 }
 
 void configureContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath)
