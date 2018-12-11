@@ -233,11 +233,11 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 				#ifdef OPENSSL_ENABLED
 				if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
 					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, theBuffer, theStringSize);
-					printf("passive: %s", theBuffer);
+					printf("%s", theBuffer);
 				}
 				else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
 					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, theBuffer, theStringSize);
-					printf("Active: %s", theBuffer);
+					printf("%s", theBuffer);
 				}
 				#endif
 			}
