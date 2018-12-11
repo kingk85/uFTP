@@ -55,6 +55,8 @@ void workerCleanup(void *socketId)
 	int theSocketId = *(int *)socketId;
 	int returnCode = 0;
 
+	printf("\nWorker %d cleanup", theSocketId);
+
 	#ifdef OPENSSL_ENABLED
 	if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
 	{
@@ -62,7 +64,7 @@ void workerCleanup(void *socketId)
 		{
 			printf("\nSSL worker Shutdown 1");
 			returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.serverSsl);
-			printf(" return code : %d", returnCode);
+			printf("\nnSSL worker Shutdown 1 return code : %d", returnCode);
 
 			if (returnCode < 0)
 			{
@@ -70,7 +72,9 @@ void workerCleanup(void *socketId)
 			}
 			else if (returnCode == 0)
 			{
+				printf("\nSSL worker Shutdown 2");
 				returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.serverSsl);
+				printf("\nnSSL worker Shutdown 2 return code : %d", returnCode);
 
 				if (returnCode <= 0)
 				{
@@ -107,6 +111,7 @@ void workerCleanup(void *socketId)
     close(ftpData.clients[theSocketId].workerData.socketConnection);
     close(ftpData.clients[theSocketId].workerData.passiveListeningSocket);  
     resetWorkerData(&ftpData, theSocketId, 0);
+    printf("\nWorker cleaned!");
 }
 
 void *connectionWorkerHandle(void * socketId)
@@ -248,7 +253,7 @@ void *connectionWorkerHandle(void * socketId)
 
     if (ftpData.clients[theSocketId].workerData.socketIsConnected > 0)
     {
-    	printf("\nWorker is waiting for commands!");
+    	printf("\nWorker %d is waiting for commands!", theSocketId);
         //Conditional lock on thread actions
         pthread_mutex_lock(&ftpData.clients[theSocketId].workerData.conditionMutex);
         while (ftpData.clients[theSocketId].workerData.commandReceived == 0)
@@ -256,6 +261,8 @@ void *connectionWorkerHandle(void * socketId)
             pthread_cond_wait(&ftpData.clients[theSocketId].workerData.conditionVariable, &ftpData.clients[theSocketId].workerData.conditionMutex);
         }
         pthread_mutex_unlock(&ftpData.clients[theSocketId].workerData.conditionMutex);
+
+        printf("\nWorker %d unlocked", theSocketId);
 
         if (ftpData.clients[theSocketId].workerData.commandReceived == 1 &&
             compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "STOR", strlen("STOR")) == 1 &&

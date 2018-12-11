@@ -459,14 +459,17 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     /* Create worker thread */
     void *pReturn;
     int returnCode;
-    //printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
+    printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
-    if (data->clients[socketId].workerData.threadIsAlive == 1) 
-    {
-    	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
-    }
-    
+    //if (data->clients[socketId].workerData.threadIsAlive == 1)
+   // {
+
+	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
+	printf("\npasv pthread_cancel = %d", returnCode);
+    //}
+    printf("\npasv join ");
     returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+    printf("\npasv join ok");
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.activeModeOn = 0;    
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);

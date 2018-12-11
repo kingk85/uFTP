@@ -4,9 +4,9 @@ CC=gcc
 OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
 
-#FOR DEBUG PURPOSE 
-#CFLAGSTEMP=-c -Wall -I. -g -O0
-CFLAGSTEMP=-c -Wall -I.
+#FOR DEBUG PURPOSE
+CFLAGSTEMP=-c -Wall -I. -g -O0
+#CFLAGSTEMP=-c -Wall -I.
 OPTIMIZATION=-O3
 HEADERS=-I
 LIBPATH=./build/modules/
@@ -38,7 +38,7 @@ end:
 	@echo Build process end
 
 uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o
-	@$(CC) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o -o $(OUTPATH)uFTP $(LIBS)
+	@$(CC)  $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o -o $(OUTPATH)uFTP $(LIBS) 
 
 daemon.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)daemon.c -o $(LIBPATH)daemon.o
