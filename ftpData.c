@@ -656,7 +656,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 
 		#ifdef OPENSSL_ENABLED
         SSL_free(data->clients[clientId].ssl);
-        SSL_free(data->clients[clientId].workerData.ssl);
+        //SSL_free(data->clients[clientId].workerData.ssl);
 		#endif
     }
     
