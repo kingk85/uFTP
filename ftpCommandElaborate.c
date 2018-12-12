@@ -463,12 +463,17 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 
     //if (data->clients[socketId].workerData.threadIsAlive == 1)
    // {
-
-	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
+    {
+    	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
+    }
 	printf("\npasv pthread_cancel = %d", returnCode);
     //}
     printf("\npasv join ");
-    returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+
+    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
+    	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+
     printf("\npasv join ok");
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.activeModeOn = 0;    
@@ -495,11 +500,12 @@ int parseCommandPort(ftpDataType * data, int socketId)
     returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
 
     void *pReturn;
-    //if (data->clients[socketId].workerData.threadIsAlive == 1)
-    //{
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
+    {
     	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
-    //}
-    returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+    }
+    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
+    	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
     data->clients[socketId].workerData.passiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;    
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
@@ -526,11 +532,10 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         void *pReturn;
-        //if (data->clients[socketId].workerData.threadIsAlive == 1)
-        //{
+        if (data->clients[socketId].workerData.threadIsAlive == 1)
+        {
             pthread_cancel(data->clients[socketId].workerData.workerThread);
-        //}
-        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        }
 
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");
         if (returnCode <= 0) 
