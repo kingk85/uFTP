@@ -125,6 +125,7 @@ struct workerData
 		#endif
 
     int threadIsAlive;
+    int threadHasBeenCreated;
     int connectionPort;
     int passiveModeOn;
     int activeModeOn;
