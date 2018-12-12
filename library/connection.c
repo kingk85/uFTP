@@ -460,13 +460,13 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 {
     printf("\nQUIT FLAG SET!\n");
 
-    if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
-    {
+   // if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
+   // {
         void *pReturn;
         pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
         pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
         printf("\nQuit command received the Pasv Thread has been cancelled.");
-    }
+   // }
 
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.wsetAll);

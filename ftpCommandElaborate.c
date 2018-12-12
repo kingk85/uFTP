@@ -495,10 +495,10 @@ int parseCommandPort(ftpDataType * data, int socketId)
     returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
 
     void *pReturn;
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
+    //if (data->clients[socketId].workerData.threadIsAlive == 1)
+    //{
     	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
-    }
+    //}
     returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
     data->clients[socketId].workerData.passiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;    
@@ -526,10 +526,10 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         void *pReturn;
-        if (data->clients[socketId].workerData.threadIsAlive == 1)
-        {
+        //if (data->clients[socketId].workerData.threadIsAlive == 1)
+        //{
             pthread_cancel(data->clients[socketId].workerData.workerThread);
-        }
+        //}
         pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
 
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");
@@ -596,7 +596,7 @@ int parseCommandList(ftpDataType * data, int socketId)
         setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
     }
 
-    pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
+    pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
     memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].workerData.commandReceived = 1;
@@ -627,7 +627,7 @@ int parseCommandNlst(ftpDataType * data, int socketId)
         setDynamicStringDataType(&data->clients[socketId].nlistPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
     }
     
-    pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
+    pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
     memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].workerData.commandReceived = 1;
@@ -652,7 +652,7 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     if (isSafePath == 1 &&
         FILE_IsFile(data->clients[socketId].fileToRetr.text) == 1)
     {
-        pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
+        pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
         memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
         strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
         data->clients[socketId].workerData.commandReceived = 1;
@@ -682,7 +682,7 @@ int parseCommandStor(ftpDataType * data, int socketId)
 
     if (isSafePath == 1)
     {
-        pthread_mutex_lock(&data->clients[socketId].workerData.conditionMutex);
+        pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
         memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
         strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
         data->clients[socketId].workerData.commandReceived = 1;

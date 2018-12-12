@@ -119,10 +119,10 @@ struct ipData
 
 struct workerData
 {
-	#ifdef OPENSSL_ENABLED
-	SSL *serverSsl;
-	SSL *clientSsl;
-	#endif
+		#ifdef OPENSSL_ENABLED
+		SSL *serverSsl;
+		SSL *clientSsl;
+		#endif
 
     int threadIsAlive;
     int connectionPort;
