@@ -460,6 +460,7 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 {
     printf("\nQUIT FLAG SET!\n");
 
+<<<<<<< HEAD
    // if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
    // {
         void *pReturn;
@@ -467,6 +468,15 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
         pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
         printf("\nQuit command received the Pasv Thread has been cancelled.");
    // }
+=======
+    if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
+    {
+		void *pReturn;
+		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
+		//pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
+		printf("\nQuit command received the Pasv Thread has been cancelled.");
+    }
+>>>>>>> cd589876b02918418d1253f35b68349522f82294
 
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.wsetAll);
@@ -630,7 +640,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 //Errors while accepting, socket will be closed
                 ftpData->clients[availableSocketIndex].closeTheClient = 1;
                 printf("\n2 Errno = %d", errno);
-                return 1;
+                return 0;
             }
         }
         else

@@ -602,7 +602,8 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       {
         DYNV_VectorGeneric_Init(&data->clients[clientId].workerData.directoryInfo);
         data->clients[clientId].workerData.theStorFile = NULL;
-        data->clients[clientId].workerData.workerThread = 0;
+        data->clients[clientId].workerData.threadHasBeenCreated = 0;
+
       }
 
       if (pthread_mutex_init(&data->clients[clientId].workerData.conditionMutex, NULL) != 0)
@@ -639,6 +640,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 
     if (isInitialization != 1)
     {
+<<<<<<< HEAD
         if (data->clients[clientId].workerData.threadIsAlive == 1)
         {
             void *pReturn;
@@ -651,13 +653,25 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
             pthread_cancel(data->clients[clientId].workerData.workerThread);
             pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
         }
+=======
+	void *pReturn;
+	if (data->clients[clientId].workerData.threadIsAlive == 1)
+		pthread_cancel(data->clients[clientId].workerData.workerThread);
+>>>>>>> cd589876b02918418d1253f35b68349522f82294
 
-        pthread_mutex_destroy(&data->clients[clientId].writeMutex);
+	pthread_mutex_destroy(&data->clients[clientId].writeMutex);
 
+<<<<<<< HEAD
 		#ifdef OPENSSL_ENABLED
         SSL_free(data->clients[clientId].ssl);
         SSL_free(data->clients[clientId].workerData.ssl);
 		#endif
+=======
+	#ifdef OPENSSL_ENABLED
+	SSL_free(data->clients[clientId].ssl);
+	//SSL_free(data->clients[clientId].workerData.ssl);
+	#endif
+>>>>>>> cd589876b02918418d1253f35b68349522f82294
     }
     
     if (pthread_mutex_init(&data->clients[clientId].writeMutex, NULL) != 0)
@@ -665,6 +679,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
         printf("\nclientData->writeMutex init failed\n");
         exit(0);
     }
+
     data->clients[clientId].tlsIsNegotiating = 0;
     data->clients[clientId].tlsIsEnabled = 0;
     data->clients[clientId].dataChannelIsTls = 0;
