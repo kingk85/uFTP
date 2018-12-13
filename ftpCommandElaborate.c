@@ -499,14 +499,22 @@ int parseCommandPort(ftpDataType * data, int socketId)
     returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
 
     void *pReturn;
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
+    //if (data->clients[socketId].workerData.threadIsAlive == 1)
+    //{
     	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
+<<<<<<< HEAD
+    //}
+    returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+=======
     }
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
     	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+<<<<<<< HEAD
     }
+=======
+>>>>>>> cd589876b02918418d1253f35b68349522f82294
+>>>>>>> a36f2a8ba89a857bd0a379b4f2f1931be56579d0
     data->clients[socketId].workerData.passiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;    
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
@@ -533,10 +541,15 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         void *pReturn;
-        if (data->clients[socketId].workerData.threadIsAlive == 1)
-        {
+        //if (data->clients[socketId].workerData.threadIsAlive == 1)
+        //{
             pthread_cancel(data->clients[socketId].workerData.workerThread);
+<<<<<<< HEAD
+        //}
+        pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+=======
         }
+>>>>>>> cd589876b02918418d1253f35b68349522f82294
 
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");
         if (returnCode <= 0) 
