@@ -603,7 +603,6 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         DYNV_VectorGeneric_Init(&data->clients[clientId].workerData.directoryInfo);
         data->clients[clientId].workerData.theStorFile = NULL;
         data->clients[clientId].workerData.threadHasBeenCreated = 0;
-
       }
 
       if (pthread_mutex_init(&data->clients[clientId].workerData.conditionMutex, NULL) != 0)

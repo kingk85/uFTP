@@ -119,6 +119,7 @@ void *connectionWorkerHandle(void * socketId)
   int theSocketId = *(int *)socketId;
   pthread_cleanup_push(workerCleanup,  (void *) &theSocketId);
   ftpData.clients[theSocketId].workerData.threadIsAlive = 1;
+  ftpData.clients[theSocketId].workerData.threadHasBeenCreated = 1;
   int returnCode;
 
   printf("\nWORKER CREATED!");
@@ -505,7 +506,7 @@ void runFtpServer(void)
             {
                 break;
             }
-            
+
             /* no data to check client is not connected, continue to check other clients */
           if (isClientConnected(&ftpData, processingSock) == 0) 
           {

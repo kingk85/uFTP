@@ -630,7 +630,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 //Errors while accepting, socket will be closed
                 ftpData->clients[availableSocketIndex].closeTheClient = 1;
                 printf("\n2 Errno = %d", errno);
-                return 0;
+                return 1;
             }
         }
         else
@@ -644,14 +644,9 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
                 shutdown(socketRefuseFd, SHUT_RDWR);
                 close(socketRefuseFd);
-                return 0;
             }
-            else
-            {
-                ftpData->clients[availableSocketIndex].closeTheClient = 1;
-                printf("\n3 Errno = %d", errno);
-                return 1;
-            }
+
+            return 0;
         }
     }
     else
