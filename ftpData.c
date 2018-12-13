@@ -593,10 +593,10 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
             data->clients[clientId].workerData.theStorFile = NULL;
         }
 
-		#ifdef OPENSSL_ENABLED
-		SSL_free(data->clients[clientId].workerData.serverSsl);
-		SSL_free(data->clients[clientId].workerData.clientSsl);
-		#endif
+			#ifdef OPENSSL_ENABLED
+			SSL_free(data->clients[clientId].workerData.serverSsl);
+			SSL_free(data->clients[clientId].workerData.clientSsl);
+			#endif
       }
       else
       {
@@ -627,10 +627,11 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         data->clients[clientId].workerData.directoryInfo.Destroy(&data->clients[clientId].workerData.directoryInfo, deleteListDataInfoVector);
         free(lastToDestroy);
     }
-	#ifdef OPENSSL_ENABLED
-	data->clients[clientId].workerData.serverSsl = SSL_new(data->serverCtx);
-	data->clients[clientId].workerData.clientSsl = SSL_new(data->clientCtx);
-	#endif
+
+		#ifdef OPENSSL_ENABLED
+		data->clients[clientId].workerData.serverSsl = SSL_new(data->serverCtx);
+		data->clients[clientId].workerData.clientSsl = SSL_new(data->clientCtx);
+		#endif
 }
 
 void resetClientData(ftpDataType *data, int clientId, int isInitialization)
@@ -647,6 +648,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
         else
         {
             void *pReturn = NULL;
+            pthread_cancel(data->clients[clientId].workerData.workerThread);
             pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
         }
 
@@ -654,7 +656,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 
 		#ifdef OPENSSL_ENABLED
         SSL_free(data->clients[clientId].ssl);
-        //SSL_free(data->clients[clientId].workerData.ssl);
+        SSL_free(data->clients[clientId].workerData.ssl);
 		#endif
     }
     
