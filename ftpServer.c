@@ -602,7 +602,7 @@ void runFtpServer(void)
                                   returnCode = socketPrintf(&ftpData, processingSock, "s", "500 Unknown command\r\n");
                                   if (returnCode < 0)
                                   {
-                                  ftpData.clients[processingSock].closeTheClient = 1;
+                                	  ftpData.clients[processingSock].closeTheClient = 1;
                                   }
                                   printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
                               }
