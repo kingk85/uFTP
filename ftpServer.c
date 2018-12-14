@@ -571,7 +571,7 @@ void runFtpServer(void)
             //Debug print errors
             if (ftpData.clients[processingSock].bufferIndex < 0)
             {
-                ftpData.clients[processingSock].closeTheClient = 1;
+                //ftpData.clients[processingSock].closeTheClient = 1;
                 printf("\n1 Errno = %d", errno);
                 perror("1 Error: ");
                 continue;
