@@ -1137,11 +1137,7 @@ int parseCommandRnto(ftpDataType * data, int socketId)
         if (FILE_IsFile(data->clients[socketId].renameFromFile.text) == 1 ||
             FILE_IsDirectory(data->clients[socketId].renameFromFile.text) == 1)
         {
-<<<<<<< HEAD
-            returnCode = rename (theClientData->renameFromFile.text, theClientData->renameToFile.text);
-=======
             returnCode = rename (data->clients[socketId].renameFromFile.text, data->clients[socketId].renameToFile.text);
->>>>>>> TLS
             if (returnCode == 0) 
             {
             	returnCode = socketPrintf(data, socketId, "s",  "250 File successfully renamed or moved\r\n");

@@ -60,6 +60,7 @@ void cleanupOpenssl()
 {
 	thread_cleanup();
     EVP_cleanup();
+
 }
 
 SSL_CTX *createServerContext()
