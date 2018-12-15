@@ -27,11 +27,14 @@
 #define FTPDATA_H
 
 #include <netinet/in.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "library/dynamicVectors.h"
 
 
-#define CLIENT_COMMAND_STRING_SIZE                  2048
-#define CLIENT_BUFFER_STRING_SIZE                   2048
+#define CLIENT_COMMAND_STRING_SIZE                  4096
+#define CLIENT_BUFFER_STRING_SIZE                   4096
+#define MAXIMUM_INODE_NAME							4096
 
 #define LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE       1024
 
@@ -49,7 +52,6 @@ struct parameter
     char* name;
     char* value;
 } typedef parameter_DataType;
-
 
 struct ownerShip
 {
@@ -80,10 +82,11 @@ struct ftpParameters
     int singleInstanceModeOn;
     DYNV_VectorGenericDataType usersVector;
     int maximumIdleInactivity;
-    
     int maximumConnectionsPerIp;
     int maximumUserAndPassowrdLoginTries;
-    
+
+    char certificatePath[MAXIMUM_INODE_NAME];
+    char privateCertificatePath[MAXIMUM_INODE_NAME];
 } typedef ftpParameters_DataType;
     
 struct dynamicStringData
@@ -116,7 +119,13 @@ struct ipData
 
 struct workerData
 {
+		#ifdef OPENSSL_ENABLED
+		SSL *serverSsl;
+		SSL *clientSsl;
+		#endif
+
     int threadIsAlive;
+    int threadHasBeenCreated;
     int connectionPort;
     int passiveModeOn;
     int activeModeOn;
@@ -147,6 +156,16 @@ struct workerData
 
 struct clientData
 {
+	#ifdef OPENSSL_ENABLED
+    SSL *ssl;
+	#endif
+
+    int tlsIsEnabled;
+    int tlsIsNegotiating;
+    unsigned long long int tlsNegotiatingTimeStart;
+    int dataChannelIsTls;
+    pthread_mutex_t writeMutex;
+    
     int clientProgressiveNumber;
     int socketDescriptor;
     int socketIsConnected;
@@ -202,6 +221,11 @@ struct ConnectionParameters
 
 struct ftpData
 {
+	#ifdef OPENSSL_ENABLED
+	SSL_CTX *serverCtx;
+	SSL_CTX *clientCtx;
+	#endif
+
     int connectedClients;
     char welcomeMessage[1024];
     ConnectionData_DataType connectionData;
@@ -237,14 +261,15 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
-int writeListDataInfoToSocket(char * thePath, int theSocket, int *filesNumber, int commandType);
+int writeListDataInfoToSocket(ftpDataType *data, int clientId, int *filesNumber, int commandType);
 int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);
 void deleteListDataInfoVector(void *TheElementToDelete);
-void resetWorkerData(workerDataType *pasvData, int isInitialization);
-void resetClientData(clientDataType *clientData, int isInitialization);
+void resetWorkerData(ftpDataType *data, int clientId, int isInitialization);
+void resetClientData(ftpDataType *data, int clientId, int isInitialization);
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
 int isCharInString(char *theString, int stringLen, char theChar);
+void destroyConfigurationVectorElement(void * data);
 #ifdef __cplusplus
 }
 #endif

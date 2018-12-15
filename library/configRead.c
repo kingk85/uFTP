@@ -30,6 +30,7 @@
 #include "configRead.h"
 #include "../ftpData.h"
 #include "dynamicVectors.h"
+#include "openSsl.h"
 #include "fileManagement.h"
 #include "daemon.h"
 
@@ -39,6 +40,12 @@
 static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector);
 static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector);
 static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
+
+void destroyConfigurationVectorElement(void * data)
+{
+    free( ((parameter_DataType *) data)->value);
+    free( ((parameter_DataType *) data)->name);
+}
 
 /* Public Functions */
 int searchUser(char *name, DYNV_VectorGenericDataType *usersVector)
@@ -66,20 +73,12 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
     if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s \n", LOCAL_CONFIGURATION_FILENAME);
-
         returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters);
-
-        printf("\nDONE\n");
-
     }
     else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s\n", DEFAULT_CONFIGURATION_FILENAME);
-
         returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters);
-
-        printf("\nDONE\n");
-
     }
 
     if (returnCode == 1) 
@@ -92,6 +91,9 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
         exit(1);
     }
 
+    
+    DYNV_VectorGeneric_Destroy(&configParameters, destroyConfigurationVectorElement);
+    
     return;
 }
 
@@ -117,9 +119,17 @@ void applyConfiguration(ftpParameters_DataType *ftpParameters)
 
 void initFtpData(ftpDataType *ftpData)
 {
-    int i;    
+    int i;
      /* Intializes random number generator */
     srand(time(NULL));    
+
+	#ifdef OPENSSL_ENABLED
+	initOpenssl();
+	ftpData->serverCtx = createServerContext();
+	ftpData->clientCtx = createClientContext();
+	configureContext(ftpData->serverCtx, ftpData->ftpParameters.certificatePath, ftpData->ftpParameters.privateCertificatePath);
+	configureClientContext(ftpData->clientCtx, ftpData->ftpParameters.certificatePath, ftpData->ftpParameters.privateCertificatePath);
+	#endif
 
     ftpData->connectedClients = 0;
     ftpData->clients = (clientDataType *) calloc( sizeof(clientDataType), ftpData->ftpParameters.maxClients);
@@ -137,8 +147,8 @@ void initFtpData(ftpDataType *ftpData)
     //Client data reset to zero
     for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
     {
-        resetWorkerData(&ftpData->clients[i].workerData, 1);
-        resetClientData(&ftpData->clients[i], 1);
+        resetWorkerData(ftpData, i, 1);
+        resetClientData(ftpData, i, 1);
         ftpData->clients[i].clientProgressiveNumber = i;
     }
 
@@ -481,6 +491,31 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         printf("\nFTP_SERVER_IP parameter not found in the configuration file, listening on all available networks");
     }    
     
+
+    searchIndex = searchParameter("CERTIFICATE_PATH", parametersVector);
+    if (searchIndex != -1)
+    {
+        strcpy(ftpParameters->certificatePath, ((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        printf("\nCERTIFICATE_PATH: %s", ftpParameters->certificatePath);
+    }
+    else
+    {
+    	strcpy(ftpParameters->certificatePath, "cert.pem");
+        printf("\nCERTIFICATE_PATH parameter not found in the configuration file, using the default value: %s", ftpParameters->certificatePath);
+    }
+
+    searchIndex = searchParameter("PRIVATE_CERTIFICATE_PATH", parametersVector);
+    if (searchIndex != -1)
+    {
+        strcpy(ftpParameters->privateCertificatePath, ((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        printf("\nPRIVATE_CERTIFICATE_PATH: %s", ftpParameters->certificatePath);
+    }
+    else
+    {
+    	strcpy(ftpParameters->privateCertificatePath, "key.pem");
+        printf("\nPRIVATE_CERTIFICATE_PATH parameter not found in the configuration file, using the default value: %s", ftpParameters->privateCertificatePath);
+    }
+
     /* USER SETTINGS */
     userIndex = 0;
     memset(userX, 0, PARAMETER_SIZE_LIMIT);
@@ -492,14 +527,14 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     DYNV_VectorGeneric_Init(&ftpParameters->usersVector);
     while(1)
     {
-        int searchUserIndex, searchPasswordIndex, searchHomeIndex, searchUserOwnerIndex, searchGroupOwnerIndex;
+        int searchUserIndex, searchPasswordIndex, searchHomeIndex, searchUserOwnerIndex, searchGroupOwnerIndex, returnCode;
         usersParameters_DataType userData;
 
-        sprintf(userX, "USER_%d", userIndex);
-        sprintf(passwordX, "PASSWORD_%d", userIndex);
-        sprintf(homeX, "HOME_%d", userIndex);
-        sprintf(groupOwnerX, "GROUP_NAME_OWNER_%d", userIndex);
-        sprintf(userOwnerX, "USER_NAME_OWNER_%d", userIndex);        
+        returnCode = snprintf(userX, PARAMETER_SIZE_LIMIT, "USER_%d", userIndex);
+        returnCode = snprintf(passwordX, PARAMETER_SIZE_LIMIT, "PASSWORD_%d", userIndex);
+        returnCode = snprintf(homeX, PARAMETER_SIZE_LIMIT, "HOME_%d", userIndex);
+        returnCode = snprintf(groupOwnerX, PARAMETER_SIZE_LIMIT, "GROUP_NAME_OWNER_%d", userIndex);
+        returnCode = snprintf(userOwnerX, PARAMETER_SIZE_LIMIT, "USER_NAME_OWNER_%d", userIndex);
         userIndex++;
         
         searchUserIndex = searchParameter(userX, parametersVector);
@@ -568,8 +603,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         printf("\nuserData.gid = %d", userData.ownerShip.gid);
         printf("\nuserData.uid = %d", userData.ownerShip.uid);
         printf("\nuserData.ownerShipSet = %d", userData.ownerShip.ownerShipSet);
-        
-        
+
         ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
     }
 

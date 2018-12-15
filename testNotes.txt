@@ -1,0 +1,22 @@
+#NOTES ONLY FOR DEVELOPERS
+#OPENSSL TEST COMMANDS
+
+#Required packages to compile
+sudo apt-get install libssl-dev
+
+
+#Remove password from a certificate
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
+openssl rsa -in key.pem -out newkey.pem
+handle SIGPIPE nostop noprint pass
+
+
+#Testing ssl
+openssl s_client -starttls ftp -connect 192.168.1.237:21
+sudo openssl s_server -key key.pem -cert cert.pem -accept 123
+openssl s_client -connect 127.0.0.1:49473
+USER username
+PASS password
+PROT P
+PORT 192,168,1,237,0,123
+LIST

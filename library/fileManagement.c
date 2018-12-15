@@ -91,7 +91,8 @@ long int FILE_GetAvailableSpace(const char* path)
 /* Get the file size */
 long long int FILE_GetFileSize(FILE *TheFilePointer)
 {
-#ifdef _LARGEFILE64_SOURCE
+#ifdef LARGE_FILE_SUPPORT_ENABLED
+	//#warning LARGE FILE SUPPORT IS ENABLED!
     long long int Prev = 0, TheFileSize = 0;
     Prev = ftello64(TheFilePointer);
     fseeko64(TheFilePointer, 0, SEEK_END);
@@ -100,7 +101,8 @@ long long int FILE_GetFileSize(FILE *TheFilePointer)
     return TheFileSize;
 #endif
 
-#ifndef _LARGEFILE64_SOURCE
+#ifndef LARGE_FILE_SUPPORT_ENABLED
+	#warning LARGE FILE SUPPORT IS NOT ENABLED!
     long long int Prev = 0, TheFileSize = 0;
     Prev = ftell(TheFilePointer);
     fseek(TheFilePointer, 0, SEEK_END);
@@ -114,7 +116,8 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
 {
 
 
-#ifdef _LARGEFILE64_SOURCE
+#ifdef LARGE_FILE_SUPPORT_ENABLED
+	//#warning LARGE FILE SUPPORT IS ENABLED!
   if (FILE_IsFile(TheFileName) == 1)
   {
       FILE *TheFilePointer;
@@ -133,7 +136,8 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
   }
 #endif
 
-#ifndef _LARGEFILE64_SOURCE
+#ifndef LARGE_FILE_SUPPORT_ENABLED
+#warning LARGE FILE SUPPORT IS NOT ENABLED!
   if (FILE_IsFile(TheFileName) == 1)
   {
       FILE *TheFilePointer;
@@ -160,11 +164,13 @@ int FILE_IsFile(const char *TheFileName)
 {
     FILE *TheFile;
 
-    #ifdef _LARGEFILE64_SOURCE
+    #ifdef LARGE_FILE_SUPPORT_ENABLED
+	//#warning LARGE FILE SUPPORT IS ENABLED!
       TheFile = fopen64(TheFileName, "rb");
     #endif
 
-    #ifndef _LARGEFILE64_SOURCE
+    #ifndef LARGE_FILE_SUPPORT_ENABLED
+#warning LARGE FILE SUPPORT IS NOT ENABLED!
       TheFile = fopen(TheFileName, "rb");
     #endif
 
@@ -190,7 +196,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     
     if (FILE_IsDirectory(DirectoryInodeName))
     {
-        printf("\nReading directory: %s", DirectoryInodeName);
+        //printf("\nReading directory: %s", DirectoryInodeName);
         
         DIR *TheDirectory;
         struct dirent *dir;
@@ -293,11 +299,13 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
     }
 
 
-    #ifdef _LARGEFILE64_SOURCE
+    #ifdef LARGE_FILE_SUPPORT_ENABLED
+		//#warning LARGE FILE SUPPORT IS ENABLED!
         FILE *file = fopen64(filename, "rb");
     #endif
 
-    #ifndef _LARGEFILE64_SOURCE
+    #ifndef LARGE_FILE_SUPPORT_ENABLED
+#warning LARGE FILE SUPPORT IS NOT ENABLED!
         FILE *file = fopen(filename, "rb");
     #endif
 
