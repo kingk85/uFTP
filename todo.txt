@@ -1,0 +1,3 @@
+To remove key files:
+openssl rsa -in key.pem -out newkey.pem
+

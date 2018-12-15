@@ -48,7 +48,8 @@ int selectWait(ftpDataType * ftpData);
 int isClientConnected(ftpDataType * ftpData, int cliendId);
 int getAvailableClientSocketIndex(ftpDataType * ftpData);
 int evaluateClientSocketConnection(ftpDataType * ftpData);
-
+int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...);
+int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...);
 
 
 #ifdef __cplusplus

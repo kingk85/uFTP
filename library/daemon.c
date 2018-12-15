@@ -44,7 +44,8 @@ int isProcessAlreadyRunning(void)
 {
     int fd;
     int returnCode;
-    char buf[16];
+    char buf[30];
+    memset(buf, 0,30);
     fd = open(LOCKFILE, O_RDWR|O_CREAT, LOCKMODE);
     if (fd < 0) 
     {
@@ -66,8 +67,8 @@ int isProcessAlreadyRunning(void)
     
     //printf("\nFILE_LockFile returnCode = %d", returnCode);    
     ftruncate(fd, 0);
-    sprintf(buf, "%ld", (long)getpid());
-    write(fd, buf, strlen(buf)+1);
+    returnCode = snprintf(buf, 100, "%ld", (long)getpid());
+    returnCode = write(fd, buf, strlen(buf)+1);
     return(0);
 }
 

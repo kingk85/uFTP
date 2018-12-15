@@ -34,9 +34,237 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdarg.h>
+
 
 #include "../ftpData.h"
 #include "connection.h"
+
+
+
+int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
+{
+	#define COMMAND_BUFFER								9600
+	#define SOCKET_PRINTF_BUFFER						2048
+	int bytesWritten = 0;
+	char theBuffer[SOCKET_PRINTF_BUFFER];
+	char commandBuffer[COMMAND_BUFFER];
+	int theStringSize = 0, theCommandSize = 0;
+	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+	memset(&commandBuffer, 0, COMMAND_BUFFER);
+	printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
+
+	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
+
+	va_list args;
+	va_start(args, __fmt);
+	while (*__fmt != '\0')
+	{
+		int i = 0;
+		theStringSize = 0;
+		switch(*__fmt)
+		{
+			case 'd':
+			case 'D':
+			{
+				int theInteger = va_arg(args, int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%d", theInteger);
+			}
+			break;
+
+			case 'c':
+			case 'C':
+			{
+				int theCharInteger = va_arg(args, int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
+			}
+			break;
+
+			case 'f':
+			case 'F':
+			{
+				float theDouble = va_arg(args, double);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%f", theDouble);
+			}
+			break;
+
+			case 's':
+			case 'S':
+			{
+				char * theString = va_arg(args, char *);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%s", theString);
+			}
+			break;
+
+			case 'l':
+			case 'L':
+			{
+				long long int theLongLongInt = va_arg(args, long long int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%lld",  theLongLongInt);
+			}
+			break;
+
+			default:
+			{
+				printf("\n Switch is default (%c)", *__fmt);
+			}
+			break;
+		}
+
+		for (i = 0; i <theStringSize; i++)
+		{
+			if (theCommandSize < COMMAND_BUFFER)
+			{
+				commandBuffer[theCommandSize++] = theBuffer[i];
+			}
+		}
+
+		++__fmt;
+	}
+	va_end(args);
+
+
+	if (ftpData->clients[clientId].tlsIsEnabled != 1)
+	{
+		bytesWritten = write(ftpData->clients[clientId].socketDescriptor, commandBuffer, theCommandSize);
+	}
+	else if (ftpData->clients[clientId].tlsIsEnabled == 1)
+	{
+		#ifdef OPENSSL_ENABLED
+		bytesWritten = SSL_write(ftpData->clients[clientId].ssl, commandBuffer, theCommandSize);
+		#endif
+	}
+
+	printf("\n%s", commandBuffer);
+
+	pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
+
+	return bytesWritten;
+}
+
+int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
+{
+	#define SOCKET_PRINTF_BUFFER						2048
+
+	int bytesWritten = 0;
+	char theBuffer[SOCKET_PRINTF_BUFFER];
+	int theStringSize = 0;
+	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+	printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
+	va_list args;
+	va_start(args, __fmt);
+	while (*__fmt != '\0')
+	{
+		theStringSize = 0;
+		switch(*__fmt)
+		{
+			case 'd':
+			case 'D':
+			{
+				int theInteger = va_arg(args, int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%d", theInteger);
+			}
+			break;
+
+			case 'c':
+			case 'C':
+			{
+				int theCharInteger = va_arg(args, int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
+			}
+			break;
+
+			case 'f':
+			case 'F':
+			{
+				float theDouble = va_arg(args, double);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%f", theDouble);
+			}
+			break;
+
+			case 's':
+			case 'S':
+			{
+				char * theString = va_arg(args, char *);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%s", theString);
+			}
+			break;
+
+			case 'l':
+			case 'L':
+			{
+				long long int theLongLongInt = va_arg(args, long long int);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%lld",  theLongLongInt);
+			}
+			break;
+
+			default:
+			{
+				printf("\n Switch is default (%c)", *__fmt);
+			}
+			break;
+		}
+
+		if (theStringSize >= SOCKET_PRINTF_BUFFER) {
+			printf("\n String buffer is full!");
+		}
+		else if (theStringSize < SOCKET_PRINTF_BUFFER &&
+				theStringSize > 0)
+		{
+			int theReturnCode = 0;
+
+			if (ftpData->clients[clientId].dataChannelIsTls != 1)
+			{
+				theReturnCode = write(ftpData->clients[clientId].workerData.socketConnection, theBuffer, theStringSize);
+			}
+			else if (ftpData->clients[clientId].dataChannelIsTls == 1)
+			{
+
+				#ifdef OPENSSL_ENABLED
+				if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
+					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, theBuffer, theStringSize);
+					printf("%s", theBuffer);
+				}
+				else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
+					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, theBuffer, theStringSize);
+					printf("%s", theBuffer);
+				}
+				#endif
+			}
+
+
+
+			if (theReturnCode > 0)
+			{
+				bytesWritten += theReturnCode;
+			}
+			else
+			{
+				bytesWritten = theReturnCode;
+				break;
+			}
+		}
+		else if(theStringSize == 0)
+		{
+			printf("\n Nothing to write.. ");
+		}
+
+		++__fmt;
+	}
+
+	va_end(args);
+	return bytesWritten;
+}
 
 /* Return the higher socket available*/
 int getMaximumSocketFd(int mainSocket, ftpDataType * ftpData)
@@ -132,7 +360,9 @@ int createActiveSocket(int port, char *ipAddress)
 {
   int sockfd;
   struct sockaddr_in serv_addr;
-  
+
+  printf("\n Connection socket is going to start ip: %s:%d \n", ipAddress, port);
+  //sleep(100);
   memset(&serv_addr, 0, sizeof(struct sockaddr_in)); 
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port); 
@@ -211,8 +441,8 @@ void closeSocket(ftpDataType * ftpData, int processingSocket)
     shutdown(ftpData->clients[processingSocket].socketDescriptor, SHUT_RDWR);
     close(ftpData->clients[processingSocket].socketDescriptor);
 
-    resetClientData(&ftpData->clients[processingSocket], 0);
-    resetWorkerData(&ftpData->clients[processingSocket].workerData, 0);
+    resetClientData(ftpData, processingSocket, 0);
+    resetWorkerData(ftpData, processingSocket, 0);
     
     //Update client connecteds
     ftpData->connectedClients--;
@@ -232,10 +462,10 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
-        void *pReturn;
-        pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
-        pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
-        printf("\nQuit command received the Pasv Thread has been cancelled.");
+		void *pReturn;
+		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
+		//pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
+		printf("\nQuit command received the Pasv Thread has been cancelled.");
     }
 
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    
@@ -381,12 +611,16 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 if (ftpData->ftpParameters.maximumConnectionsPerIp > 0 &&
                     numberOfConnectionFromSameIp >= ftpData->ftpParameters.maximumConnectionsPerIp)
                 {
-                    dprintf(ftpData->clients[availableSocketIndex].socketDescriptor, "530 too many connection from your ip address %s \r\n", ftpData->clients[availableSocketIndex].clientIpAddress);
+                	int theReturnCode = socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
                     ftpData->clients[availableSocketIndex].closeTheClient = 1;
                 }
                 else
                 {
-                    write(ftpData->clients[availableSocketIndex].socketDescriptor, ftpData->welcomeMessage, strlen(ftpData->welcomeMessage));
+                	int returnCode = socketPrintf(ftpData, availableSocketIndex, "s", ftpData->welcomeMessage);
+                	if (returnCode <= 0)
+                	{
+                		ftpData->clients[availableSocketIndex].closeTheClient = 1;
+                	}
                 }
                 
                 return 1;
@@ -410,14 +644,9 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
                 shutdown(socketRefuseFd, SHUT_RDWR);
                 close(socketRefuseFd);
-                return 0;
             }
-            else
-            {
-                ftpData->clients[availableSocketIndex].closeTheClient = 1;
-                printf("\n3 Errno = %d", errno);
-                return 1;
-            }
+
+            return 0;
         }
     }
     else

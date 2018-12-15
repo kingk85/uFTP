@@ -21,20 +21,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#ifdef OPENSSL_ENABLED
+#ifndef OPENSSL_H
+#define OPENSSL_H
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
-#ifndef FTPSERVER_H
-#define FTPSERVER_H
+#define TLS_NEGOTIATING_TIMEOUT	30
 
-#define MAX_FTP_CLIENTS                 10
-#define UFTP_SERVER_VERSION             "2.0.0 beta"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+void initOpenssl();
+void cleanupOpenssl();
+int thread_cleanup(void);
+int thread_setup(void);
+void handle_error(const char *file, int lineno, const char *msg);
+SSL_CTX *createServerContext();
+SSL_CTX *createClientContext();
+void configureContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath);
+void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath);
+void ShowCerts(SSL* ssl);
+#ifdef __cplusplus
+}
+#endif
 
-void runFtpServer(void);
-void *connectionWorkerHandle(void * socketId);
-void workerCleanup(void *socketId);
-void signal_callback_handler(int signum);
-void deallocateMemory(void);
-
-#endif /* FTPSERVER_H */
-
+#endif /* OPENSSL_H */
+#endif
