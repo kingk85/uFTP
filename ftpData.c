@@ -636,7 +636,6 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 
 void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
-
     if (isInitialization != 1)
     {
 	void *pReturn;
@@ -650,7 +649,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 	//SSL_free(data->clients[clientId].workerData.ssl);
 	#endif
     }
-    
+
     if (pthread_mutex_init(&data->clients[clientId].writeMutex, NULL) != 0)
     {
         printf("\nclientData->writeMutex init failed\n");

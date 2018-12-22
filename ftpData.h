@@ -30,6 +30,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include "library/dynamicVectors.h"
+#include "library/dynamicMemory.h"
 
 
 #define CLIENT_COMMAND_STRING_SIZE                  4096
@@ -233,6 +234,7 @@ struct ftpData
     ipDataType serverIp;
     ftpParameters_DataType ftpParameters;
     DYNV_VectorGenericDataType loginFailsVector;
+    DYNMEM_MemoryTable_DataType *generalDynamicMemoryTable;
 } typedef ftpDataType;
 
 struct ftpListData

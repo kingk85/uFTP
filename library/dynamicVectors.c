@@ -28,12 +28,14 @@
 #include <string.h>
 
 #include "dynamicVectors.h"
+#include "dynamicMemory.h"
 
 void DYNV_VectorGeneric_Init(DYNV_VectorGenericDataType *TheVectorGeneric)
 {
     TheVectorGeneric->Size = 0;
     TheVectorGeneric->Data = NULL;
     TheVectorGeneric->ElementSize = NULL;
+    TheVectorGeneric->memoryTable = NULL;
 
     //Functions Pointers
     TheVectorGeneric->DeleteAt = (void *)DYNV_VectorGeneric_DeleteAt;
@@ -52,28 +54,25 @@ void DYNV_VectorGeneric_InitWithSearchFunction(DYNV_VectorGenericDataType *TheVe
 
 void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, void * TheElementData, int TheElementSize)
 {
-
-    //printf("\nPush back Address of TheVector = %lX", TheVectorGeneric);
-
     if (TheVectorGeneric->Data != NULL)
     {
-        TheVectorGeneric->Data = (void **) realloc(TheVectorGeneric->Data, sizeof(void *) * (TheVectorGeneric->Size+1));
+        TheVectorGeneric->Data = (void **) DYNMEM_realloc(TheVectorGeneric->Data, sizeof(void *) * (TheVectorGeneric->Size+1), &TheVectorGeneric->memoryTable);
     }
     else
     {
-        TheVectorGeneric->Data = (void **) malloc (sizeof(void *) * (TheVectorGeneric->Size+1));
+        TheVectorGeneric->Data = (void **) DYNMEM_malloc (sizeof(void *) * (TheVectorGeneric->Size+1), &TheVectorGeneric->memoryTable);
     }
 
     if (TheVectorGeneric->ElementSize != NULL)
     {
-        TheVectorGeneric->ElementSize = (int *) realloc (TheVectorGeneric->ElementSize, sizeof(int) * (TheVectorGeneric->Size+1));
+        TheVectorGeneric->ElementSize = (int *) DYNMEM_realloc (TheVectorGeneric->ElementSize, sizeof(int) * (TheVectorGeneric->Size+1), &TheVectorGeneric->memoryTable);
     }
     else
     {
-        TheVectorGeneric->ElementSize = (int *) malloc (sizeof(int));
+        TheVectorGeneric->ElementSize = (int *) DYNMEM_malloc (sizeof(int), &TheVectorGeneric->memoryTable);
     }
 
-    TheVectorGeneric->Data[TheVectorGeneric->Size] = (void *) calloc(1, TheElementSize);
+    TheVectorGeneric->Data[TheVectorGeneric->Size] = (void *) DYNMEM_malloc(TheElementSize, &TheVectorGeneric->memoryTable);
     memcpy(TheVectorGeneric->Data[TheVectorGeneric->Size], TheElementData, TheElementSize);
     TheVectorGeneric->ElementSize[TheVectorGeneric->Size] = TheElementSize;
     TheVectorGeneric->Size++;
@@ -82,16 +81,16 @@ void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, v
 void DYNV_VectorGeneric_PopBack(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(void *TheElementToDelete))
 {
     DeleteElementFunction((void *) TheVector->Data[TheVector->Size-1]);
-    free(TheVector->Data[TheVector->Size-1]);
+    DYNMEM_free(TheVector->Data[TheVector->Size-1], &TheVector->memoryTable);
     if (TheVector->Size > 1)
     {
-            TheVector->Data = (void **) realloc(TheVector->Data, sizeof(void *) * (TheVector->Size-1));
-            TheVector->ElementSize = (int *) realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size-1));
+            TheVector->Data = (void **) DYNMEM_realloc(TheVector->Data, sizeof(void *) * (TheVector->Size-1), &TheVector->memoryTable);
+            TheVector->ElementSize = (int *) DYNMEM_realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size-1), &TheVector->memoryTable);
     }
     else
     {
-            free(TheVector->Data);
-            free(TheVector->ElementSize);
+            DYNMEM_free(TheVector->Data, &TheVector->memoryTable);
+            DYNMEM_free(TheVector->ElementSize, &TheVector->memoryTable);
             TheVector->Data = NULL;
             TheVector->ElementSize = NULL;
     }
@@ -101,17 +100,17 @@ void DYNV_VectorGeneric_PopBack(DYNV_VectorGenericDataType *TheVector, void (*De
 
 void DYNV_VectorGeneric_SoftPopBack(DYNV_VectorGenericDataType *TheVector)
 {
-    free(TheVector->Data[TheVector->Size-1]);
+    DYNMEM_free(TheVector->Data[TheVector->Size-1], &TheVector->memoryTable);
 
     if (TheVector->Size > 1)
     {
-        TheVector->Data = (void **) realloc(TheVector->Data, sizeof(void *) * (TheVector->Size-1));
-        TheVector->ElementSize = (int *) realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size-1));
+        TheVector->Data = (void **) DYNMEM_realloc(TheVector->Data, sizeof(void *) * (TheVector->Size-1), &TheVector->memoryTable);
+        TheVector->ElementSize = (int *) DYNMEM_realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size-1), &TheVector->memoryTable);
     }
     else
     {
-        free(TheVector->Data);
-        free(TheVector->ElementSize);
+        DYNMEM_free(TheVector->Data, &TheVector->memoryTable);
+        DYNMEM_free(TheVector->ElementSize, &TheVector->memoryTable);
         TheVector->Data = NULL;
         TheVector->ElementSize = NULL;
     }
@@ -124,12 +123,14 @@ void DYNV_VectorGeneric_Destroy(DYNV_VectorGenericDataType *TheVector, void (*De
     int i;
     for (i = 0; i < TheVector->Size; i++)
     {
+    	printf("\n Deleting element : %d", i);
+    	fflush(0);
         DeleteElementFunction((void *) TheVector->Data[i]);
-        free(TheVector->Data[i]);
+        DYNMEM_free(TheVector->Data[i], &TheVector->memoryTable);
     }
 
-    free(TheVector->Data);
-    free(TheVector->ElementSize);
+    DYNMEM_free(TheVector->Data, &TheVector->memoryTable);
+    DYNMEM_free(TheVector->ElementSize, &TheVector->memoryTable);
     TheVector->Data = NULL;
     TheVector->ElementSize = NULL;
     TheVector->Size = 0;
@@ -140,10 +141,10 @@ void DYNV_VectorGeneric_SoftDestroy(DYNV_VectorGenericDataType *TheVector)
     int i;
     for (i = 0; i < TheVector->Size; i++)
     {
-        free(TheVector->Data[i]);
+        DYNMEM_free(TheVector->Data[i], &TheVector->memoryTable);
     }
-    free(TheVector->Data);
-    free(TheVector->ElementSize);
+    DYNMEM_free(TheVector->Data, &TheVector->memoryTable);
+    DYNMEM_free(TheVector->ElementSize, &TheVector->memoryTable);
 
     TheVector->Data = NULL;
     TheVector->ElementSize = NULL;
@@ -182,6 +183,7 @@ void DYNV_VectorString_Init(DYNV_VectorString_DataType *TheVector)
     TheVector->Size = 0;
     TheVector->Data = NULL;
     TheVector->ElementSize = NULL;
+    TheVector->memoryTable = NULL;
 
     //Functions Pointers
     TheVector->DeleteAt = (void *)DYNV_VectorString_DeleteAt;
@@ -196,23 +198,23 @@ void DYNV_VectorString_PushBack(DYNV_VectorString_DataType *TheVector, char * Th
 
     if (TheVector->Data != NULL)
     {
-        TheVector->Data = (char **)realloc(TheVector->Data, sizeof(char *) * (TheVector->Size+1));
+        TheVector->Data = (char **)DYNMEM_realloc(TheVector->Data, sizeof(char *) * (TheVector->Size+1), &TheVector->memoryTable);
     }
     else
     {
-        TheVector->Data = (char **) malloc (sizeof(char *) * (TheVector->Size+1));
+        TheVector->Data = (char **) DYNMEM_malloc (sizeof(char *) * (TheVector->Size+1), &TheVector->memoryTable);
     }
 
     if (TheVector->ElementSize != NULL)
     {
-        TheVector->ElementSize = (int *) realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size+1));
+        TheVector->ElementSize = (int *) DYNMEM_realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size+1), &TheVector->memoryTable);
     }
     else
     {
-        TheVector->ElementSize = (int *) malloc (sizeof(int) * 1);
+        TheVector->ElementSize = (int *) DYNMEM_malloc (sizeof(int) * 1, &TheVector->memoryTable);
     }
 
-    TheVector->Data[TheVector->Size] = (char *) calloc(sizeof(char), StringLenght + 1);
+    TheVector->Data[TheVector->Size] = (char *) DYNMEM_malloc((StringLenght + 1), &TheVector->memoryTable);
 
     for (i = 0; i < StringLenght; i++ )
     {
@@ -226,17 +228,17 @@ void DYNV_VectorString_PushBack(DYNV_VectorString_DataType *TheVector, char * Th
 
 void DYNV_VectorString_PopBack(DYNV_VectorString_DataType *TheVector)
 {
-    free(TheVector->Data[TheVector->Size-1]);
+	DYNMEM_free(TheVector->Data[TheVector->Size-1], &TheVector->memoryTable);
 
     if (TheVector->Size > 1)
     {
-        TheVector->Data = (char **)realloc(TheVector->Data, sizeof(char *) * (TheVector->Size-1));
-        TheVector->ElementSize = (int *) realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size-1));
+        TheVector->Data = (char **)DYNMEM_realloc(TheVector->Data, sizeof(char *) * (TheVector->Size-1), &TheVector->memoryTable);
+        TheVector->ElementSize = (int *) DYNMEM_realloc (TheVector->ElementSize, sizeof(int) * (TheVector->Size-1), &TheVector->memoryTable);
     }
     else
     {
-        free(TheVector->Data);
-        free(TheVector->ElementSize);
+    	DYNMEM_free(TheVector->Data, &TheVector->memoryTable);
+        DYNMEM_free(TheVector->ElementSize, &TheVector->memoryTable);
         TheVector->Data = NULL;
         TheVector->ElementSize = NULL;
     }
@@ -249,14 +251,14 @@ void DYNV_VectorString_Destroy(DYNV_VectorString_DataType *TheVector)
     int i;
     for (i = 0; i < TheVector->Size; i++)
     {
-        free(TheVector->Data[i]);
+    	DYNMEM_free(TheVector->Data[i], &TheVector->memoryTable);
     }
 
     if (TheVector->Data != NULL)
-        free(TheVector->Data);
+    	DYNMEM_free(TheVector->Data, &TheVector->memoryTable);
 
     if (TheVector->ElementSize != NULL)
-        free(TheVector->ElementSize);
+    	DYNMEM_free(TheVector->ElementSize, &TheVector->memoryTable);
 
     TheVector->Data = NULL;
     TheVector->ElementSize = NULL;

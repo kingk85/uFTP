@@ -13,7 +13,6 @@
 
 void report_error(const char *msg, const char *file, int line_no, int use_perror)
 {
-
 	fprintf(stderr,"[%s:%d] ",file,line_no);
 
 	if(use_perror != 0)
@@ -28,6 +27,6 @@ void report_error(const char *msg, const char *file, int line_no, int use_perror
 
 void report_error_q(const char *msg, const char *file, int line_no, int use_perror)
 {
-	report_error(msg,file,line_no,use_perror);
+	report_error(msg, file, line_no, use_perror);
 	exit(EXIT_FAILURE);
 }

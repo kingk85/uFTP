@@ -5,8 +5,8 @@ OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
 
 #FOR DEBUG PURPOSE
-#CFLAGSTEMP=-c -Wall -I. -g -O0
-CFLAGSTEMP=-c -Wall -I.
+CFLAGSTEMP=-c -Wall -I. -g -O0
+#CFLAGSTEMP=-c -Wall -I.
 OPTIMIZATION=-O3
 HEADERS=-I
 LIBPATH=./build/modules/
@@ -19,8 +19,8 @@ ENABLE_LARGE_FILE_SUPPORT=-D LARGE_FILE_SUPPORT_ENABLED -D _LARGEFILE64_SOURCE
 
 ENABLE_OPENSSL_SUPPORT=
 #TO ENABLE OPENSSL SUPPORT UNCOMMENT NEXT 2 LINES
-ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
-LIBS=-lpthread -lssl -lcrypto
+#ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
+#LIBS=-lpthread -lssl -lcrypto
 
 CFLAGS=$(CFLAGSTEMP) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT)
 
@@ -36,8 +36,8 @@ start:
 end:
 	@echo Build process end
 
-uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o
-	@$(CC)  $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o -o $(OUTPATH)uFTP $(LIBS) 
+uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o dynamicMemory.o errorHandling.o
+	@$(CC)  $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o $(LIBPATH)dynamicMemory.o $(LIBPATH)errorHandling.o -o $(OUTPATH)uFTP $(LIBS) 
 
 daemon.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)daemon.c -o $(LIBPATH)daemon.o
@@ -50,6 +50,12 @@ openSsl.o:
 
 configRead.o: dynamicVectors.o fileManagement.o
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)configRead.c -o $(LIBPATH)configRead.o 
+
+dynamicMemory.o:
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)dynamicMemory.c -o $(LIBPATH)dynamicMemory.o
+
+errorHandling.o:
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)errorHandling.c -o $(LIBPATH)errorHandling.o
 
 fileManagement.o:
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)fileManagement.c -o $(LIBPATH)fileManagement.o
