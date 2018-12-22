@@ -25,12 +25,15 @@
 #ifndef DYNAMIC_VECTORS_H
 #define	DYNAMIC_VECTORS_H
 
+#include "dynamicMemory.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
 struct DYNV_VectorString
 {
+	DYNMEM_MemoryTable_DataType *memoryTable;
     char **Data;
     int Size;
     int *ElementSize;
@@ -42,6 +45,7 @@ struct DYNV_VectorString
 
 struct DYNV_VectorGenericDataStruct
 {
+	DYNMEM_MemoryTable_DataType *memoryTable;
     void **Data;
     int Size;
     int *ElementSize;

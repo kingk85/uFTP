@@ -33,6 +33,7 @@
 #include "openSsl.h"
 #include "fileManagement.h"
 #include "daemon.h"
+#include "dynamicMemory.h"
 
 #define PARAMETER_SIZE_LIMIT        1024
 
@@ -43,8 +44,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
 
 void destroyConfigurationVectorElement(void * data)
 {
-    free( ((parameter_DataType *) data)->value);
-    free( ((parameter_DataType *) data)->name);
+    free(((parameter_DataType *)data)->value);
+    free(((parameter_DataType *)data)->name);
 }
 
 /* Public Functions */
@@ -91,9 +92,8 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
         exit(1);
     }
 
-    
     DYNV_VectorGeneric_Destroy(&configParameters, destroyConfigurationVectorElement);
-    
+
     return;
 }
 
@@ -123,6 +123,8 @@ void initFtpData(ftpDataType *ftpData)
      /* Intializes random number generator */
     srand(time(NULL));    
 
+    ftpData->generalDynamicMemoryTable = NULL;
+
 	#ifdef OPENSSL_ENABLED
 	initOpenssl();
 	ftpData->serverCtx = createServerContext();
@@ -132,7 +134,16 @@ void initFtpData(ftpDataType *ftpData)
 	#endif
 
     ftpData->connectedClients = 0;
-    ftpData->clients = (clientDataType *) calloc( sizeof(clientDataType), ftpData->ftpParameters.maxClients);
+    ftpData->clients = (clientDataType *) DYNMEM_malloc((sizeof(clientDataType) * ftpData->ftpParameters.maxClients), &ftpData->generalDynamicMemoryTable);
+
+	printf("\nDYNMEM_malloc called");
+	printf("\nElement location: %ld", (long int) ftpData->generalDynamicMemoryTable);
+	fflush(0);
+	printf("\nElement size: %ld", ftpData->generalDynamicMemoryTable->size);
+	printf("\nElement address: %ld", (long int) ftpData->generalDynamicMemoryTable->address);
+	printf("\nElement nextElement: %ld",(long int) ftpData->generalDynamicMemoryTable->nextElement);
+	printf("\nElement previousElement: %ld",(long int) ftpData->generalDynamicMemoryTable->previousElement);
+
 
     ftpData->serverIp.ip[0] = 127;
     ftpData->serverIp.ip[1] = 0;
@@ -318,7 +329,6 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
                 valueIndex = 0;
                 state = STATE_START;
                 printf("\nParameter read: %s = %s", parameter.name, parameter.value);
-
                 parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
             }
             break;
@@ -344,7 +354,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
         parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
     }
 
-    if (theFileSize > 0) {
+    if (theFileSize > 0)
+    {
         free(theFileContent);
     }
 
@@ -363,7 +374,6 @@ static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVec
             return i;
         }
     }
-    
     return returnCode;
 }
 

@@ -42,6 +42,9 @@
 #include "library/signals.h"
 #include "library/openSsl.h"
 #include "library/connection.h"
+#include "library/dynamicMemory.h"
+#include "library/errorHandling.h"
+
 #include "ftpServer.h"
 #include "ftpData.h"
 #include "ftpCommandsElaborate.h"
@@ -455,8 +458,7 @@ void runFtpServer(void)
     printf("\nHello uFTP server v%s starting..\n", UFTP_SERVER_VERSION);
 
     /* Needed for Select*/
-    static int processingSock = 0,
-    		   returnCode = 0;
+    static int processingSock = 0, returnCode = 0;
 
     /* Handle signals */
     signalHandlerInstall();
@@ -479,7 +481,6 @@ void runFtpServer(void)
 
     /* the maximum socket fd is now the main socket descriptor */
     ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
-    
 
   //Endless loop ftp process
     while (1)
@@ -866,6 +867,15 @@ static int processCommand(int processingElement)
 void deallocateMemory(void)
 {
     printf("\n Deallocating the memory.. ");
+
+	printf("\nDYNMEM_freeAll called");
+	printf("\nElement size: %ld", ftpData.generalDynamicMemoryTable->size);
+	printf("\nElement address: %ld", (long int) ftpData.generalDynamicMemoryTable->address);
+	printf("\nElement nextElement: %ld",(long int) ftpData.generalDynamicMemoryTable->nextElement);
+	printf("\nElement previousElement: %ld",(long int) ftpData.generalDynamicMemoryTable->previousElement);
+
+    DYNMEM_freeAll(&ftpData.generalDynamicMemoryTable);
+    //printf("\n ftpData.generalDynamicMemoryTable = %ld", ftpData.generalDynamicMemoryTable);
 
 	#ifdef OPENSSL_ENABLED
     SSL_CTX_free(ftpData.serverCtx);
