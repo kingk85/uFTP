@@ -40,6 +40,7 @@
 
 #include "fileManagement.h"
 #include "dynamicVectors.h"
+#include "dynamicMemory.h"
 
 static int FILE_CompareString(const void * a, const void * b);
 
@@ -605,10 +606,10 @@ time_t FILE_GetLastModifiedData(char *path)
     return statbuf.st_mtime;
 }
 
-void FILE_AppendToString(char ** sourceString, char *theString)
+void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     int theNewSize = strlen(*sourceString) + strlen(theString);
-    *sourceString = realloc(*sourceString, theNewSize + 10);
+    *sourceString = DYNMEM_realloc(*sourceString, theNewSize + 10, &*memoryTable);
     strcat(*sourceString, theString);
     (*sourceString)[theNewSize] = '\0';
 }

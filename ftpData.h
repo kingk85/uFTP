@@ -259,14 +259,18 @@ struct ftpListData
     char lastModifiedDataString[LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE];
 } typedef ftpListDataType;
 
-void cleanLoginData(loginDataType *loginData, int init);
-void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init);
-void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
-int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *theHomePath);
-void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen);
+void cleanLoginData(loginDataType *loginData, int init, DYNMEM_MemoryTable_DataType **memoryTable);
+void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init, DYNMEM_MemoryTable_DataType **memoryTable);
+
+void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable);
+int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *theHomePath, DYNMEM_MemoryTable_DataType **memoryTable);
+void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable);
+
+
 void setRandomicPort(ftpDataType *data, int socketPosition);
-void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo);
-int writeListDataInfoToSocket(ftpDataType *data, int clientId, int *filesNumber, int commandType);
+void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, DYNMEM_MemoryTable_DataType **memoryTable);
+int writeListDataInfoToSocket(ftpDataType *data, int clientId, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable);
+
 int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);
 void deleteListDataInfoVector(void *TheElementToDelete);
@@ -275,6 +279,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization);
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
 int isCharInString(char *theString, int stringLen, char theChar);
 void destroyConfigurationVectorElement(DYNV_VectorGenericDataType *theVector);
+
 #ifdef __cplusplus
 }
 #endif

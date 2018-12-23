@@ -37,8 +37,9 @@
 #include "library/configRead.h"
 #include "library/fileManagement.h"
 #include "library/connection.h"
+#include "library/dynamicMemory.h"
 
-void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init)
+void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     if (init == 1)
     {
@@ -50,7 +51,7 @@ void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init)
         if (dynamicString->textLen != 0)
         {
             if (dynamicString->text != 0) {
-                free(dynamicString->text);
+            	DYNMEM_free(dynamicString->text, &*memoryTable);
             }
         }
 
@@ -58,38 +59,43 @@ void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init)
     }
 }
 
-void cleanLoginData(loginDataType *loginData, int init)
+void cleanLoginData(loginDataType *loginData, int init, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     loginData->userLoggedIn = 0;
-    cleanDynamicStringDataType(&loginData->homePath, init);
-    cleanDynamicStringDataType(&loginData->ftpPath, init);
-    cleanDynamicStringDataType(&loginData->name, init);
-    cleanDynamicStringDataType(&loginData->password, init);
-    cleanDynamicStringDataType(&loginData->absolutePath, init);
+    cleanDynamicStringDataType(&loginData->homePath, init, &*memoryTable);
+    cleanDynamicStringDataType(&loginData->ftpPath, init, &*memoryTable);
+    cleanDynamicStringDataType(&loginData->name, init, &*memoryTable);
+    cleanDynamicStringDataType(&loginData->password, init, &*memoryTable);
+    cleanDynamicStringDataType(&loginData->absolutePath, init, &*memoryTable);
 }
 
-void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen)
+void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     if (dynamicString->textLen == 0)
     {
-        dynamicString->text = (char *) malloc ((sizeof(char) * stringLen) + 1);
+    	//printf("\nMemory data address before memset call : %lld", memoryTable);
+        dynamicString->text = (char *) DYNMEM_malloc (((sizeof(char) * stringLen) + 1), &*memoryTable);
+        //printf("\nMemory data address after memset call : %lld", memoryTable);
         memset(dynamicString->text, 0, stringLen + 1);
         memcpy(dynamicString->text, theString, stringLen);
         dynamicString->textLen = stringLen;
     }
     else
     {
-        if(stringLen != dynamicString->textLen) {
-            dynamicString->text = (char *) realloc (dynamicString->text, (sizeof(char) * stringLen) + 1);
+        if(stringLen != dynamicString->textLen)
+        {
+            dynamicString->text = (char *) DYNMEM_realloc (dynamicString->text, ((sizeof(char) * stringLen) + 1), &*memoryTable);
         }
 
         memset(dynamicString->text, 0, stringLen + 1);
         memcpy(dynamicString->text, theString, stringLen);
         dynamicString->textLen = stringLen; 
     }
+
+    //printf("\ndynamicString->text = %lld", dynamicString->text);
 }
 
-int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData)
+int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData, DYNMEM_MemoryTable_DataType **memoryTable)
 {
 	#define STRING_SIZE		4096
     int theLen, i;
@@ -158,30 +164,36 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
         while (theDirectoryNamePointer[0] == '/')
             theDirectoryNamePointer++;
 
-        setDynamicStringDataType(safePath, loginData->homePath.text, loginData->homePath.textLen);
-        appendToDynamicStringDataType(safePath, theDirectoryNamePointer, strlen(theDirectoryNamePointer));
+        //printf("\nMemory data address 2nd call : %lld", memoryTable);
+        setDynamicStringDataType(safePath, loginData->homePath.text, loginData->homePath.textLen, &*memoryTable);
+        //printf("\nMemory data address 3rd call : %lld", memoryTable);
+        appendToDynamicStringDataType(safePath, theDirectoryNamePointer, strlen(theDirectoryNamePointer), &*memoryTable);
     }
     else
     {
-        setDynamicStringDataType(safePath, loginData->absolutePath.text, loginData->absolutePath.textLen);
+        setDynamicStringDataType(safePath, loginData->absolutePath.text, loginData->absolutePath.textLen, &*memoryTable);
 
         if (loginData->absolutePath.text[loginData->absolutePath.textLen-1] != '/')
         {
-            appendToDynamicStringDataType(safePath, "/", 1);
+            appendToDynamicStringDataType(safePath, "/", 1, &*memoryTable);
         }
         
-        appendToDynamicStringDataType(safePath, theDirectoryName, strlen(theDirectoryName));
+        appendToDynamicStringDataType(safePath, theDirectoryName, strlen(theDirectoryName), &*memoryTable);
     }
     
     return 1;
 }
 
-void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen)
+void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable)
 {
+	//printf("\nRealloc dynamicString->text = %lld", dynamicString->text);
     int theNewSize = dynamicString->textLen + stringLen;
-    dynamicString->text = realloc(dynamicString->text, theNewSize + 1);
+
+    dynamicString->text = DYNMEM_realloc(dynamicString->text, theNewSize + 1, &*memoryTable);
+
     memset(dynamicString->text+dynamicString->textLen, 0, stringLen+1);
     memcpy(dynamicString->text+dynamicString->textLen, theString, stringLen);
+
     dynamicString->text[theNewSize] = '\0';
     dynamicString->textLen = theNewSize;
 }
@@ -220,7 +232,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
    //printf("data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
 }
 
-int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType)
+int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     int i, x, returnCode;
     int fileAndFoldersCount = 0;
@@ -286,7 +298,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
 
         if (strlen(data.fileNameNoPath) > 0)
         {
-            data.finalStringPath = (char *) malloc (strlen(data.fileNameNoPath)+1);
+            data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, &*memoryTable);
             strcpy(data.finalStringPath, data.fileNameNoPath);
         }
         
@@ -296,12 +308,12 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             {
                 int len = 0;
                 data.isLink = 1;
-                data.linkPath = (char *) malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char));
+                data.linkPath = (char *) DYNMEM_malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char), &*memoryTable);
                 if ((len = readlink (fileList[i], data.linkPath, CLIENT_COMMAND_STRING_SIZE)) > 0)
                 {
                     data.linkPath[len] = 0;
-                    FILE_AppendToString(&data.finalStringPath, " -> ");
-                    FILE_AppendToString(&data.finalStringPath, data.linkPath);
+                    FILE_AppendToString(&data.finalStringPath, " -> ", &*memoryTable);
+                    FILE_AppendToString(&data.finalStringPath, data.linkPath, &*memoryTable);
                 }
             }
 
@@ -405,10 +417,7 @@ int searchInLoginFailsVector(void * loginFailsVector, void *element)
             return i;
         }
     }
-    void cleanup_openssl()
-    {
-        EVP_cleanup();
-    }
+
     return -1;
 }
 
@@ -417,7 +426,7 @@ void deleteLoginFailsData(void *element)
     ; //NOP
 }
 
-void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
+void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     int i;
     int fileAndFoldersCount = 0;
@@ -479,7 +488,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
 
         if (strlen(data.fileNameNoPath) > 0)
         {
-            data.finalStringPath = (char *) malloc (strlen(data.fileNameNoPath)+1);
+            data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, &*memoryTable);
             strcpy(data.finalStringPath, data.fileNameNoPath);
         }
         
@@ -489,12 +498,12 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo)
             {
                 int len = 0;
                 data.isLink = 1;
-                data.linkPath = (char *) malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char));
+                data.linkPath = (char *) DYNMEM_malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char), &*memoryTable);
                 if ((len = readlink (data.fileList[i], data.linkPath, CLIENT_COMMAND_STRING_SIZE)) > 0)
                 {
                     data.linkPath[len] = 0;
-                    FILE_AppendToString(&data.finalStringPath, " -> ");
-                    FILE_AppendToString(&data.finalStringPath, data.linkPath);
+                    FILE_AppendToString(&data.finalStringPath, " -> ", &*memoryTable);
+                    FILE_AppendToString(&data.finalStringPath, data.linkPath, &*memoryTable);
                 }
             }
 
@@ -578,8 +587,8 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       memset(data->clients[clientId].workerData.activeIpAddress, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(data->clients[clientId].workerData.theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
 
-      cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandArgs, isInitialization);
-      cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandOps, isInitialization);
+      cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandArgs, isInitialization, &data->clients[clientId].workerData.memoryTable);
+      cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandOps, isInitialization, &data->clients[clientId].workerData.memoryTable);
 
       /* wait main for action */
       if (isInitialization != 1)
@@ -638,7 +647,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
     if (isInitialization != 1)
     {
-	void *pReturn;
+
 	if (data->clients[clientId].workerData.threadIsAlive == 1)
 		pthread_cancel(data->clients[clientId].workerData.workerThread);
 
@@ -679,18 +688,17 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     memset(data->clients[clientId].clientIpAddress, 0, INET_ADDRSTRLEN);
     memset(data->clients[clientId].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
     memset(data->clients[clientId].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    cleanLoginData(&data->clients[clientId].login, isInitialization);
+    cleanLoginData(&data->clients[clientId].login, isInitialization, &data->clients[clientId].memoryTable);
     
     //Rename from and to data init
-    cleanDynamicStringDataType(&data->clients[clientId].renameFromFile, isInitialization);
-    cleanDynamicStringDataType(&data->clients[clientId].renameToFile, isInitialization);
-    cleanDynamicStringDataType(&data->clients[clientId].fileToStor, isInitialization);
-    cleanDynamicStringDataType(&data->clients[clientId].fileToRetr, isInitialization);
-    cleanDynamicStringDataType(&data->clients[clientId].listPath, isInitialization);
-    cleanDynamicStringDataType(&data->clients[clientId].nlistPath, isInitialization);
-
-    cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandArgs, isInitialization);
-    cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandOps, isInitialization);
+    cleanDynamicStringDataType(&data->clients[clientId].renameFromFile, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].renameToFile, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].fileToStor, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].fileToRetr, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].listPath, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].nlistPath, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandArgs, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandOps, isInitialization, &data->clients[clientId].memoryTable);
 
     data->clients[clientId].connectionTimeStamp = 0;
     data->clients[clientId].tlsNegotiatingTimeStart = 0;

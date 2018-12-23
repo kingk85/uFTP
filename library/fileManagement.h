@@ -64,7 +64,7 @@
     char * FILE_GetOwner(char *fileName);
     char * FILE_GetGroupOwner(char *fileName);
     time_t FILE_GetLastModifiedData(char *path);
-    void FILE_AppendToString(char ** sourceString, char *theString);
+    void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTable_DataType ** memoryTable);
     void FILE_DirectoryToParent(char ** sourceString);
     int FILE_LockFile(int fd);
     int FILE_doChownFromUidGidString(const char *file_path, const char *user_name, const char *group_name);

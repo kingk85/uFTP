@@ -381,7 +381,7 @@ void *connectionWorkerHandle(void * socketId)
           }
 
           //returnCode = writeListDataInfoToSocket(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].workerData.socketConnection, &theFiles, theCommandType);
-          returnCode = writeListDataInfoToSocket(&ftpData, theSocketId, &theFiles, theCommandType);
+          returnCode = writeListDataInfoToSocket(&ftpData, theSocketId, &theFiles, theCommandType, &ftpData.clients[theSocketId].workerData.memoryTable);
           if (returnCode <= 0)
           {
               ftpData.clients[theSocketId].closeTheClient = 1;
@@ -485,6 +485,9 @@ void runFtpServer(void)
   //Endless loop ftp process
     while (1)
     {
+
+    	printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());
+
         /* waits for socket activity, if no activity then checks for client socket timeouts */
         if (selectWait(&ftpData) == 0)
         {
@@ -654,8 +657,8 @@ static int processCommand(int processingElement)
     //printTimeStamp();
     //printf ("Command received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
    
-    cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandArgs, 0);
-    cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandOps, 0);
+    cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandArgs, 0, &ftpData.clients[processingElement].memoryTable);
+    cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandOps, 0, &ftpData.clients[processingElement].memoryTable);
 
     if (ftpData.clients[processingElement].login.userLoggedIn == 0 &&
         (compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "USER", strlen("USER")) != 1 &&
@@ -866,17 +869,24 @@ static int processCommand(int processingElement)
 
 void deallocateMemory(void)
 {
-    printf("\n Deallocating the memory.. ");
+	int i = 0;
+//    printf("\n Deallocating the memory.. ");
+//	printf("\nDYNMEM_freeAll called");
+//	printf("\nElement size: %ld", ftpData.generalDynamicMemoryTable->size);
+//	printf("\nElement address: %ld", (long int) ftpData.generalDynamicMemoryTable->address);
+//	printf("\nElement nextElement: %ld",(long int) ftpData.generalDynamicMemoryTable->nextElement);
+//	printf("\nElement previousElement: %ld",(long int) ftpData.generalDynamicMemoryTable->previousElement);
 
-	printf("\nDYNMEM_freeAll called");
-	printf("\nElement size: %ld", ftpData.generalDynamicMemoryTable->size);
-	printf("\nElement address: %ld", (long int) ftpData.generalDynamicMemoryTable->address);
-	printf("\nElement nextElement: %ld",(long int) ftpData.generalDynamicMemoryTable->nextElement);
-	printf("\nElement previousElement: %ld",(long int) ftpData.generalDynamicMemoryTable->previousElement);
 
+	for (i = 0; i < ftpData.ftpParameters.maxClients; i++)
+	{
+		DYNMEM_freeAll(&ftpData.clients[i].memoryTable);
+		DYNMEM_freeAll(&ftpData.clients[i].workerData.memoryTable);
+	}
+
+	DYNMEM_freeAll(&ftpData.ftpParameters.usersVector.memoryTable);
     DYNMEM_freeAll(&ftpData.generalDynamicMemoryTable);
     //printf("\n ftpData.generalDynamicMemoryTable = %ld", ftpData.generalDynamicMemoryTable);
-
 	#ifdef OPENSSL_ENABLED
     SSL_CTX_free(ftpData.serverCtx);
     cleanupOpenssl();

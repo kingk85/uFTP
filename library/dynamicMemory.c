@@ -59,8 +59,7 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead)
 	DYNMEM_MemoryTable_DataType *newItem = NULL;
 	memory = calloc(bytes,1);
 	newItem = calloc(1, sizeof(DYNMEM_MemoryTable_DataType));
-
-	printf("Allocating new item in memory, size of %d", bytes);
+	//printf("Allocating new item in memory, size of %d", bytes);
 
 	if(memory)
 	{
@@ -89,10 +88,10 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead)
 			//printf("\nmemoryListHead = newItem %ld", (int) *memoryListHead);
 		}
 
-		//printf("\nElement size: %ld", (*memoryListHead)->size);
-		printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
-		//printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
-		//printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
+//		printf("\nElement size: %ld", (*memoryListHead)->size);
+//		printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
+//		printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
+//		printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
 
 		return memory;
 	}
@@ -106,15 +105,19 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead)
 void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead)
 {
 	void *newMemory = NULL;
+	//printf("\nSearching address %lld", theMemoryAddress);
 	newMemory = realloc(theMemoryAddress, bytes);
 
-	//printf("Reallocating item in memory, size of %d", bytes);
+	//printf("\nReallocating item in memory, size of %d", bytes);
+	//printf("\nSearching address %lld", theMemoryAddress);
+	//printf("(*memoryListHead) = %lld", (*memoryListHead));
 
 	if(newMemory)
 	{
 		DYNMEM_MemoryTable_DataType *temp = NULL,*found = NULL;
 		for( temp = (*memoryListHead); temp!=NULL; temp = temp->nextElement)
 		{
+			//printf("\n %lld == %lld", temp->address, theMemoryAddress);
 			if(temp->address == theMemoryAddress)
 			{
 				found = temp;
@@ -124,7 +127,12 @@ void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_Da
 
 		if(!found)
 		{
-			report_error_q("Unable to free memory not previously allocated",__FILE__,__LINE__, 0);
+			fflush(0);
+			//Debug TRAP
+			char *theData ="c";
+			strcpy(theData, "NOOOOOOOOOOOOOOOO");
+
+			report_error_q("Unable to reallocate memory not previously allocated",__FILE__,__LINE__, 0);
 			// Report this as an error
 		}
 
@@ -184,7 +192,7 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 	DYNMEM_DecreaseMemoryCounter(found->size + sizeof(DYNMEM_MemoryTable_DataType));
 
 
-	printf("\nFree of %ld", f_address);
+	//printf("\nFree of %ld", f_address);
 
 	free(f_address);
 	if(found->previousElement)
