@@ -153,6 +153,7 @@ struct workerData
     ftpCommandDataType    ftpCommand;
     DYNV_VectorGenericDataType directoryInfo;
     FILE *theStorFile;
+    DYNMEM_MemoryTable_DataType *memoryTable;
 } typedef workerDataType;
 
 struct clientData
@@ -205,6 +206,8 @@ struct clientData
 
     unsigned long long int connectionTimeStamp;
     unsigned long long int lastActivityTimeStamp;
+
+    DYNMEM_MemoryTable_DataType *memoryTable;
 } typedef clientDataType;
 
 struct loginFails
@@ -271,7 +274,7 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization);
 void resetClientData(ftpDataType *data, int clientId, int isInitialization);
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
 int isCharInString(char *theString, int stringLen, char theChar);
-void destroyConfigurationVectorElement(void * data);
+void destroyConfigurationVectorElement(DYNV_VectorGenericDataType *theVector);
 #ifdef __cplusplus
 }
 #endif

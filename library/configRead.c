@@ -42,10 +42,17 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
 static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector);
 static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
 
-void destroyConfigurationVectorElement(void * data)
+void destroyConfigurationVectorElement(DYNV_VectorGenericDataType *theVector)
 {
-    free(((parameter_DataType *)data)->value);
-    free(((parameter_DataType *)data)->name);
+    int i;
+    for (i = 0; i < theVector->Size; i++)
+    {
+		printf("\n(parameter_DataType *)theVector->Data[%d])->value = %ld", i, ((parameter_DataType *)theVector->Data)->value);
+		DYNMEM_free(((parameter_DataType *)theVector->Data[i])->value, &theVector->memoryTable);
+		printf("\n(parameter_DataType *)theVector->Data[%d])->name = %ld", i, ((parameter_DataType *)theVector->Data)->name);
+		DYNMEM_free(((parameter_DataType *)theVector->Data[i])->name, &theVector->memoryTable);
+		DYNMEM_free(theVector->Data[i], &theVector->memoryTable);
+    }
 }
 
 /* Public Functions */
@@ -93,6 +100,7 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
     }
 
     DYNV_VectorGeneric_Destroy(&configParameters, destroyConfigurationVectorElement);
+    printf("\n\nconfigParameters.memoryTable = %d ***", configParameters.memoryTable);
 
     return;
 }
@@ -317,8 +325,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
             case STATE_STORE:
             {
                 parameter_DataType parameter;
-                parameter.name = malloc(nameIndex+1);
-                parameter.value = malloc(valueIndex+1);
+                parameter.name = DYNMEM_malloc(nameIndex+1, &parametersVector->memoryTable);
+                parameter.value = DYNMEM_malloc(valueIndex+1, &parametersVector->memoryTable);
                 strcpy(parameter.name, name);
                 strcpy(parameter.value, value);
                 parameter.name[nameIndex]  = '\0';
@@ -340,8 +348,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
         valueIndex > 0)
     {
         parameter_DataType parameter;
-        parameter.name = malloc(nameIndex+1);
-        parameter.value = malloc(valueIndex+1);
+        parameter.name = DYNMEM_malloc(nameIndex+1, &parametersVector->memoryTable);
+        parameter.value = DYNMEM_malloc(valueIndex+1, &parametersVector->memoryTable);
         strcpy(parameter.name, name);
         strcpy(parameter.value, value);
         parameter.name[nameIndex]  = '\0';
@@ -569,9 +577,13 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
 
         userData.ownerShip.groupOwnerString = NULL;
         userData.ownerShip.userOwnerString = NULL;
-        userData.name = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1);
-        userData.password = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1);
-        userData.homePath = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value) + 1);
+
+
+
+
+        userData.name = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
+        userData.password = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
+        userData.homePath = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
 
         strcpy(userData.name, ((parameter_DataType *) parametersVector->Data[searchUserIndex])->value);
         strcpy(userData.password, ((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value);
@@ -584,8 +596,8 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         if (searchUserOwnerIndex != -1 &&
             searchGroupOwnerIndex != -1)
         {
-            userData.ownerShip.groupOwnerString = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value) + 1);
-            userData.ownerShip.userOwnerString  = malloc(strlen(((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value) + 1);
+            userData.ownerShip.groupOwnerString = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
+            userData.ownerShip.userOwnerString  = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
 
             strcpy(userData.ownerShip.groupOwnerString, ((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value);
             strcpy(userData.ownerShip.userOwnerString, ((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value);

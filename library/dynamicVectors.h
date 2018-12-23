@@ -69,7 +69,7 @@ void DYNV_VectorGeneric_InitWithSearchFunction(DYNV_VectorGenericDataType *TheVe
 void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, void * TheElementData, int TheElementSize);
 void DYNV_VectorGeneric_PopBack(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(void *TheElementToDelete));
 void DYNV_VectorGeneric_SoftPopBack(DYNV_VectorGenericDataType *TheVector);
-void DYNV_VectorGeneric_Destroy(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(void *TheElementToDelete));
+void DYNV_VectorGeneric_Destroy(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(DYNV_VectorGenericDataType *TheVector));
 void DYNV_VectorGeneric_SoftDestroy(DYNV_VectorGenericDataType *TheVector);
 void DYNV_VectorGeneric_DeleteAt(DYNV_VectorGenericDataType *TheVector, int index, void (*DeleteElementFunction)(void *TheElementToDelete));
 
