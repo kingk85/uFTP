@@ -42,6 +42,7 @@
 #include "library/configRead.h"
 #include "library/openSsl.h"
 #include "library/connection.h"
+#include "library/dynamicMemory.h"
 #include "ftpCommandsElaborate.h"
 
 
@@ -54,7 +55,7 @@ int parseCommandUser(ftpDataType * data, int socketId)
 
     if (strlen(theUserName) >= 1)
     {
-        setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName));
+        setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName), &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
 
         if (returnCode <= 0) 
@@ -179,10 +180,10 @@ int parseCommandPass(ftpDataType * data, int socketId)
         }
         else
         {
-            setDynamicStringDataType(&data->clients[socketId].login.password, thePass, strlen(thePass));
-            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
-            setDynamicStringDataType(&data->clients[socketId].login.homePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath));
-            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", strlen("/"));
+            setDynamicStringDataType(&data->clients[socketId].login.password, thePass, strlen(thePass), &data->clients[socketId].memoryTable);
+            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath), &data->clients[socketId].memoryTable);
+            setDynamicStringDataType(&data->clients[socketId].login.homePath, ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath, strlen(((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->homePath), &data->clients[socketId].memoryTable);
+            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", strlen("/"), &data->clients[socketId].memoryTable);
 
             data->clients[socketId].login.ownerShip.ownerShipSet = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.ownerShipSet;
             data->clients[socketId].login.ownerShip.gid = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.gid;
@@ -532,7 +533,6 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     int returnCode;
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
-        void *pReturn;
         if (data->clients[socketId].workerData.threadIsAlive == 1)
         {
             pthread_cancel(data->clients[socketId].workerData.workerThread);
@@ -579,7 +579,7 @@ int parseCommandList(ftpDataType * data, int socketId)
     char *theNameToList;
     
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived, 1);
-    getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand);
+    getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand, &data->clients[socketId].workerData.memoryTable);
  
     if (data->clients[socketId].workerData.ftpCommand.commandArgs.text != NULL)
     	printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
@@ -587,19 +587,19 @@ int parseCommandList(ftpDataType * data, int socketId)
     	printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
     printf("\ntheNameToList: %s", theNameToList);
     
-    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0);
-    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0);    
-    cleanDynamicStringDataType(&data->clients[socketId].listPath, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0, &data->clients[socketId].workerData.memoryTable);
+    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0, &data->clients[socketId].workerData.memoryTable);
+    cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
 
     if (strlen(theNameToList) > 0)
     {
-        isSafePath = getSafePath(&data->clients[socketId].listPath, theNameToList, &data->clients[socketId].login);
+        isSafePath = getSafePath(&data->clients[socketId].listPath, theNameToList, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     }
 
     if (isSafePath == 0)
     {
-        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
+        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
     }
 
     pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
@@ -616,7 +616,7 @@ int parseCommandNlst(ftpDataType * data, int socketId)
     int isSafePath = 0;
     char *theNameToNlist;
     theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived, 1);
-    cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0, &data->clients[socketId].memoryTable);
 
     printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
     printf("\nNLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
@@ -624,13 +624,13 @@ int parseCommandNlst(ftpDataType * data, int socketId)
     
     if (strlen(theNameToNlist) > 0)
     {
-        isSafePath = getSafePath(&data->clients[socketId].nlistPath, theNameToNlist, &data->clients[socketId].login);
+        isSafePath = getSafePath(&data->clients[socketId].nlistPath, theNameToNlist, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     }
 
     if (isSafePath == 0)
     {
-        cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0);
-        setDynamicStringDataType(&data->clients[socketId].nlistPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
+        cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].nlistPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
     }
     
     pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
@@ -648,11 +648,11 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     char *theNameToRetr;
 
     theNameToRetr = getFtpCommandArg("RETR", data->clients[socketId].theCommandReceived, 0);
-    cleanDynamicStringDataType(&data->clients[socketId].fileToRetr, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].fileToRetr, 0, &data->clients[socketId].memoryTable);
 
     if (strlen(theNameToRetr) > 0)
     {
-        isSafePath = getSafePath(&data->clients[socketId].fileToRetr, theNameToRetr, &data->clients[socketId].login);
+        isSafePath = getSafePath(&data->clients[socketId].fileToRetr, theNameToRetr, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     }
 
     if (isSafePath == 1 &&
@@ -679,11 +679,11 @@ int parseCommandStor(ftpDataType * data, int socketId)
     int isSafePath = 0;
     char *theNameToStor;
     theNameToStor = getFtpCommandArg("STOR", data->clients[socketId].theCommandReceived, 0);
-    cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0, &data->clients[socketId].memoryTable);
     
     if (strlen(theNameToStor) > 0)
     {
-        isSafePath = getSafePath(&data->clients[socketId].fileToStor, theNameToStor, &data->clients[socketId].login);
+        isSafePath = getSafePath(&data->clients[socketId].fileToStor, theNameToStor, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     }
 
     if (isSafePath == 1)
@@ -710,41 +710,42 @@ int parseCommandCwd(ftpDataType * data, int socketId)
     int returnCode;
     char *thePath;
 
-    cleanDynamicStringDataType(&absolutePathPrevious, 1);
-    cleanDynamicStringDataType(&ftpPathPrevious, 1);
-    cleanDynamicStringDataType(&theSafePath, 1);
+    cleanDynamicStringDataType(&absolutePathPrevious, 1, &data->clients[socketId].memoryTable);
+    cleanDynamicStringDataType(&ftpPathPrevious, 1, &data->clients[socketId].memoryTable);
+    cleanDynamicStringDataType(&theSafePath, 1, &data->clients[socketId].memoryTable);
 
     thePath = getFtpCommandArg("CWD", data->clients[socketId].theCommandReceived, 0);
 
     if (strlen(thePath) > 0)
     {
-        isSafePath = getSafePath(&theSafePath, thePath, &data->clients[socketId].login);
+    	//printf("Memory data address 1st call : %lld", &data->clients[socketId].memoryTable);
+        isSafePath = getSafePath(&theSafePath, thePath, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     }
 
     if (isSafePath == 1)
     {
         //printf("\n The Path requested for CWD IS:%s", theSafePath.text);
-        setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen);
-        setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen);
+        setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen, &data->clients[socketId].memoryTable);
         
         if (theSafePath.text[0] != '/')
         {
             if (data->clients[socketId].login.absolutePath.text[data->clients[socketId].login.absolutePath.textLen-1] != '/')
-                appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, "/", 1);
+                appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, "/", 1, &data->clients[socketId].memoryTable);
 
             if (data->clients[socketId].login.ftpPath.text[data->clients[socketId].login.ftpPath.textLen-1] != '/')
-                appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1);
+                appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1, &data->clients[socketId].memoryTable);
 
-            appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theSafePath.text, theSafePath.textLen);
-            appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen);
+            appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
+            appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
         }
         else if (theSafePath.text[0] == '/')
         {
-            cleanDynamicStringDataType(&data->clients[socketId].login.ftpPath, 0);
-            cleanDynamicStringDataType(&data->clients[socketId].login.absolutePath, 0);
+            cleanDynamicStringDataType(&data->clients[socketId].login.ftpPath, 0, &data->clients[socketId].memoryTable);
+            cleanDynamicStringDataType(&data->clients[socketId].login.absolutePath, 0, &data->clients[socketId].memoryTable);
 
-            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen);
-            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen);
+            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
+            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen, &data->clients[socketId].memoryTable);
 
             if (strlen(theSafePath.text)> 0)
             {
@@ -757,7 +758,7 @@ int parseCommandCwd(ftpDataType * data, int socketId)
                 }
                 
                 if (strlen(theDirPointer) > 0)
-                    appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theDirPointer, strlen(theDirPointer));
+                    appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theDirPointer, strlen(theDirPointer), &data->clients[socketId].memoryTable);
             }
         }
 
@@ -767,14 +768,14 @@ int parseCommandCwd(ftpDataType * data, int socketId)
         }
         else
         {
-            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen);
-            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen);
+            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen, &data->clients[socketId].memoryTable);
+            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen, &data->clients[socketId].memoryTable);
             returnCode = socketPrintf(data, socketId, "sss", "530 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": No such file or directory\r\n");
         }
         
-        cleanDynamicStringDataType(&absolutePathPrevious, 0);
-        cleanDynamicStringDataType(&ftpPathPrevious, 0);
-        cleanDynamicStringDataType(&theSafePath, 0);
+        cleanDynamicStringDataType(&absolutePathPrevious, 0, &data->clients[socketId].memoryTable);
+        cleanDynamicStringDataType(&ftpPathPrevious, 0, &data->clients[socketId].memoryTable);
+        cleanDynamicStringDataType(&theSafePath, 0, &data->clients[socketId].memoryTable);
         
         if (returnCode <= 0) 
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -784,9 +785,9 @@ int parseCommandCwd(ftpDataType * data, int socketId)
     }
     else
     {
-        cleanDynamicStringDataType(&absolutePathPrevious, 0);
-        cleanDynamicStringDataType(&ftpPathPrevious, 0);
-        cleanDynamicStringDataType(&theSafePath, 0);
+        cleanDynamicStringDataType(&absolutePathPrevious, 0, &data->clients[socketId].memoryTable);
+        cleanDynamicStringDataType(&ftpPathPrevious, 0, &data->clients[socketId].memoryTable);
+        cleanDynamicStringDataType(&theSafePath, 0, &data->clients[socketId].memoryTable);
         return FTP_COMMAND_NOT_RECONIZED;
     }
 }
@@ -843,9 +844,9 @@ int parseCommandMkd(ftpDataType * data, int socketId)
 
     theDirectoryFilename = getFtpCommandArg("MKD", data->clients[socketId].theCommandReceived, 0);
     
-    cleanDynamicStringDataType(&mkdFileName, 1);
+    cleanDynamicStringDataType(&mkdFileName, 1, &data->clients[socketId].memoryTable);
     
-    isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &data->clients[socketId].login);
+    isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     
     if (isSafePath == 1)
     {
@@ -885,11 +886,11 @@ int parseCommandMkd(ftpDataType * data, int socketId)
     }
     else
     {
-        cleanDynamicStringDataType(&mkdFileName, 0);
+        cleanDynamicStringDataType(&mkdFileName, 0, &data->clients[socketId].memoryTable);
         functionReturnCode = FTP_COMMAND_NOT_RECONIZED;
     }
 
-    cleanDynamicStringDataType(&mkdFileName, 0);    
+    cleanDynamicStringDataType(&mkdFileName, 0, &data->clients[socketId].memoryTable);
     return functionReturnCode;
 }
 
@@ -915,8 +916,8 @@ int parseCommandDele(ftpDataType * data, int socketId)
 
     theFileToDelete = getFtpCommandArg("DELE", data->clients[socketId].theCommandReceived, 0);
 
-    cleanDynamicStringDataType(&deleFileName, 1);
-    isSafePath = getSafePath(&deleFileName, theFileToDelete, &data->clients[socketId].login);
+    cleanDynamicStringDataType(&deleFileName, 1, &data->clients[socketId].memoryTable);
+    isSafePath = getSafePath(&deleFileName, theFileToDelete, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     
     if (isSafePath == 1)
     {
@@ -953,7 +954,7 @@ int parseCommandDele(ftpDataType * data, int socketId)
         functionReturnCode = FTP_COMMAND_NOT_RECONIZED;
     }
     
-    cleanDynamicStringDataType(&deleFileName, 0);
+    cleanDynamicStringDataType(&deleFileName, 0, &data->clients[socketId].memoryTable);
     return functionReturnCode;
 }
 
@@ -1003,8 +1004,8 @@ int parseCommandRmd(ftpDataType * data, int socketId)
     dynamicStringDataType rmdFileName;
 
     theDirectoryFilename = getFtpCommandArg("RMD", data->clients[socketId].theCommandReceived, 0);
-    cleanDynamicStringDataType(&rmdFileName, 1);
-    isSafePath = getSafePath(&rmdFileName, theDirectoryFilename, &data->clients[socketId].login);
+    cleanDynamicStringDataType(&rmdFileName, 1, &data->clients[socketId].memoryTable);
+    isSafePath = getSafePath(&rmdFileName, theDirectoryFilename, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     
     if (isSafePath == 1)
     {
@@ -1040,7 +1041,7 @@ int parseCommandRmd(ftpDataType * data, int socketId)
         functionReturnCode = FTP_COMMAND_NOT_RECONIZED;
     }
 
-    cleanDynamicStringDataType(&rmdFileName, 0);
+    cleanDynamicStringDataType(&rmdFileName, 0, &data->clients[socketId].memoryTable);
 
     return functionReturnCode;
 }
@@ -1055,9 +1056,9 @@ int parseCommandSize(ftpDataType * data, int socketId)
 
     theFileName = getFtpCommandArg("SIZE", data->clients[socketId].theCommandReceived, 0);
 
-    cleanDynamicStringDataType(&getSizeFromFileName, 1);
+    cleanDynamicStringDataType(&getSizeFromFileName, 1, &data->clients[socketId].memoryTable);
     
-    isSafePath = getSafePath(&getSizeFromFileName, theFileName, &data->clients[socketId].login);
+    isSafePath = getSafePath(&getSizeFromFileName, theFileName, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
 
     if (isSafePath == 1)
     {
@@ -1076,7 +1077,7 @@ int parseCommandSize(ftpDataType * data, int socketId)
     {
     	returnCode = socketPrintf(data, socketId, "s", "550 Can't check for file existence\r\n");
     }
-    cleanDynamicStringDataType(&getSizeFromFileName, 0);
+    cleanDynamicStringDataType(&getSizeFromFileName, 0, &data->clients[socketId].memoryTable);
 
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -1091,9 +1092,9 @@ int parseCommandRnfr(ftpDataType * data, int socketId)
     char *theRnfrFileName;
 
     theRnfrFileName = getFtpCommandArg("RNFR", data->clients[socketId].theCommandReceived, 0);
-    cleanDynamicStringDataType(&data->clients[socketId].renameFromFile, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].renameFromFile, 0, &data->clients[socketId].memoryTable);
     
-    isSafePath = getSafePath(&data->clients[socketId].renameFromFile, theRnfrFileName, &data->clients[socketId].login);
+    isSafePath = getSafePath(&data->clients[socketId].renameFromFile, theRnfrFileName, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     
     if (isSafePath == 1&&
         (FILE_IsFile(data->clients[socketId].renameFromFile.text) == 1 ||
@@ -1126,9 +1127,9 @@ int parseCommandRnto(ftpDataType * data, int socketId)
     char *theRntoFileName;
 
     theRntoFileName = getFtpCommandArg("RNTO", data->clients[socketId].theCommandReceived, 0);
-    cleanDynamicStringDataType(&data->clients[socketId].renameToFile, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].renameToFile, 0, &data->clients[socketId].memoryTable);
     
-    isSafePath = getSafePath(&data->clients[socketId].renameToFile, theRntoFileName, &data->clients[socketId].login);
+    isSafePath = getSafePath(&data->clients[socketId].renameToFile, theRntoFileName, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
 
     if (isSafePath == 1 &&
     		data->clients[socketId].renameFromFile.textLen > 0)
@@ -1179,7 +1180,7 @@ int parseCommandCdup(ftpDataType * data, int socketId)
 
     if(strncmp(data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen) != 0)
     {
-        setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen);
+        setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen, &data->clients[socketId].memoryTable);
     }
 
     returnCode = socketPrintf(data, socketId, "sss", "250 OK. Current directory is ", data->clients[socketId].login.ftpPath.text, "\r\n");
@@ -1303,7 +1304,7 @@ char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs)
     return toReturn;
 }
 
-int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand)
+int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     #define CASE_ARG_MAIN   0
     #define CASE_ARG_SECONDARY   1
@@ -1369,10 +1370,10 @@ int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCo
     }
     
     if (argMainIndex > 0)
-        setDynamicStringDataType(&ftpCommand->commandArgs, argMain, argMainIndex);
+        setDynamicStringDataType(&ftpCommand->commandArgs, argMain, argMainIndex, &*memoryTable);
 
     if (argSecondaryIndex > 0)
-        setDynamicStringDataType(&ftpCommand->commandOps, argSecondary, argSecondaryIndex);
+        setDynamicStringDataType(&ftpCommand->commandOps, argSecondary, argSecondaryIndex, &*memoryTable);
         
     return 1;
 }

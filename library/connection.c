@@ -155,7 +155,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 	char theBuffer[SOCKET_PRINTF_BUFFER];
 	int theStringSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
+	//printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
 	va_list args;
 	va_start(args, __fmt);
 	while (*__fmt != '\0')
@@ -462,7 +462,7 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
-		void *pReturn;
+
 		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
 		//pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
 		printf("\nQuit command received the Pasv Thread has been cancelled.");

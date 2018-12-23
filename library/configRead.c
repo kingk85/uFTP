@@ -47,9 +47,9 @@ void destroyConfigurationVectorElement(DYNV_VectorGenericDataType *theVector)
     int i;
     for (i = 0; i < theVector->Size; i++)
     {
-		printf("\n(parameter_DataType *)theVector->Data[%d])->value = %ld", i, ((parameter_DataType *)theVector->Data)->value);
+		//printf("\n(parameter_DataType *)theVector->Data[%d])->value = %ld", i, ((parameter_DataType *)theVector->Data)->value);
 		DYNMEM_free(((parameter_DataType *)theVector->Data[i])->value, &theVector->memoryTable);
-		printf("\n(parameter_DataType *)theVector->Data[%d])->name = %ld", i, ((parameter_DataType *)theVector->Data)->name);
+		//printf("\n(parameter_DataType *)theVector->Data[%d])->name = %ld", i, ((parameter_DataType *)theVector->Data)->name);
 		DYNMEM_free(((parameter_DataType *)theVector->Data[i])->name, &theVector->memoryTable);
 		DYNMEM_free(theVector->Data[i], &theVector->memoryTable);
     }
@@ -100,7 +100,7 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
     }
 
     DYNV_VectorGeneric_Destroy(&configParameters, destroyConfigurationVectorElement);
-    printf("\n\nconfigParameters.memoryTable = %d ***", configParameters.memoryTable);
+    //printf("\n\nconfigParameters.memoryTable = %d ***", configParameters.memoryTable);
 
     return;
 }
@@ -144,13 +144,13 @@ void initFtpData(ftpDataType *ftpData)
     ftpData->connectedClients = 0;
     ftpData->clients = (clientDataType *) DYNMEM_malloc((sizeof(clientDataType) * ftpData->ftpParameters.maxClients), &ftpData->generalDynamicMemoryTable);
 
-	printf("\nDYNMEM_malloc called");
-	printf("\nElement location: %ld", (long int) ftpData->generalDynamicMemoryTable);
-	fflush(0);
-	printf("\nElement size: %ld", ftpData->generalDynamicMemoryTable->size);
-	printf("\nElement address: %ld", (long int) ftpData->generalDynamicMemoryTable->address);
-	printf("\nElement nextElement: %ld",(long int) ftpData->generalDynamicMemoryTable->nextElement);
-	printf("\nElement previousElement: %ld",(long int) ftpData->generalDynamicMemoryTable->previousElement);
+	//printf("\nDYNMEM_malloc called");
+	//printf("\nElement location: %ld", (long int) ftpData->generalDynamicMemoryTable);
+	//fflush(0);
+	//printf("\nElement size: %ld", ftpData->generalDynamicMemoryTable->size);
+	//printf("\nElement address: %ld", (long int) ftpData->generalDynamicMemoryTable->address);
+	//printf("\nElement nextElement: %ld",(long int) ftpData->generalDynamicMemoryTable->nextElement);
+	//printf("\nElement previousElement: %ld",(long int) ftpData->generalDynamicMemoryTable->previousElement);
 
 
     ftpData->serverIp.ip[0] = 127;
@@ -578,9 +578,6 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         userData.ownerShip.groupOwnerString = NULL;
         userData.ownerShip.userOwnerString = NULL;
 
-
-
-
         userData.name = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
         userData.password = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
         userData.homePath = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
@@ -625,7 +622,6 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         printf("\nuserData.gid = %d", userData.ownerShip.gid);
         printf("\nuserData.uid = %d", userData.ownerShip.uid);
         printf("\nuserData.ownerShipSet = %d", userData.ownerShip.ownerShipSet);
-
         ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
     }
 

@@ -84,7 +84,7 @@ int parseCommandRnto(ftpDataType * data, int socketId);
 
 long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int startFrom, FILE *retrFP);
 char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs);
-int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand);
+int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand, DYNMEM_MemoryTable_DataType **memoryTable);
 int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataType ownerShip);
 
 #ifdef __cplusplus
