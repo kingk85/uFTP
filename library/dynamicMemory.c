@@ -90,7 +90,7 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead)
 		}
 
 		//printf("\nElement size: %ld", (*memoryListHead)->size);
-		//printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
+		printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
 		//printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
 		//printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
 
@@ -172,14 +172,19 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 
 	if(!found)
 	{
+		printf("\n\nMemory address : %ld not found\n\n", f_address);
+		fflush(0);
 		//Debug TRAP
-		//char *theData ="c";
-		//strcpy(theData, "ciaociaociao");
+		char *theData ="c";
+		strcpy(theData, "ciaociaociao");
 		report_error_q("Unable to free memory not previously allocated",__FILE__,__LINE__, 1);
 		// Report this as an error
 	}
 
 	DYNMEM_DecreaseMemoryCounter(found->size + sizeof(DYNMEM_MemoryTable_DataType));
+
+
+	printf("\nFree of %ld", f_address);
 
 	free(f_address);
 	if(found->previousElement)
