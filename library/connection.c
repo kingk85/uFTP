@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -36,11 +35,8 @@
 #include <pthread.h>
 #include <stdarg.h>
 
-
 #include "../ftpData.h"
 #include "connection.h"
-
-
 
 int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
 {
@@ -291,6 +287,10 @@ int createSocket(ftpDataType * ftpData)
 
   //Socket creation
   sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock == -1)
+  {
+	  return -1;
+  }
   temp.sin_family = AF_INET;
   temp.sin_addr.s_addr = INADDR_ANY;
   temp.sin_port = htons(ftpData->ftpParameters.port);
@@ -311,9 +311,25 @@ int createSocket(ftpDataType * ftpData)
 #endif
   //Bind socket
   errorCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
+  if (errorCode == -1)
+  {
+	  if (sock != -1)
+	  {
+		close(sock);
+	  }
+	  return -1;
+  }
 
   //Number of client allowed
   errorCode = listen(sock, ftpData->ftpParameters.maxClients + 1);
+  if (errorCode == -1)
+  {
+	  if (sock != -1)
+	  {
+		close(sock);
+	  }
+	  return -1;
+  }
  
   return sock;
 }
@@ -325,6 +341,11 @@ int createPassiveSocket(int port)
 
   //Socket creation
   sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock == -1)
+  {
+	  return -1;
+  }
+
   temp.sin_family = AF_INET;
   temp.sin_addr.s_addr = INADDR_ANY;
   temp.sin_port = htons(port);
@@ -345,13 +366,28 @@ int createPassiveSocket(int port)
   returnCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
 
   if (returnCode == -1)
-      return returnCode;
+  {
+	  printf("\n Could not bind %d errno = %d", sock, errno);
+
+	  if (sock != -1)
+	  {
+		  close(sock);
+	  }
+	return returnCode;
+  }
 
   //Number of client allowed
   returnCode = listen(sock, 1);
 
   if (returnCode == -1)
-      return returnCode;  
+  {
+	  printf("\n Could not listen %d errno = %d", sock, errno);
+	  if (sock != -1)
+	  {
+		  close(sock);
+	  }
+      return returnCode;
+  }
 
   return sock;
 }
@@ -379,7 +415,7 @@ int createActiveSocket(int port, char *ipAddress)
   }
   else
   {
-      printf("\n sockfd = %d \n", sockfd);
+      printf("\ncreateActiveSocket created socket = %d \n", sockfd);
   }
   
   
@@ -398,6 +434,12 @@ int createActiveSocket(int port, char *ipAddress)
   if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
   {
      printf("\n3 Error : Connect Failed \n");
+
+   	  if (sockfd != -1)
+   	  {
+   		close(sockfd);
+   	  }
+
      return -1;
   }
 
@@ -437,9 +479,41 @@ void fdRemove(ftpDataType * ftpData, int index)
 
 void closeSocket(ftpDataType * ftpData, int processingSocket)
 {
+	int theReturnCode = 0;
+
+#ifdef OPENSSL_ENABLED
+	/*
+	if (ftpData->clients[processingSocket].dataChannelIsTls == 1)
+	{
+		if(ftpData->clients[processingSocket].workerData.passiveModeOn == 1)
+		{
+
+			printf("\nSSL worker Shutdown 1");
+			returnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
+			printf("\nnSSL worker Shutdown 1 return code : %d", returnCode);
+
+			if (returnCode < 0)
+			{
+				printf("SSL_shutdown failed return code %d", returnCode);
+			}
+			else if (returnCode == 0)
+			{
+				printf("\nSSL worker Shutdown 2");
+				returnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
+				printf("\nnSSL worker Shutdown 2 return code : %d", returnCode);
+
+				if (returnCode <= 0)
+				{
+					printf("SSL_shutdown (2nd time) failed");
+				}
+			}
+		}
+	}*/
+#endif
+
     //Close the socket
     shutdown(ftpData->clients[processingSocket].socketDescriptor, SHUT_RDWR);
-    close(ftpData->clients[processingSocket].socketDescriptor);
+    theReturnCode = close(ftpData->clients[processingSocket].socketDescriptor);
 
     resetClientData(ftpData, processingSocket, 0);
     resetWorkerData(ftpData, processingSocket, 0);
@@ -462,9 +536,7 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
-		void *pReturn;
 		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
-		//pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
 		printf("\nQuit command received the Pasv Thread has been cancelled.");
     }
 
@@ -522,7 +594,6 @@ int selectWait(ftpDataType * ftpData)
     struct timeval selectMaximumLockTime;
     selectMaximumLockTime.tv_sec = 10;
     selectMaximumLockTime.tv_usec = 0;
-
     ftpData->connectionData.rset = ftpData->connectionData.rsetAll;
     ftpData->connectionData.wset = ftpData->connectionData.wsetAll;
     ftpData->connectionData.eset = ftpData->connectionData.esetAll;
@@ -640,10 +711,11 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             struct sockaddr_in socketRefuse_sockaddr_in;
             if ((socketRefuseFd = accept(ftpData->connectionData.theMainSocket, (struct sockaddr *)&socketRefuse_sockaddr_in, (socklen_t*)&socketRefuse_in_size))!=-1)
             {
+            	int theReturnCode = 0;
                 char *messageToWrite = "10068 Server reached the maximum number of connection, please try later.\r\n";
                 write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
                 shutdown(socketRefuseFd, SHUT_RDWR);
-                close(socketRefuseFd);
+                theReturnCode = close(socketRefuseFd);
             }
 
             return 0;

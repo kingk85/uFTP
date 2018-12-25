@@ -22,10 +22,6 @@
  * THE SOFTWARE.
  */
 
-
-
-
-
 #include <pwd.h>
 #include <grp.h>
 #include <stdio.h>
@@ -37,6 +33,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/resource.h>
 
 #include "fileManagement.h"
 #include "dynamicVectors.h"
@@ -56,6 +53,11 @@ static int FILE_CompareStringParameter(const void * a, const void * b)
     const FILE_StringParameter_DataType * typeB = *(const FILE_StringParameter_DataType **)b;
     printf("Comparing  %s with %s",typeA->Name, typeB->Name);
     return strcmp(typeA->Name, typeB->Name);
+}
+
+int FILE_fdIsValid(int fd)
+{
+    return fcntl(fd, F_GETFD);
 }
 
 /* Check if inode is a directory */
@@ -717,4 +719,58 @@ gid_t FILE_getGID(const char *group_name)
     }
 
     return grp->gr_gid;
+}
+
+
+void FILE_checkAllOpenedFD(void)
+{
+	int openedFd = 0, i,ret;
+
+	struct rlimit rl;
+	if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
+		printf("%s: can’t get file limit", "");
+
+	if (rl.rlim_max == RLIM_INFINITY)
+		rl.rlim_max = 1024;
+
+	for (i = 0; i < rl.rlim_max; i++)
+	{
+		ret = FILE_fdIsValid(i);
+		//printf("\nret = %d", ret);
+		if (ret != -1)
+		{
+			struct stat statbuf;
+			fstat(i, &statbuf);
+			if (S_ISSOCK(statbuf.st_mode))
+			{
+				printf("\n fd %d is socket", i);
+			}
+			else if (S_ISDIR(statbuf.st_mode))
+			{
+				printf("\n fd %d is dir", i);
+			}
+
+			/*
+			else if (S_ISSOCK(statbuf.st_mode))
+			{
+				printf("\n fd %d is socket", fd);
+			}
+			else if (S_ISSOCK(statbuf.st_mode))
+			{
+				printf("\n fd %d is socket", fd);
+			}
+			else if (S_ISSOCK(statbuf.st_mode))
+			{
+				printf("\n fd %d is socket", fd);
+			}
+			else if (S_ISSOCK(statbuf.st_mode))
+			{
+				printf("\n fd %d is socket", fd);
+			}
+			*/
+
+			openedFd++;
+		}
+	}
+	printf("\n\nOpened fd : %d", openedFd);
 }
