@@ -71,5 +71,7 @@
     int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid);
     uid_t FILE_getUID(const char *user_name);
     gid_t FILE_getGID(const char *group_name);
+    void FILE_checkAllOpenedFD(void);
+    int fd_is_valid(int fd);
 #define	GEN_FILE_MANAGEMENT_TYPES
 #endif

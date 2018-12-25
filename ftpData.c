@@ -405,10 +405,7 @@ int searchInLoginFailsVector(void * loginFailsVector, void *element)
             return i;
         }
     }
-    void cleanup_openssl()
-    {
-        EVP_cleanup();
-    }
+
     return -1;
 }
 
@@ -584,12 +581,16 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       /* wait main for action */
       if (isInitialization != 1)
       {
+
+    	printf("\n Operation is not an initialization! ");
+
         pthread_mutex_destroy(&data->clients[clientId].workerData.conditionMutex);
         pthread_cond_destroy(&data->clients[clientId].workerData.conditionVariable);
         
         if (data->clients[clientId].workerData.theStorFile != NULL)
         {
-            fclose(data->clients[clientId].workerData.theStorFile);
+        	int returnCode = 0;
+        	returnCode = fclose(data->clients[clientId].workerData.theStorFile);
             data->clients[clientId].workerData.theStorFile = NULL;
         }
 
@@ -639,7 +640,6 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 
     if (isInitialization != 1)
     {
-	void *pReturn;
 	if (data->clients[clientId].workerData.threadIsAlive == 1)
 		pthread_cancel(data->clients[clientId].workerData.workerThread);
 
