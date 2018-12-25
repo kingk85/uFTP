@@ -379,8 +379,10 @@ int parseCommandProt(ftpDataType * data, int socketId)
 
 int parseCommandCcc(ftpDataType * data, int socketId)
 {
+	    int returnCode;
+
 	#ifdef OPENSSL_ENABLED
-    int returnCode;
+
     returnCode = socketPrintf(data, socketId, "s", "200 TLS connection aborted\r\n");
     SSL_set_shutdown(data->clients[socketId].ssl, SSL_SENT_SHUTDOWN);
     data->clients[socketId].tlsIsEnabled = 0;
@@ -389,7 +391,7 @@ int parseCommandCcc(ftpDataType * data, int socketId)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 	#endif
 
-	#ifdef OPENSSL_ENABLED
+	#ifndef OPENSSL_ENABLED
     returnCode = socketPrintf(data, socketId, "s", "500 command not supported\r\n");
 
     if (returnCode <= 0)
