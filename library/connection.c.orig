@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -36,11 +35,8 @@
 #include <pthread.h>
 #include <stdarg.h>
 
-
 #include "../ftpData.h"
 #include "connection.h"
-
-
 
 int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
 {
@@ -540,6 +536,10 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
+<<<<<<< HEAD
+
+=======
+>>>>>>> master
 		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
 		printf("\nQuit command received the Pasv Thread has been cancelled.");
     }

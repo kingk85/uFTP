@@ -111,8 +111,8 @@ void workerCleanup(void *socketId)
 
     shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
     shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
-    close(ftpData.clients[theSocketId].workerData.socketConnection);
-    close(ftpData.clients[theSocketId].workerData.passiveListeningSocket);  
+    returnCode = close(ftpData.clients[theSocketId].workerData.socketConnection);
+    returnCode = close(ftpData.clients[theSocketId].workerData.passiveListeningSocket);
     resetWorkerData(&ftpData, theSocketId, 0);
     printf("\nWorker cleaned!");
 }
@@ -342,7 +342,9 @@ void *connectionWorkerHandle(void * socketId)
                     break;
                 }
             }
-            fclose(ftpData.clients[theSocketId].workerData.theStorFile);
+
+            int theReturnCode;
+            theReturnCode = fclose(ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.theStorFile = NULL;
 
             if (ftpData.clients[theSocketId].login.ownerShip.ownerShipSet == 1)
