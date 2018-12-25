@@ -273,7 +273,7 @@ int writeListDataInfoToSocket(ftpDataType *data, int clientId, int *filesNumber,
 
 int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);
-void deleteListDataInfoVector(void *TheElementToDelete);
+void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector);
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization);
 void resetClientData(ftpDataType *data, int clientId, int isInitialization);
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);

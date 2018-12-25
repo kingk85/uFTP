@@ -60,7 +60,7 @@ void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, v
     }
     else
     {
-        TheVectorGeneric->Data = (void **) DYNMEM_malloc (sizeof(void *) * (TheVectorGeneric->Size+1), &TheVectorGeneric->memoryTable);
+        TheVectorGeneric->Data = (void **) DYNMEM_malloc (sizeof(void *) * (TheVectorGeneric->Size+1), &TheVectorGeneric->memoryTable, "pushback");
     }
 
     if (TheVectorGeneric->ElementSize != NULL)
@@ -69,10 +69,10 @@ void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, v
     }
     else
     {
-        TheVectorGeneric->ElementSize = (int *) DYNMEM_malloc (sizeof(int), &TheVectorGeneric->memoryTable);
+        TheVectorGeneric->ElementSize = (int *) DYNMEM_malloc (sizeof(int), &TheVectorGeneric->memoryTable, "PushBack");
     }
 
-    TheVectorGeneric->Data[TheVectorGeneric->Size] = (void *) DYNMEM_malloc(TheElementSize, &TheVectorGeneric->memoryTable);
+    TheVectorGeneric->Data[TheVectorGeneric->Size] = (void *) DYNMEM_malloc(TheElementSize, &TheVectorGeneric->memoryTable, "pushback");
     memcpy(TheVectorGeneric->Data[TheVectorGeneric->Size], TheElementData, TheElementSize);
     TheVectorGeneric->ElementSize[TheVectorGeneric->Size] = TheElementSize;
     TheVectorGeneric->Size++;
@@ -198,7 +198,7 @@ void DYNV_VectorString_PushBack(DYNV_VectorString_DataType *TheVector, char * Th
     }
     else
     {
-        TheVector->Data = (char **) DYNMEM_malloc (sizeof(char *) * (TheVector->Size+1), &TheVector->memoryTable);
+        TheVector->Data = (char **) DYNMEM_malloc (sizeof(char *) * (TheVector->Size+1), &TheVector->memoryTable, "pushback");
     }
 
     if (TheVector->ElementSize != NULL)
@@ -207,10 +207,10 @@ void DYNV_VectorString_PushBack(DYNV_VectorString_DataType *TheVector, char * Th
     }
     else
     {
-        TheVector->ElementSize = (int *) DYNMEM_malloc (sizeof(int) * 1, &TheVector->memoryTable);
+        TheVector->ElementSize = (int *) DYNMEM_malloc (sizeof(int) * 1, &TheVector->memoryTable, "pushback");
     }
 
-    TheVector->Data[TheVector->Size] = (char *) DYNMEM_malloc((StringLenght + 1), &TheVector->memoryTable);
+    TheVector->Data[TheVector->Size] = (char *) DYNMEM_malloc((StringLenght + 1), &TheVector->memoryTable, "pushback");
 
     for (i = 0; i < StringLenght; i++ )
     {

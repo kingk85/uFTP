@@ -115,6 +115,11 @@ void workerCleanup(void *socketId)
     returnCode = close(ftpData.clients[theSocketId].workerData.passiveListeningSocket);
     resetWorkerData(&ftpData, theSocketId, 0);
     printf("\nWorker cleaned!");
+    printf("\nWorker memory table :%lld", ftpData.clients[theSocketId].workerData.memoryTable);
+    if (ftpData.clients[theSocketId].workerData.memoryTable != NULL)
+    	printf("\nMemory table element label: %s", ftpData.clients[theSocketId].workerData.memoryTable->theName);
+    else
+    	printf("\nNo data to print");
 }
 
 void *connectionWorkerHandle(void * socketId)
@@ -466,7 +471,7 @@ void runFtpServer(void)
     signalHandlerInstall();
 
     /*Read the configuration file */
-    configurationRead(&ftpData.ftpParameters);
+    configurationRead(&ftpData.ftpParameters, &ftpData.generalDynamicMemoryTable);
 
     /* apply the reden configuration */
     applyConfiguration(&ftpData.ftpParameters);
@@ -487,9 +492,26 @@ void runFtpServer(void)
   //Endless loop ftp process
     while (1)
     {
-
     	printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());
+    	int memCount = 0;
+    	for (memCount = 0; memCount < ftpData.ftpParameters.maxClients; memCount++)
+    	{
+    		if (ftpData.clients[memCount].memoryTable != NULL)
+    		{
+    			printf("\nftpData.clients[%d].memoryTable = %s", memCount, ftpData.clients[memCount].memoryTable->theName);
+    		}
 
+
+    		if (ftpData.clients[memCount].workerData.memoryTable != NULL)
+    		{
+    			printf("\nftpData.clients[%d].workerData.memoryTable = %s", memCount, ftpData.clients[memCount].workerData.memoryTable->theName);
+    		}
+
+    		if (ftpData.clients[memCount].workerData.directoryInfo.memoryTable != NULL)
+    		{
+    			printf("\nftpData.clients[%d].workerData.directoryInfo.memoryTable = %s", memCount, ftpData.clients[memCount].workerData.directoryInfo.memoryTable->theName);
+    		}
+    	}
         /* waits for socket activity, if no activity then checks for client socket timeouts */
         if (selectWait(&ftpData) == 0)
         {
@@ -886,8 +908,13 @@ void deallocateMemory(void)
 		DYNMEM_freeAll(&ftpData.clients[i].workerData.memoryTable);
 	}
 
+	DYNMEM_freeAll(&ftpData.loginFailsVector.memoryTable);
 	DYNMEM_freeAll(&ftpData.ftpParameters.usersVector.memoryTable);
     DYNMEM_freeAll(&ftpData.generalDynamicMemoryTable);
+
+
+    printf("\n\nUsed memory at end: %lld", DYNMEM_GetTotalMemory());
+
     //printf("\n ftpData.generalDynamicMemoryTable = %ld", ftpData.generalDynamicMemoryTable);
 	#ifdef OPENSSL_ENABLED
     SSL_CTX_free(ftpData.serverCtx);

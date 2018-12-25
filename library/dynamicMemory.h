@@ -10,6 +10,7 @@
 
 typedef struct DYNMEM_MemoryTable_DataType
 {
+	char theName[20];
 	void *address;
 	size_t size;
 	struct DYNMEM_MemoryTable_DataType *nextElement;
@@ -21,7 +22,7 @@ unsigned long long int DYNMEM_IncreaseMemoryCounter(unsigned long long int theSi
 unsigned long long int DYNMEM_DecreaseMemoryCounter(unsigned long long int theSize);
 
 void  DYNMEM_Init(void);
-void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType ** memoryListHead);
+void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType ** memoryListHead, char * theName);
 void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead);
 void  DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead);
 void  DYNMEM_freeAll(DYNMEM_MemoryTable_DataType ** memoryListHead);

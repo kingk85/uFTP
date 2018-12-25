@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include "dynamicVectors.h"
+#include "dynamicMemory.h"
 #include "../ftpData.h"
 
 #define DEFAULT_CONFIGURATION_FILENAME      "/etc/uftpd.cfg"
@@ -39,7 +40,7 @@ extern "C" {
 /*Public functions */
 void initFtpData(ftpDataType *ftpData);
 int searchUser(char *name, DYNV_VectorGenericDataType *usersVector);
-void configurationRead(ftpParameters_DataType *ftpParameters);
+void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable_DataType **memoryTable);
 void applyConfiguration(ftpParameters_DataType *ftpParameters);
 
 

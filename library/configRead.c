@@ -40,7 +40,7 @@
 /* Private Functions */
 static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector);
 static int searchParameter(char *name, DYNV_VectorGenericDataType *parametersVector);
-static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector);
+static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector, DYNMEM_MemoryTable_DataType ** memoryTable);
 
 void destroyConfigurationVectorElement(DYNV_VectorGenericDataType *theVector)
 {
@@ -72,7 +72,7 @@ int searchUser(char *name, DYNV_VectorGenericDataType *usersVector)
     return returnCode;
 }
 
-void configurationRead(ftpParameters_DataType *ftpParameters)
+void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     int returnCode = 0;
     DYNV_VectorGenericDataType configParameters;
@@ -81,12 +81,12 @@ void configurationRead(ftpParameters_DataType *ftpParameters)
     if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s \n", LOCAL_CONFIGURATION_FILENAME);
-        returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters);
+        returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters, &*memoryTable);
     }
     else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s\n", DEFAULT_CONFIGURATION_FILENAME);
-        returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters);
+        returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters, &*memoryTable);
     }
 
     if (returnCode == 1) 
@@ -142,7 +142,7 @@ void initFtpData(ftpDataType *ftpData)
 	#endif
 
     ftpData->connectedClients = 0;
-    ftpData->clients = (clientDataType *) DYNMEM_malloc((sizeof(clientDataType) * ftpData->ftpParameters.maxClients), &ftpData->generalDynamicMemoryTable);
+    ftpData->clients = (clientDataType *) DYNMEM_malloc((sizeof(clientDataType) * ftpData->ftpParameters.maxClients), &ftpData->generalDynamicMemoryTable, "ClientData");
 
 	//printf("\nDYNMEM_malloc called");
 	//printf("\nElement location: %ld", (long int) ftpData->generalDynamicMemoryTable);
@@ -175,7 +175,7 @@ void initFtpData(ftpDataType *ftpData)
 }
 
 /*Private functions*/
-static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector)
+static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *parametersVector, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     #define STATE_START              0
     #define STATE_NAME               1
@@ -187,7 +187,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
     int i, state, nameIndex, valueIndex, allowSpacesInValue;
     char * theFileContent;
 
-    theFileSize = FILE_GetStringFromFile(path, &theFileContent);
+    theFileSize = FILE_GetStringFromFile(path, &theFileContent, &*memoryTable);
 
     char name[PARAMETER_SIZE_LIMIT];
     char value[PARAMETER_SIZE_LIMIT];
@@ -325,8 +325,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
             case STATE_STORE:
             {
                 parameter_DataType parameter;
-                parameter.name = DYNMEM_malloc(nameIndex+1, &parametersVector->memoryTable);
-                parameter.value = DYNMEM_malloc(valueIndex+1, &parametersVector->memoryTable);
+                parameter.name = DYNMEM_malloc(nameIndex+1, &parametersVector->memoryTable, "readConfig");
+                parameter.value = DYNMEM_malloc(valueIndex+1, &parametersVector->memoryTable, "readConfig");
                 strcpy(parameter.name, name);
                 strcpy(parameter.value, value);
                 parameter.name[nameIndex]  = '\0';
@@ -348,8 +348,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
         valueIndex > 0)
     {
         parameter_DataType parameter;
-        parameter.name = DYNMEM_malloc(nameIndex+1, &parametersVector->memoryTable);
-        parameter.value = DYNMEM_malloc(valueIndex+1, &parametersVector->memoryTable);
+        parameter.name = DYNMEM_malloc(nameIndex+1, &parametersVector->memoryTable, "readConfig");
+        parameter.value = DYNMEM_malloc(valueIndex+1, &parametersVector->memoryTable, "readConfig");
         strcpy(parameter.name, name);
         strcpy(parameter.value, value);
         parameter.name[nameIndex]  = '\0';
@@ -364,7 +364,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
 
     if (theFileSize > 0)
     {
-        free(theFileContent);
+        DYNMEM_free(theFileContent, &*memoryTable);
     }
 
     return 1;
@@ -578,9 +578,9 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         userData.ownerShip.groupOwnerString = NULL;
         userData.ownerShip.userOwnerString = NULL;
 
-        userData.name = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
-        userData.password = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
-        userData.homePath = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
+        userData.name = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1), &ftpParameters->usersVector.memoryTable, "userData");
+        userData.password = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1), &ftpParameters->usersVector.memoryTable, "userData");
+        userData.homePath = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value) + 1), &ftpParameters->usersVector.memoryTable, "userData");
 
         strcpy(userData.name, ((parameter_DataType *) parametersVector->Data[searchUserIndex])->value);
         strcpy(userData.password, ((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value);
@@ -593,8 +593,8 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         if (searchUserOwnerIndex != -1 &&
             searchGroupOwnerIndex != -1)
         {
-            userData.ownerShip.groupOwnerString = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
-            userData.ownerShip.userOwnerString  = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value) + 1), &ftpParameters->usersVector.memoryTable);
+            userData.ownerShip.groupOwnerString = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value) + 1), &ftpParameters->usersVector.memoryTable, "userOwnershipData");
+            userData.ownerShip.userOwnerString  = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value) + 1), &ftpParameters->usersVector.memoryTable, "userOwnershipData");
 
             strcpy(userData.ownerShip.groupOwnerString, ((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value);
             strcpy(userData.ownerShip.userOwnerString, ((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value);
