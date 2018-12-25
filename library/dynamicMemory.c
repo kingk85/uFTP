@@ -127,10 +127,10 @@ void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_Da
 
 		if(!found)
 		{
-			fflush(0);
+			//fflush(0);
 			//Debug TRAP
-			char *theData ="c";
-			strcpy(theData, "NOOOOOOOOOOOOOOOO");
+			//char *theData ="c";
+			//strcpy(theData, "NOOOOOOOOOOOOOOOO");
 
 			report_error_q("Unable to reallocate memory not previously allocated",__FILE__,__LINE__, 0);
 			// Report this as an error
@@ -181,10 +181,10 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 	if(!found)
 	{
 		printf("\n\nMemory address : %ld not found\n\n", f_address);
-		fflush(0);
+		//fflush(0);
 		//Debug TRAP
-		char *theData ="c";
-		strcpy(theData, "ciaociaociao");
+		//char *theData ="c";
+		//strcpy(theData, "ciaociaociao");
 		report_error_q("Unable to free memory not previously allocated",__FILE__,__LINE__, 1);
 		// Report this as an error
 	}
