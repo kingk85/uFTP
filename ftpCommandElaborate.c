@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -1175,8 +1174,8 @@ int parseCommandCdup(ftpDataType * data, int socketId)
 {
     int returnCode;
 
-    FILE_DirectoryToParent(&data->clients[socketId].login.absolutePath.text);
-    FILE_DirectoryToParent(&data->clients[socketId].login.ftpPath.text);
+    FILE_DirectoryToParent(&data->clients[socketId].login.absolutePath.text, &data->clients[socketId].memoryTable);
+    FILE_DirectoryToParent(&data->clients[socketId].login.ftpPath.text, &data->clients[socketId].memoryTable);
     data->clients[socketId].login.absolutePath.textLen = strlen(data->clients[socketId].login.absolutePath.text);
     data->clients[socketId].login.ftpPath.textLen = strlen(data->clients[socketId].login.ftpPath.text);
 

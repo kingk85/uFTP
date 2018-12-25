@@ -52,7 +52,7 @@ struct DYNV_VectorGenericDataStruct
     void (*PushBack)(void *TheVectorGeneric, void * TheElementData, int TheElementSize);
     void (*PopBack)(void *TheVector, void (*DeleteElement)(void *TheElementToDelete));
     void (*SoftPopBack)(void *TheVector);
-    void (*Destroy)(void *TheVector, void (*DeleteElement)(void *TheElementToDelete));
+    void (*Destroy)(void *TheVector, void (*DeleteElement)(struct DYNV_VectorGenericDataStruct *TheElementToDelete));
     void (*SoftDestroy)(void *TheVector);
     void (*DeleteAt)(void *TheVector, int index, void (*DeleteElement)(void *TheElementToDelete));
     int  (*SearchElement)(void *TheVectorGeneric, void * TheElementData);

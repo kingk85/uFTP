@@ -74,7 +74,7 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
     if (dynamicString->textLen == 0)
     {
     	//printf("\nMemory data address before memset call : %lld", memoryTable);
-        dynamicString->text = (char *) DYNMEM_malloc (((sizeof(char) * stringLen) + 1), &*memoryTable);
+        dynamicString->text = (char *) DYNMEM_malloc (((sizeof(char) * stringLen) + 1), &*memoryTable, "setDynamicString");
         //printf("\nMemory data address after memset call : %lld", memoryTable);
         memset(dynamicString->text, 0, stringLen + 1);
         memcpy(dynamicString->text, theString, stringLen);
@@ -235,7 +235,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
     int i, x, returnCode;
     int fileAndFoldersCount = 0;
     char **fileList = NULL;
-    FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0);
+    FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0, &*memoryTable);
     *filesNumber = fileAndFoldersCount;
 
     returnCode = socketWorkerPrintf(ftpData, clientId, "sds", "total ", fileAndFoldersCount ,"\r\n");
@@ -287,16 +287,16 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
       
         //printf("\nFILE SIZE : %lld", data.fileSize);
 
-        data.owner = FILE_GetOwner(fileList[i]);
-        data.groupOwner = FILE_GetGroupOwner(fileList[i]);
+        data.owner = FILE_GetOwner(fileList[i], &*memoryTable);
+        data.groupOwner = FILE_GetGroupOwner(fileList[i], &*memoryTable);
         data.fileNameWithPath = fileList[i];
         data.fileNameNoPath = FILE_GetFilenameFromPath(fileList[i]);
-        data.inodePermissionString = FILE_GetListPermissionsString(fileList[i]);
+        data.inodePermissionString = FILE_GetListPermissionsString(fileList[i], &*memoryTable);
         data.lastModifiedData = FILE_GetLastModifiedData(fileList[i]);
 
         if (strlen(data.fileNameNoPath) > 0)
         {
-            data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, &*memoryTable);
+            data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, &*memoryTable, "dataFinalPath");
             strcpy(data.finalStringPath, data.fileNameNoPath);
         }
         
@@ -306,7 +306,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             {
                 int len = 0;
                 data.isLink = 1;
-                data.linkPath = (char *) DYNMEM_malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char), &*memoryTable);
+                data.linkPath = (char *) DYNMEM_malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char), &*memoryTable, "dataLinkPath");
                 if ((len = readlink (fileList[i], data.linkPath, CLIENT_COMMAND_STRING_SIZE)) > 0)
                 {
                     data.linkPath[len] = 0;
@@ -367,28 +367,28 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         
        
         if (data.fileNameWithPath != NULL)
-            free(data.fileNameWithPath);
+            DYNMEM_free(data.fileNameWithPath, &*memoryTable);
         
         if (data.linkPath != NULL)
-            free(data.linkPath);
+        	DYNMEM_free(data.linkPath, &*memoryTable);
 
         if (data.finalStringPath != NULL)
-            free(data.finalStringPath);
+        	DYNMEM_free(data.finalStringPath, &*memoryTable);
 
         if (data.owner != NULL)
-            free(data.owner);
+        	DYNMEM_free(data.owner, &*memoryTable);
         
         if (data.groupOwner != NULL)
-            free(data.groupOwner);
+        	DYNMEM_free(data.groupOwner, &*memoryTable);
         
         if (data.inodePermissionString != NULL)
-            free(data.inodePermissionString);
+        	DYNMEM_free(data.inodePermissionString, &*memoryTable);
           
         if (returnCode <= 0)
         {
             for (x = i+1; x < fileAndFoldersCount; x++)
-                free (fileList[x]);
-            free (fileList);
+            	DYNMEM_free (fileList[x], &*memoryTable);
+            DYNMEM_free (fileList, &*memoryTable);
             return -1;
         }
         
@@ -396,7 +396,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
 
 		if (fileList != NULL)
 		{
-			free (fileList);
+			DYNMEM_free (fileList, &*memoryTable);
 		}
 
         return 1;
@@ -429,7 +429,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
     int i;
     int fileAndFoldersCount = 0;
     ftpListDataType data;
-    FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0);
+    FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0, &*memoryTable);
     
     //printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
     //fflush(0);
@@ -477,16 +477,16 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
         
         printf("\nFILE SIZE : %lld", data.fileSize);
 
-        data.owner = FILE_GetOwner(data.fileList[i]);
-        data.groupOwner = FILE_GetGroupOwner(data.fileList[i]);
+        data.owner = FILE_GetOwner(data.fileList[i], &*memoryTable);
+        data.groupOwner = FILE_GetGroupOwner(data.fileList[i], &*memoryTable);
         data.fileNameWithPath = data.fileList[i];
         data.fileNameNoPath = FILE_GetFilenameFromPath(data.fileList[i]);
-        data.inodePermissionString = FILE_GetListPermissionsString(data.fileList[i]);
+        data.inodePermissionString = FILE_GetListPermissionsString(data.fileList[i], &*memoryTable);
         data.lastModifiedData = FILE_GetLastModifiedData(data.fileList[i]);
 
         if (strlen(data.fileNameNoPath) > 0)
         {
-            data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, &*memoryTable);
+            data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, &*memoryTable, "FinalStringPath");
             strcpy(data.finalStringPath, data.fileNameNoPath);
         }
         
@@ -496,7 +496,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
             {
                 int len = 0;
                 data.isLink = 1;
-                data.linkPath = (char *) DYNMEM_malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char), &*memoryTable);
+                data.linkPath = (char *) DYNMEM_malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char), &*memoryTable, "data.linkPath");
                 if ((len = readlink (data.fileList[i], data.linkPath, CLIENT_COMMAND_STRING_SIZE)) > 0)
                 {
                     data.linkPath[len] = 0;
@@ -529,38 +529,38 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
     }
 }
 
-void deleteListDataInfoVector(void *TheElementToDelete)
+void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
 {
-    ftpListDataType *data = (ftpListDataType *)TheElementToDelete;
 
-    if (data->owner != NULL)
+    int i;
+    for (i = 0; i < theVector->Size; i++)
     {
-        free(data->owner);
-    }
-    
-    if (data->groupOwner != NULL)
-    {
-        free(data->groupOwner);
-    }
+		ftpListDataType *data = (ftpListDataType *)theVector->Data[i];
 
-    if (data->inodePermissionString != NULL)
-    {
-        free(data->inodePermissionString);
-    }
-
-    if (data->fileNameWithPath != NULL)
-    {
-        free(data->fileNameWithPath);
-    }
-
-    if (data->finalStringPath != NULL)
-    {
-        free(data->finalStringPath);
-    }
-
-    if (data->linkPath != NULL)
-    {
-        free(data->linkPath);
+		if (data->owner != NULL)
+		{
+			DYNMEM_free(data->owner, &theVector->memoryTable);
+		}
+		if (data->groupOwner != NULL)
+		{
+			DYNMEM_free(data->groupOwner, &theVector->memoryTable);
+		}
+		if (data->inodePermissionString != NULL)
+		{
+			DYNMEM_free(data->inodePermissionString, &theVector->memoryTable);
+		}
+		if (data->fileNameWithPath != NULL)
+		{
+			DYNMEM_free(data->fileNameWithPath, &theVector->memoryTable);
+		}
+		if (data->finalStringPath != NULL)
+		{
+			DYNMEM_free(data->finalStringPath, &theVector->memoryTable);
+		}
+		if (data->linkPath != NULL)
+		{
+			DYNMEM_free(data->linkPath, &theVector->memoryTable);
+		}
     }
 }
 
@@ -632,7 +632,7 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
     {
         lastToDestroy = ((ftpListDataType *)data->clients[clientId].workerData.directoryInfo.Data[0])->fileList;
         data->clients[clientId].workerData.directoryInfo.Destroy(&data->clients[clientId].workerData.directoryInfo, deleteListDataInfoVector);
-        free(lastToDestroy);
+        DYNMEM_free(lastToDestroy, &data->clients[clientId].workerData.memoryTable);
     }
 
 		#ifdef OPENSSL_ENABLED
@@ -706,6 +706,9 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 	//data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
 	data->clients[clientId].ssl = SSL_new(data->serverCtx);
 	#endif
+
+
+	printf("\nclient memory table :%lld", data->clients[clientId].memoryTable);
 }
 
 int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)

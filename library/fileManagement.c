@@ -40,7 +40,6 @@
 #include "dynamicMemory.h"
 
 static int FILE_CompareString(const void * a, const void * b);
-
 static int FILE_CompareString(const void * a, const void * b)
 {
     return strcmp (*(const char **) a, *(const char **) b);
@@ -186,14 +185,14 @@ int FILE_IsFile(const char *TheFileName)
     return 0;
 }
 
-void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive)
+void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     int FileAndFolderIndex = *FilesandFolders;
 
     //Allocate the array for the 1st time
     if (*InodeList == NULL)
     {
-        (*InodeList) = (char **) malloc(sizeof(char *) * (1));
+        (*InodeList) = (char **) DYNMEM_malloc(sizeof(char *) * (1), &*memoryTable, "InodeList");
     }
 
     
@@ -218,10 +217,10 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
                 //Set the row to needed size
                 int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
-                (*InodeList) = (char ** ) realloc((*InodeList), ReallocSize );
+                (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, &*memoryTable);
                 int nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
                 //Allocate the path string size
-                (*InodeList)[FileAndFolderIndex]  = (char *) malloc (  nsize );
+                (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize , &*memoryTable, "InodeList");
                 strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
                 strcat((*InodeList)[FileAndFolderIndex], "/" );
                 strcat((*InodeList)[FileAndFolderIndex], dir->d_name );
@@ -231,7 +230,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
                 if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
                 {
-                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive );
+                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive, &*memoryTable);
                     FileAndFolderIndex = (*FilesandFolders);
                 }
 
@@ -245,10 +244,10 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     {
         printf("\nAdding single file to inode list: %s", DirectoryInodeName);
         int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
-        (*InodeList) = (char ** ) realloc((*InodeList), ReallocSize );
+        (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, &*memoryTable);
         int nsize = strlen(DirectoryInodeName) * sizeof(char) + 2;
 
-        (*InodeList)[FileAndFolderIndex]  = (char *) malloc ( nsize );
+        (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize, &*memoryTable, "InodeList");
         strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
         (*InodeList)[FileAndFolderIndex][strlen(DirectoryInodeName)] = '\0';
         (*FilesandFolders)++;
@@ -260,7 +259,6 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
         //No valid path specified, returns zero elements
         (*FilesandFolders) = 0;
     }
-        
 }
 
 int FILE_GetDirectoryInodeCount(char * DirectoryInodeName)
@@ -291,7 +289,7 @@ int FILE_GetDirectoryInodeCount(char * DirectoryInodeName)
     return FileAndFolderIndex;
 }
 
-int FILE_GetStringFromFile(char * filename, char **file_content)
+int FILE_GetStringFromFile(char * filename, char **file_content, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     long long int file_size = 0;
     int c, count;
@@ -321,7 +319,7 @@ int FILE_GetStringFromFile(char * filename, char **file_content)
     file_size = FILE_GetFileSize(file);
 
     count = 0;
-    *file_content  = (char *) malloc(file_size * sizeof(char) + 100);
+    *file_content  = (char *) DYNMEM_malloc((file_size * sizeof(char) + 100), &*memoryTable, "getstringfromfile");
 
     while ((c = fgetc(file)) != EOF)
     {
@@ -531,9 +529,9 @@ char * FILE_GetFilenameFromPath(char * FileName)
 	return TheStr;
 }
 
-char * FILE_GetListPermissionsString(char *file) {
+char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** memoryTable) {
     struct stat st, stl;
-    char *modeval = malloc(sizeof(char) * 10 + 1);
+    char *modeval = DYNMEM_malloc(sizeof(char) * 10 + 1, &*memoryTable, "getperm");
     if(stat(file, &st) == 0) 
     {
         mode_t perm = st.st_mode;
@@ -563,7 +561,7 @@ char * FILE_GetListPermissionsString(char *file) {
     return modeval;
 }
 
-char * FILE_GetOwner(char *fileName)
+char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     int returnCode = 0;
     char *toReturn;
@@ -576,13 +574,13 @@ char * FILE_GetOwner(char *fileName)
     if ( (pw = getpwuid(info.st_uid)) == NULL)
         return NULL;
 
-    toReturn = (char *) malloc (strlen(pw->pw_name) + 1);
+    toReturn = (char *) DYNMEM_malloc (strlen(pw->pw_name) + 1, &*memoryTable, "getowner");
     strcpy(toReturn, pw->pw_name);
 
     return toReturn;
 }
 
-char * FILE_GetGroupOwner(char *fileName)
+char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     char *toReturn;
     struct stat info;
@@ -593,7 +591,7 @@ char * FILE_GetGroupOwner(char *fileName)
     if ((gr = getgrgid(info.st_gid)) == NULL)
         return NULL;
     
-    toReturn = (char *) malloc (strlen(gr->gr_name) + 1);
+    toReturn = (char *) DYNMEM_malloc (strlen(gr->gr_name) + 1, &*memoryTable, "getowner");
     strcpy(toReturn, gr->gr_name);
     
     return toReturn;
@@ -616,7 +614,7 @@ void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTab
     (*sourceString)[theNewSize] = '\0';
 }
 
-void FILE_DirectoryToParent(char ** sourceString)
+void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     //printf("\n");
    int i = 0, theLastSlash = -1, strLen = 0;
@@ -641,7 +639,7 @@ void FILE_DirectoryToParent(char ** sourceString)
        {
            theNewSize = 1;
        }
-       *sourceString = realloc(*sourceString, theNewSize+1);
+       *sourceString = DYNMEM_realloc(*sourceString, theNewSize+1, &*memoryTable);
        (*sourceString)[theNewSize] = '\0';
    }
 }
