@@ -144,7 +144,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
         {
             if (((loginFailsDataType *) data->loginFailsVector.Data[searchPosition])->failureNumbers >= data->ftpParameters.maximumUserAndPassowrdLoginTries)
             {
-                printf("\n TOO MANY LOGIN FAILS! \n");
+                //printf("\n TOO MANY LOGIN FAILS! \n");
                 data->clients[socketId].closeTheClient = 1;
                 returnCode = socketPrintf(data, socketId, "s", "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
                 if (returnCode <= 0) return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -246,13 +246,13 @@ int parseCommandAuth(ftpDataType * data, int socketId)
 
 		if (returnCodeTls <= 0)
 		{
-			printf("\nSSL NOT YET ACCEPTED: %d", returnCodeTls);
+			//printf("\nSSL NOT YET ACCEPTED: %d", returnCodeTls);
 			data->clients[socketId].tlsIsEnabled = 0;
 			data->clients[socketId].tlsIsNegotiating = 1;
 		}
 		else
 		{
-			printf("\nSSL ACCEPTED");
+			//printf("\nSSL ACCEPTED");
 			data->clients[socketId].tlsIsEnabled = 1;
 			data->clients[socketId].tlsIsNegotiating = 0;
 		}
@@ -353,7 +353,7 @@ int parseCommandProt(ftpDataType * data, int socketId)
     if (theProtArg[0] == 'C' || theProtArg[0] == 'c')
     {
     	//Clear
-    	printf("\nSet data channel to clear");
+    	//printf("\nSet data channel to clear");
     	data->clients[socketId].dataChannelIsTls = 0;
     	returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
 
@@ -361,7 +361,7 @@ int parseCommandProt(ftpDataType * data, int socketId)
     else if (theProtArg[0] == 'P' || theProtArg[0] == 'p')
     {
     	//Private
-    	printf("\nSet data channel to private");
+    	//printf("\nSet data channel to private");
     	data->clients[socketId].dataChannelIsTls = 1;
     	returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
@@ -463,17 +463,17 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     int returnCode;
     //printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
-    printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
+    //printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
     	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
-    	printf("\npasv pthread_cancel = %d", returnCode);
+    	//printf("\npasv pthread_cancel = %d", returnCode);
     }
 
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
     	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-    	printf("\nPasv join ok %d", returnCode);
+    	//printf("\nPasv join ok %d", returnCode);
     }
 
     data->clients[socketId].workerData.passiveModeOn = 1;
@@ -482,7 +482,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 
     if (returnCode != 0)
     {
-    	printf("\nError in pthread_create %d", returnCode);
+    	//printf("\nError in pthread_create %d", returnCode);
     	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -515,7 +515,7 @@ int parseCommandPort(ftpDataType * data, int socketId)
 
     if (returnCode != 0)
     {
-    	printf("\nError in pthread_create %d", returnCode);
+    	//printf("\nError in pthread_create %d", returnCode);
     	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -582,11 +582,11 @@ int parseCommandList(ftpDataType * data, int socketId)
     theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived, 1);
     getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand, &data->clients[socketId].workerData.memoryTable);
  
-    if (data->clients[socketId].workerData.ftpCommand.commandArgs.text != NULL)
-    	printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
-    if (data->clients[socketId].workerData.ftpCommand.commandOps.text != NULL)
-    	printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
-    printf("\ntheNameToList: %s", theNameToList);
+   // if (data->clients[socketId].workerData.ftpCommand.commandArgs.text != NULL)
+    //	printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    //if (data->clients[socketId].workerData.ftpCommand.commandOps.text != NULL)
+    //	printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+   // printf("\ntheNameToList: %s", theNameToList);
     
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0, &data->clients[socketId].workerData.memoryTable);
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0, &data->clients[socketId].workerData.memoryTable);
@@ -619,9 +619,9 @@ int parseCommandNlst(ftpDataType * data, int socketId)
     theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived, 1);
     cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0, &data->clients[socketId].memoryTable);
 
-    printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
-    printf("\nNLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
-    printf("\ntheNameToNlist: %s", theNameToNlist);
+   // printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    //printf("\nNLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+   // printf("\ntheNameToNlist: %s", theNameToNlist);
     
     if (strlen(theNameToNlist) > 0)
     {
@@ -991,7 +991,7 @@ int parseCommandQuit(ftpDataType * data, int socketId)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     data->clients[socketId].closeTheClient = 1;
-    printf("\n Closing the client quit received");
+    //printf("\n Closing the client quit received");
     return FTP_COMMAND_PROCESSED;
 }
 
@@ -1470,7 +1470,7 @@ int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataTyp
     returnCode = strtol(thePermissionString, 0, 8);
     if ((returnCodeSetPermissions = chmod (theFinalFilename, returnCode)) < 0)
     {
-        printf("\n---> ERROR WHILE SETTING FILE PERMISSION");
+        //printf("\n---> ERROR WHILE SETTING FILE PERMISSION");
     }
 
     if (returnCodeSetOwnership != 1 || returnCodeSetPermissions == -1)
