@@ -185,8 +185,8 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 		//printf("\n\nMemory address : %ld not found\n\n", f_address);
 		//fflush(0);
 		//Debug TRAP
-		char *theData ="c";
-		strcpy(theData, "ciaociaociao");
+		//char *theData ="c";
+		//strcpy(theData, "ciaociaociao");
 		report_error_q("Unable to free memory not previously allocated",__FILE__,__LINE__, 1);
 		// Report this as an error
 	}
@@ -212,18 +212,18 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 void DYNMEM_freeAll(DYNMEM_MemoryTable_DataType **memoryListHead)
 {
 
-
 	DYNMEM_MemoryTable_DataType *temp = NULL;
+
 	while((*memoryListHead) != NULL)
 	{
-		printf("\nDYNMEM_freeAll called");
-		printf("\nElement size: %ld", (*memoryListHead)->size);
-		printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
-		printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
-		printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
+//		printf("\nDYNMEM_freeAll called");
+//		printf("\nElement size: %ld", (*memoryListHead)->size);
+//		printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
+//		printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
+//		printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
 
 		DYNMEM_DecreaseMemoryCounter((*memoryListHead)->size + sizeof(DYNMEM_MemoryTable_DataType));
-		printf("\nFree table element");
+		//printf("\nFree table element");
 		free((*memoryListHead)->address);
 		temp = (*memoryListHead)->nextElement;
 		free((*memoryListHead));

@@ -471,11 +471,11 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
         }
         if (data.isDirectory == 0 && data.isFile == 0)
         {
-            printf("\nNot a directory, not a file, broken link");
+            //printf("\nNot a directory, not a file, broken link");
             continue;
         }
         
-        printf("\nFILE SIZE : %lld", data.fileSize);
+       // printf("\nFILE SIZE : %lld", data.fileSize);
 
         data.owner = FILE_GetOwner(data.fileList[i], &*memoryTable);
         data.groupOwner = FILE_GetGroupOwner(data.fileList[i], &*memoryTable);
@@ -614,14 +614,14 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 
       if (pthread_mutex_init(&data->clients[clientId].workerData.conditionMutex, NULL) != 0)
       {
-          printf("\ndata->clients[clientId].workerData.conditionMutex init failed\n");
+         // printf("\ndata->clients[clientId].workerData.conditionMutex init failed\n");
           exit(0);
       }
 
 
       if (pthread_cond_init(&data->clients[clientId].workerData.conditionVariable, NULL) != 0)
       {
-          printf("\ndata->clients[clientId].workerData.conditionVariable init failed\n");
+         // printf("\ndata->clients[clientId].workerData.conditionVariable init failed\n");
           exit(0);
       }
 
@@ -707,8 +707,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 	data->clients[clientId].ssl = SSL_new(data->serverCtx);
 	#endif
 
-
-	printf("\nclient memory table :%lld", data->clients[clientId].memoryTable);
+	//printf("\nclient memory table :%lld", data->clients[clientId].memoryTable);
 }
 
 int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)

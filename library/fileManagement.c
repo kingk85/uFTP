@@ -51,7 +51,7 @@ static int FILE_CompareStringParameter(const void * a, const void * b)
 {
     const FILE_StringParameter_DataType * typeA = *(const FILE_StringParameter_DataType **)a;
     const FILE_StringParameter_DataType * typeB = *(const FILE_StringParameter_DataType **)b;
-    printf("Comparing  %s with %s",typeA->Name, typeB->Name);
+   //printf("Comparing  %s with %s",typeA->Name, typeB->Name);
     return strcmp(typeA->Name, typeB->Name);
 }
 
@@ -242,7 +242,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     }
     else if (FILE_IsFile(DirectoryInodeName))
     {
-        printf("\nAdding single file to inode list: %s", DirectoryInodeName);
+        //printf("\nAdding single file to inode list: %s", DirectoryInodeName);
         int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
         (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, &*memoryTable);
         int nsize = strlen(DirectoryInodeName) * sizeof(char) + 2;
@@ -255,7 +255,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     }
     else
     {
-        printf("\n%s is not a file or a directory", DirectoryInodeName);
+        //printf("\n%s is not a file or a directory", DirectoryInodeName);
         //No valid path specified, returns zero elements
         (*FilesandFolders) = 0;
     }
@@ -359,7 +359,7 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
     }
     else
     {
-    printf("Parameter initializing from file %s", filename);
+    //printf("Parameter initializing from file %s", filename);
 
     while(fgets(Line, FILE_MAX_LINE_LENGHT, File) != NULL)
             {
@@ -380,7 +380,7 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
                     {
                     TheParameter.Name[BufferNameCursor] = '\0';
                     TheParameter.Value[BufferValueCursor] = '\0';
-                    printf("Adding name: %s value: %s", TheParameter.Name, TheParameter.Value);
+                    //printf("Adding name: %s value: %s", TheParameter.Name, TheParameter.Value);
                     //printf("TheParameter.Name[0] = %d", TheParameter.Name[0]);
 
                     ParametersVector->PushBack(ParametersVector, &TheParameter, sizeof(FILE_StringParameter_DataType));
@@ -436,19 +436,19 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
             fclose(File);
             }
 
-    printf("ParametersVector->Size %d", ParametersVector->Size);
+   // printf("ParametersVector->Size %d", ParametersVector->Size);
 
     for (i = 0; i < ParametersVector->Size; i++)
             {
-            printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
+            //printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
             }
 
     qsort(ParametersVector->Data, ParametersVector->Size, sizeof(void *), FILE_CompareStringParameter);
 
-    printf("Sorted");
+    //printf("Sorted");
     for (i = 0; i < ParametersVector->Size; i++)
             {
-            printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
+            //printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
             }
 
 }
@@ -742,11 +742,11 @@ void FILE_checkAllOpenedFD(void)
 			fstat(i, &statbuf);
 			if (S_ISSOCK(statbuf.st_mode))
 			{
-				printf("\n fd %d is socket", i);
+				//printf("\n fd %d is socket", i);
 			}
 			else if (S_ISDIR(statbuf.st_mode))
 			{
-				printf("\n fd %d is dir", i);
+				//printf("\n fd %d is dir", i);
 			}
 
 			/*
@@ -771,5 +771,5 @@ void FILE_checkAllOpenedFD(void)
 			openedFd++;
 		}
 	}
-	printf("\n\nOpened fd : %d", openedFd);
+	//printf("\n\nOpened fd : %d", openedFd);
 }

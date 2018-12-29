@@ -52,7 +52,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	int theStringSize = 0, theCommandSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
 	memset(&commandBuffer, 0, COMMAND_BUFFER);
-	printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
+	//printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
 
 	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
 
@@ -140,7 +140,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 		#endif
 	}
 
-	printf("\n%s", commandBuffer);
+	//printf("\n%s", commandBuffer);
 
 	pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
 
@@ -149,26 +149,31 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 
 int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
 {
-	#define SOCKET_PRINTF_BUFFER						2048
+	#define COMMAND_BUFFER								9600
+	#define SOCKET_PRINTF_BUFFER2						4096
 
-	int bytesWritten = 0;
-	char theBuffer[SOCKET_PRINTF_BUFFER];
+	int bytesWritten = 0, i = 0, theStringToWriteSize = 0;
+	char theBuffer[SOCKET_PRINTF_BUFFER2];
+	char writeBuffer[COMMAND_BUFFER];
 	int theStringSize = 0;
-	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-	//printf("\nWriting to worker socket id %dd, TLS %d: ", clientId, ftpData->clients[clientId].dataChannelIsTls);
+
+	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2);
+	memset(&writeBuffer, 0, COMMAND_BUFFER);
+
 	va_list args;
 	va_start(args, __fmt);
 	while (*__fmt != '\0')
 	{
 		theStringSize = 0;
+
 		switch(*__fmt)
 		{
 			case 'd':
 			case 'D':
 			{
 				int theInteger = va_arg(args, int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%d", theInteger);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%d", theInteger);
 			}
 			break;
 
@@ -176,8 +181,8 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			case 'C':
 			{
 				int theCharInteger = va_arg(args, int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%c", theCharInteger);
 			}
 			break;
 
@@ -185,8 +190,8 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			case 'F':
 			{
 				float theDouble = va_arg(args, double);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%f", theDouble);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%f", theDouble);
 			}
 			break;
 
@@ -194,8 +199,8 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			case 'S':
 			{
 				char * theString = va_arg(args, char *);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%s", theString);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%s", theString);
 			}
 			break;
 
@@ -203,8 +208,8 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			case 'L':
 			{
 				long long int theLongLongInt = va_arg(args, long long int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%lld",  theLongLongInt);
+				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2);
+				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%lld",  theLongLongInt);
 			}
 			break;
 
@@ -214,55 +219,101 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			}
 			break;
 		}
-
-		if (theStringSize >= SOCKET_PRINTF_BUFFER) {
-			printf("\n String buffer is full!");
-		}
-		else if (theStringSize < SOCKET_PRINTF_BUFFER &&
-				theStringSize > 0)
-		{
-			int theReturnCode = 0;
-
-			if (ftpData->clients[clientId].dataChannelIsTls != 1)
-			{
-				theReturnCode = write(ftpData->clients[clientId].workerData.socketConnection, theBuffer, theStringSize);
-			}
-			else if (ftpData->clients[clientId].dataChannelIsTls == 1)
-			{
-
-				#ifdef OPENSSL_ENABLED
-				if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
-					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, theBuffer, theStringSize);
-					printf("%s", theBuffer);
-				}
-				else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
-					theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, theBuffer, theStringSize);
-					printf("%s", theBuffer);
-				}
-				#endif
-			}
-
-
-
-			if (theReturnCode > 0)
-			{
-				bytesWritten += theReturnCode;
-			}
-			else
-			{
-				bytesWritten = theReturnCode;
-				break;
-			}
-		}
-		else if(theStringSize == 0)
-		{
-			printf("\n Nothing to write.. ");
-		}
-
 		++__fmt;
+
+		//printf("\nThe string: %s", theBuffer);
+
+		for (i = 0; i <theStringSize; i++)
+		{
+			//Write the buffer
+			if (theStringToWriteSize >= COMMAND_BUFFER)
+			{
+				//printf("\nData to write theStringToWriteSize >= COMMAND_BUFFER: %s", writeBuffer);
+				int theReturnCode = 0;
+				if (ftpData->clients[clientId].dataChannelIsTls != 1)
+				{
+					theReturnCode = write(ftpData->clients[clientId].workerData.socketConnection, writeBuffer, theStringToWriteSize);
+				}
+				else if (ftpData->clients[clientId].dataChannelIsTls == 1)
+				{
+					#ifdef OPENSSL_ENABLED
+					if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
+						theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, writeBuffer, theStringToWriteSize);
+						//printf("%s", writeBuffer);
+					}
+					else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
+						theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, writeBuffer, theStringToWriteSize);
+						//printf("%s", writeBuffer);
+					}
+					#endif
+				}
+
+				if (theReturnCode > 0)
+				{
+					bytesWritten += theReturnCode;
+				}
+
+				if (theReturnCode < 0)
+				{
+					printf("\nWrite error");
+					va_end(args);
+					return theReturnCode;
+				}
+
+				memset(&writeBuffer, 0, COMMAND_BUFFER);
+				theStringToWriteSize = 0;
+			}
+
+			if (theStringToWriteSize < COMMAND_BUFFER)
+			{
+				writeBuffer[theStringToWriteSize++] = theBuffer[i];
+			}
+		}
+	}
+	va_end(args);
+
+
+	//printf("\nData to write: %s (%d bytes)", writeBuffer, theStringToWriteSize);
+	//Write the buffer
+	if (theStringToWriteSize > 0)
+	{
+		//printf("\nwriting data size %d", theStringToWriteSize);
+		int theReturnCode = 0;
+
+		if (ftpData->clients[clientId].dataChannelIsTls != 1)
+		{
+			theReturnCode = write(ftpData->clients[clientId].workerData.socketConnection, writeBuffer, theStringToWriteSize);
+		}
+		else if (ftpData->clients[clientId].dataChannelIsTls == 1)
+		{
+			#ifdef OPENSSL_ENABLED
+			if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
+				theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, writeBuffer, theStringToWriteSize);
+				//printf("%s", writeBuffer);
+			}
+			else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
+				theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, writeBuffer, theStringToWriteSize);
+				//printf("%s", writeBuffer);
+			}
+			#endif
+		}
+
+		if (theReturnCode > 0)
+		{
+			bytesWritten += theReturnCode;
+		}
+
+		if (theReturnCode < 0)
+		{
+			return theReturnCode;
+		}
+
+		memset(&writeBuffer, 0, COMMAND_BUFFER);
+		theStringToWriteSize = 0;
 	}
 
-	va_end(args);
+	//printf("\nbytesWritten = %d", bytesWritten);
+
 	return bytesWritten;
 }
 
@@ -285,7 +336,7 @@ int getMaximumSocketFd(int mainSocket, ftpDataType * ftpData)
 
 int createSocket(ftpDataType * ftpData)
 {
-  printf("\nCreating main socket on port %d", ftpData->ftpParameters.port);
+  //printf("\nCreating main socket on port %d", ftpData->ftpParameters.port);
   int sock, errorCode;
   struct sockaddr_in temp;
 
@@ -401,7 +452,7 @@ int createActiveSocket(int port, char *ipAddress)
   int sockfd;
   struct sockaddr_in serv_addr;
 
-  printf("\n Connection socket is going to start ip: %s:%d \n", ipAddress, port);
+  //printf("\n Connection socket is going to start ip: %s:%d \n", ipAddress, port);
   //sleep(100);
   memset(&serv_addr, 0, sizeof(struct sockaddr_in)); 
   serv_addr.sin_family = AF_INET;
@@ -447,7 +498,7 @@ int createActiveSocket(int port, char *ipAddress)
      return -1;
   }
 
-  printf("\n Connection socket %d is going to start ip: %s:%d \n",sockfd, ipAddress, port);
+ // printf("\n Connection socket %d is going to start ip: %s:%d \n",sockfd, ipAddress, port);
 
   return sockfd;
 }
@@ -486,33 +537,32 @@ void closeSocket(ftpDataType * ftpData, int processingSocket)
 	int theReturnCode = 0;
 
 #ifdef OPENSSL_ENABLED
-	/*
+
 	if (ftpData->clients[processingSocket].dataChannelIsTls == 1)
 	{
 		if(ftpData->clients[processingSocket].workerData.passiveModeOn == 1)
 		{
-
 			printf("\nSSL worker Shutdown 1");
-			returnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
-			printf("\nnSSL worker Shutdown 1 return code : %d", returnCode);
+			theReturnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
+			printf("\nnSSL worker Shutdown 1 return code : %d", theReturnCode);
 
-			if (returnCode < 0)
+			if (theReturnCode < 0)
 			{
-				printf("SSL_shutdown failed return code %d", returnCode);
+				printf("SSL_shutdown failed return code %d", theReturnCode);
 			}
-			else if (returnCode == 0)
+			else if (theReturnCode == 0)
 			{
 				printf("\nSSL worker Shutdown 2");
-				returnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
-				printf("\nnSSL worker Shutdown 2 return code : %d", returnCode);
+				theReturnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
+				printf("\nnSSL worker Shutdown 2 return code : %d", theReturnCode);
 
-				if (returnCode <= 0)
+				if (theReturnCode <= 0)
 				{
 					printf("SSL_shutdown (2nd time) failed");
 				}
 			}
 		}
-	}*/
+	}
 #endif
 
     //Close the socket
@@ -529,19 +579,19 @@ void closeSocket(ftpDataType * ftpData, int processingSocket)
         ftpData->connectedClients = 0;
     }
 
-    printf("Client id: %d disconnected", processingSocket);
-    printf("\nServer: Clients connected:%d", ftpData->connectedClients);
+    //printf("Client id: %d disconnected", processingSocket);
+    //printf("\nServer: Clients connected:%d", ftpData->connectedClients);
     return;
 }
 
 void closeClient(ftpDataType * ftpData, int processingSocket)
 {
-    printf("\nQUIT FLAG SET!\n");
+   // printf("\nQUIT FLAG SET!\n");
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
 		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
-		printf("\nQuit command received the Pasv Thread has been cancelled.");
+		//printf("\nQuit command received the Pasv Thread has been cancelled.");
     }
 
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    
@@ -653,9 +703,9 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                           &(ftpData->clients[availableSocketIndex].server_sockaddr_in.sin_addr),
                           ftpData->clients[availableSocketIndex].serverIpAddress,
                           INET_ADDRSTRLEN);
-                printf("\n Server IP: %s", ftpData->clients[availableSocketIndex].serverIpAddress);
-                printf("Server: New client connected with id: %d", availableSocketIndex);
-                printf("\nServer: Clients connected: %d", ftpData->connectedClients);
+                //printf("\n Server IP: %s", ftpData->clients[availableSocketIndex].serverIpAddress);
+                //printf("Server: New client connected with id: %d", availableSocketIndex);
+                //printf("\nServer: Clients connected: %d", ftpData->connectedClients);
                 sscanf (ftpData->clients[availableSocketIndex].serverIpAddress,"%d.%d.%d.%d",   &ftpData->clients[availableSocketIndex].serverIpAddressInteger[0],
                                                                                                 &ftpData->clients[availableSocketIndex].serverIpAddressInteger[1],
                                                                                                 &ftpData->clients[availableSocketIndex].serverIpAddressInteger[2],
@@ -665,9 +715,9 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                           &(ftpData->clients[availableSocketIndex].client_sockaddr_in.sin_addr),
                           ftpData->clients[availableSocketIndex].clientIpAddress,
                           INET_ADDRSTRLEN);
-                printf("\n Client IP: %s", ftpData->clients[availableSocketIndex].clientIpAddress);
+                //printf("\n Client IP: %s", ftpData->clients[availableSocketIndex].clientIpAddress);
                 ftpData->clients[availableSocketIndex].clientPort = (int) ntohs(ftpData->clients[availableSocketIndex].client_sockaddr_in.sin_port);      
-                printf("\nClient port is: %d\n", ftpData->clients[availableSocketIndex].clientPort);
+                //printf("\nClient port is: %d\n", ftpData->clients[availableSocketIndex].clientPort);
 
                 ftpData->clients[availableSocketIndex].connectionTimeStamp = (int)time(NULL);
                 ftpData->clients[availableSocketIndex].lastActivityTimeStamp = (int)time(NULL);
