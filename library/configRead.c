@@ -603,11 +603,25 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
             
             userData.ownerShip.gid = FILE_getGID(userData.ownerShip.groupOwnerString);
             userData.ownerShip.uid = FILE_getUID(userData.ownerShip.userOwnerString);
-            userData.ownerShip.ownerShipSet = 1;
+
+
+            if (userData.ownerShip.gid != -1 &&
+            	userData.ownerShip.uid != -1)
+            {
+            	userData.ownerShip.ownerShipSet = 1;
+            }
+            else
+            {
+                userData.ownerShip.gid = 0;
+                userData.ownerShip.uid = 0;
+            	userData.ownerShip.ownerShipSet = 0;
+            }
         }
         else
         {
             userData.ownerShip.ownerShipSet = 0;
+            userData.ownerShip.gid = 0;
+            userData.ownerShip.uid = 0;
             userData.ownerShip.groupOwnerString = NULL;
             userData.ownerShip.userOwnerString  = NULL;
         }

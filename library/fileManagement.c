@@ -546,7 +546,7 @@ char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** 
         modeval[8] = (perm & S_IWOTH) ? 'w' : '-';
         modeval[9] = (perm & S_IXOTH) ? 'x' : '-';
         modeval[10] = '\0';
-        
+
         if(lstat(file, &stl) == 0)
         {
             if (S_ISLNK(stl.st_mode)) 
@@ -559,6 +559,51 @@ char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** 
     }
     
     return modeval;
+}
+
+
+int checkUserFilePermissions(char *fileName, int uid, int gid)
+{
+
+	if (uid == 0 || gid == 0)
+	{
+		return FILE_PERMISSION_RW;
+	}
+
+	static int init = 0;
+	if (init == 0)
+	{
+
+	}
+
+	init = 1;
+
+	int filePermissions = FILE_PERMISSION_NO_RW;
+    int returnCode = 0;
+    char *toReturn;
+    struct stat info;
+
+    if ((returnCode = stat(fileName, &info)) == -1)
+    {
+    	return -1;
+    }
+
+    if (info.st_uid == uid ||
+		info.st_gid == gid)
+    {
+    	filePermissions = FILE_PERMISSION_RW;
+    }
+    else
+    {
+        mode_t perm = info.st_mode;
+    	if ((perm & S_IROTH))
+    		filePermissions |= FILE_PERMISSION_R;
+
+    	if ((perm & S_IWOTH))
+    		filePermissions |= FILE_PERMISSION_W;
+    }
+
+    return filePermissions;
 }
 
 char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
