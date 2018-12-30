@@ -379,6 +379,19 @@ void *connectionWorkerHandle(void * socketId)
           else if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1)
               theCommandType = COMMAND_TYPE_NLST;
 
+
+      	if ((checkUserFilePermissions(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
+          {
+              returnCode = socketPrintf(&ftpData, theSocketId, "s", "550 No permissions\r\n");
+              if (returnCode <= 0)
+              {
+                  ftpData.clients[theSocketId].closeTheClient = 1;
+                  printf("\n Closing the client 8");
+                  pthread_exit(NULL);
+              }
+              break;
+          }
+
           returnCode = socketPrintf(&ftpData, theSocketId, "s", "150 Accepted data connection\r\n");
           if (returnCode <= 0)
           {
@@ -418,6 +431,18 @@ void *connectionWorkerHandle(void * socketId)
                 pthread_exit(NULL);
             }
 
+        	if ((checkUserFilePermissions(ftpData.clients[theSocketId].fileToRetr.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
+            {
+                writeReturn = socketPrintf(&ftpData, theSocketId, "s", "550 no reading permission on the file\r\n");
+                if (writeReturn <= 0)
+                {
+                  ftpData.clients[theSocketId].closeTheClient = 1;
+                  printf("\n Closing the client 12");
+                  pthread_exit(NULL);
+                }
+
+                break;
+            }
 
             writenSize = writeRetrFile(&ftpData, theSocketId, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.retrRestartAtByte = 0;
@@ -683,7 +708,7 @@ static int processCommand(int processingElement)
 {
     int toReturn = 0;
     //printTimeStamp();
-    //printf ("Command received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
+    printf ("\nCommand received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
 
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandArgs, 0, &ftpData.clients[processingElement].memoryTable);
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandOps, 0, &ftpData.clients[processingElement].memoryTable);

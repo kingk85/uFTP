@@ -167,6 +167,8 @@ int parseCommandPass(ftpDataType * data, int socketId)
             returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
             if (returnCode <= 0)
             	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+            return 1;
     	}
 
 
@@ -204,6 +206,11 @@ int parseCommandPass(ftpDataType * data, int socketId)
             data->clients[socketId].login.ownerShip.gid = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.gid;
             data->clients[socketId].login.ownerShip.uid = ((usersParameters_DataType *) data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.uid;
             data->clients[socketId].login.userLoggedIn = 1;
+
+
+            printf("\ndata->clients[socketId].login.ownerShip.ownerShipSet = %d", data->clients[socketId].login.ownerShip.ownerShipSet);
+            printf("\ndata->clients[socketId].login.ownerShip.gid = %d", data->clients[socketId].login.ownerShip.gid);
+            printf("\ndata->clients[socketId].login.ownerShip.uid = %d", data->clients[socketId].login.ownerShip.uid);
 
             returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
             if (returnCode <= 0)
@@ -281,8 +288,10 @@ int parseCommandAuth(ftpDataType * data, int socketId)
 
 int parseCommandPwd(ftpDataType * data, int socketId)
 {
+	printf("\n pwd is %s", data->clients[socketId].login.ftpPath.text);
     int returnCode;
     returnCode = socketPrintf(data, socketId, "sss", "257 \"", data->clients[socketId].login.ftpPath.text ,"\" is your current location\r\n");
+
 
     if (returnCode <= 0) 
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -697,7 +706,7 @@ int parseCommandStor(ftpDataType * data, int socketId)
     char *theNameToStor;
     theNameToStor = getFtpCommandArg("STOR", data->clients[socketId].theCommandReceived, 0);
     cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0, &data->clients[socketId].memoryTable);
-    
+
     if (strlen(theNameToStor) > 0)
     {
         isSafePath = getSafePath(&data->clients[socketId].fileToStor, theNameToStor, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
@@ -741,7 +750,7 @@ int parseCommandCwd(ftpDataType * data, int socketId)
 
     if (isSafePath == 1)
     {
-        //printf("\n The Path requested for CWD IS:%s", theSafePath.text);
+        printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen, &data->clients[socketId].memoryTable);
         
@@ -779,15 +788,26 @@ int parseCommandCwd(ftpDataType * data, int socketId)
             }
         }
 
-        if (FILE_IsDirectory(data->clients[socketId].login.absolutePath.text) == 1)
+        printf("\nCheck the directory: %s", data->clients[socketId].login.absolutePath.text);
+
+        if (FILE_IsDirectory(data->clients[socketId].login.absolutePath.text) == 1 )
         {
-        	returnCode = socketPrintf(data, socketId, "sss", "250 OK. Current directory is  ", data->clients[socketId].login.ftpPath.text, "\r\n");
+        	if((checkUserFilePermissions(data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_R ) == FILE_PERMISSION_R)
+        	{
+        		returnCode = socketPrintf(data, socketId, "sss", "250 OK. Current directory is  ", data->clients[socketId].login.ftpPath.text, "\r\n");
+        	}
+        	else
+        	{
+                returnCode = socketPrintf(data, socketId, "sss", "530 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": no permissions\r\n");
+                setDynamicStringDataType(&data->clients[socketId].login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen, &data->clients[socketId].memoryTable);
+                setDynamicStringDataType(&data->clients[socketId].login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen, &data->clients[socketId].memoryTable);
+        	}
         }
         else
         {
+            returnCode = socketPrintf(data, socketId, "sss", "530 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": No such file or directory\r\n");
             setDynamicStringDataType(&data->clients[socketId].login.absolutePath, absolutePathPrevious.text, absolutePathPrevious.textLen, &data->clients[socketId].memoryTable);
             setDynamicStringDataType(&data->clients[socketId].login.ftpPath, ftpPathPrevious.text, ftpPathPrevious.textLen, &data->clients[socketId].memoryTable);
-            returnCode = socketPrintf(data, socketId, "sss", "530 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": No such file or directory\r\n");
         }
         
         cleanDynamicStringDataType(&absolutePathPrevious, 0, &data->clients[socketId].memoryTable);
@@ -941,21 +961,35 @@ int parseCommandDele(ftpDataType * data, int socketId)
         //printf("\nThe file to delete is: %s", deleFileName.text);
         if (FILE_IsFile(deleFileName.text) == 1)
         {
-            returnStatus = remove(deleFileName.text);
-            
-            if (returnStatus == -1)
-            {
-                returnCode = socketPrintf(data, socketId, "sss", "550 Could not delete the file: ", theFileToDelete, " some errors occurred\r\n");
-            }
-            else
-            {
-            	returnCode = socketPrintf(data, socketId, "sss", "250 Deleted ", theFileToDelete, "\r\n");
-            }
 
-            functionReturnCode = FTP_COMMAND_PROCESSED;
+        	if ((checkUserFilePermissions(deleFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) == FILE_PERMISSION_W)
+        	{
+                returnStatus = remove(deleFileName.text);
 
-            if (returnCode <= 0) 
-                functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+                if (returnStatus == -1)
+                {
+                    returnCode = socketPrintf(data, socketId, "sss", "550 Could not delete the file: ", theFileToDelete, " some errors occurred\r\n");
+                }
+                else
+                {
+                	returnCode = socketPrintf(data, socketId, "sss", "250 Deleted ", theFileToDelete, "\r\n");
+                }
+
+                functionReturnCode = FTP_COMMAND_PROCESSED;
+
+                if (returnCode <= 0)
+                    functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+        	}
+        	else
+        	{
+                returnCode = socketPrintf(data, socketId, "sss", "550 Could not delete the file: ", theFileToDelete, " no permissions\r\n");
+
+                functionReturnCode = FTP_COMMAND_PROCESSED;
+
+                if (returnCode <= 0)
+                    functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        	}
         }
         else
         {
@@ -1028,21 +1062,32 @@ int parseCommandRmd(ftpDataType * data, int socketId)
     {
         if (FILE_IsDirectory(rmdFileName.text) == 1) 
         {
-            returnStatus = rmdir(rmdFileName.text);
+        	if ((checkUserFilePermissions(rmdFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) == FILE_PERMISSION_W)
+        	{
+				returnStatus = rmdir(rmdFileName.text);
 
-            if (returnStatus == -1)
-            {
-            	returnCode = socketPrintf(data, socketId, "s", "550 Could not remove the directory, some errors occurred.\r\n");
-            }
-            else
-            {
-            	returnCode = socketPrintf(data, socketId, "s", "250 The directory was successfully removed\r\n");
-            }
+				if (returnStatus == -1)
+				{
+					returnCode = socketPrintf(data, socketId, "s", "550 Could not remove the directory, some errors occurred.\r\n");
+				}
+				else
+				{
+					returnCode = socketPrintf(data, socketId, "s", "250 The directory was successfully removed\r\n");
+				}
 
-            functionReturnCode = FTP_COMMAND_PROCESSED;
+				functionReturnCode = FTP_COMMAND_PROCESSED;
 
-            if (returnCode <= 0)
-                functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+				if (returnCode <= 0)
+					functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        	}
+        	else
+        	{
+            	returnCode = socketPrintf(data, socketId, "s", "550 Could not delete the directory: No permissions\r\n");
+                functionReturnCode = FTP_COMMAND_PROCESSED;
+
+                if (returnCode <= 0)
+                    functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        	}
         }
         else
         {

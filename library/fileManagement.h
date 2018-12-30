@@ -32,10 +32,17 @@
     #define FILE_MAX_LINE_LENGHT			512
     #define FILE_MAX_PAR_VAR_SIZE			256
 
+
+	#define FILE_PERMISSION_NO_RW			0
+	#define FILE_PERMISSION_R				1
+	#define FILE_PERMISSION_W				2
+	#define FILE_PERMISSION_RW				3
+
+
     typedef struct FILE_StringParameterDataStruct
     {
-    char Name[FILE_MAX_PAR_VAR_SIZE];
-    char Value[FILE_MAX_PAR_VAR_SIZE];
+		char Name[FILE_MAX_PAR_VAR_SIZE];
+		char Value[FILE_MAX_PAR_VAR_SIZE];
     }
     FILE_StringParameter_DataType;
 
@@ -73,5 +80,6 @@
     gid_t FILE_getGID(const char *group_name);
     void FILE_checkAllOpenedFD(void);
     int fd_is_valid(int fd);
+    int checkUserFilePermissions(char *fileName, int uid, int gid);
 #define	GEN_FILE_MANAGEMENT_TYPES
 #endif
