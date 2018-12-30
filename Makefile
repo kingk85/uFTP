@@ -20,7 +20,10 @@ ENABLE_LARGE_FILE_SUPPORT=-D LARGE_FILE_SUPPORT_ENABLED -D _LARGEFILE64_SOURCE
 ENABLE_OPENSSL_SUPPORT=
 #TO ENABLE OPENSSL SUPPORT UNCOMMENT NEXT 2 LINES
 ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
-LIBS=-lpthread -lssl -lcrypto
+LIBS=-lpthread -lssl -lcrypto -lpam 
+
+#USER PAM AUTH
+#-lpam 
 
 CFLAGS=$(CFLAGSTEMP) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT)
 
@@ -36,17 +39,20 @@ start:
 end:
 	@echo Build process end
 
-uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o dynamicMemory.o errorHandling.o
-	@$(CC)  $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o $(LIBPATH)dynamicMemory.o $(LIBPATH)errorHandling.o -o $(OUTPATH)uFTP $(LIBS) 
+uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o dynamicMemory.o errorHandling.o auth.o
+	@$(CC)  $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o $(LIBPATH)dynamicMemory.o $(LIBPATH)errorHandling.o $(LIBPATH)auth.o -o $(OUTPATH)uFTP $(LIBS) 
 
 daemon.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)daemon.c -o $(LIBPATH)daemon.o
 
 dynamicVectors.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)dynamicVectors.c -o $(LIBPATH)dynamicVectors.o
-	
+
 openSsl.o: 
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)openSsl.c -o $(LIBPATH)openSsl.o
+	
+auth.o: 
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)auth.c -o $(LIBPATH)auth.o
 
 configRead.o: dynamicVectors.o fileManagement.o
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)configRead.c -o $(LIBPATH)configRead.o 

@@ -42,6 +42,7 @@
 #include "library/openSsl.h"
 #include "library/connection.h"
 #include "library/dynamicMemory.h"
+#include "library/auth.h"
 #include "ftpCommandsElaborate.h"
 
 
@@ -155,6 +156,21 @@ int parseCommandPass(ftpDataType * data, int socketId)
 
     if (strlen(thePass) >= 1)
     {
+
+    	printf("\nLogin try with user %s, password %s", data->clients[socketId].login.name.text, thePass);
+
+    	//PAM AUTH METHOD
+    	loginCheck( data->clients[socketId].login.name.text, thePass, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
+    	if (data->clients[socketId].login.userLoggedIn == 1)
+    	{
+    		printf("\n User logged with PAM ok!");
+            returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
+            if (returnCode <= 0)
+            	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    	}
+
+
+
         int searchUserNameIndex;
         searchUserNameIndex = searchUser(data->clients[socketId].login.name.text, &data->ftpParameters.usersVector);
 
