@@ -129,7 +129,6 @@ void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_Da
 
 		if(!found)
 		{
-			//fflush(0);
 			//Debug TRAP
 			//char *theData ="c";
 			//strcpy(theData, "NOOOOOOOOOOOOOOOO");
@@ -183,7 +182,6 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 	if(!found)
 	{
 		//printf("\n\nMemory address : %ld not found\n\n", f_address);
-		//fflush(0);
 		//Debug TRAP
 		//char *theData ="c";
 		//strcpy(theData, "ciaociaociao");
