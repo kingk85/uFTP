@@ -585,8 +585,7 @@ int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
 			theFileName[theFileNameLen++] = fileName[i];
 	}
 
-	printf ("\n checking parent permissions on : %s", theFileName);
-	fflush(0);
+	//printf ("\n checking parent permissions on : %s", theFileName);
 	return checkUserFilePermissions(theFileName, uid, gid);
 }
 
@@ -596,7 +595,7 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
 
 	if (uid == 0 || gid == 0)
 	{
-		printf("\n User is root");
+		//printf("\n User is root");
 		return FILE_PERMISSION_RW;
 	}
 
@@ -621,19 +620,19 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
     if (info.st_uid == uid ||
 		info.st_gid == gid)
     {
-		printf("\n User is owner");
+		//printf("\n User is owner");
     	filePermissions = FILE_PERMISSION_RW;
     }
     else
     {
         mode_t perm = info.st_mode;
     	if ((perm & S_IROTH)){
-    		printf("\nfile can be readen");
+    		//printf("\nfile can be readen");
     		filePermissions |= FILE_PERMISSION_R;
     	}
 
     	if ((perm & S_IWOTH)){
-    		printf("\nfile can be written");
+    		//printf("\nfile can be written");
     		filePermissions |= FILE_PERMISSION_W;
     	}
     }

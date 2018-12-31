@@ -146,7 +146,6 @@ void initFtpData(ftpDataType *ftpData)
 
 	//printf("\nDYNMEM_malloc called");
 	//printf("\nElement location: %ld", (long int) ftpData->generalDynamicMemoryTable);
-	//fflush(0);
 	//printf("\nElement size: %ld", ftpData->generalDynamicMemoryTable->size);
 	//printf("\nElement address: %ld", (long int) ftpData->generalDynamicMemoryTable->address);
 	//printf("\nElement nextElement: %ld",(long int) ftpData->generalDynamicMemoryTable->nextElement);

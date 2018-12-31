@@ -157,7 +157,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
     if (strlen(thePass) >= 1)
     {
 
-    	printf("\nLogin try with user %s, password %s", data->clients[socketId].login.name.text, thePass);
+    	//printf("\nLogin try with user %s, password %s", data->clients[socketId].login.name.text, thePass);
 
     	//PAM AUTH METHOD IF ENABLED
     	if (data->ftpParameters.pamAuthEnabled == 1)
@@ -165,7 +165,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
 			loginCheck( data->clients[socketId].login.name.text, thePass, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
 			if (data->clients[socketId].login.userLoggedIn == 1)
 			{
-				printf("\n User logged with PAM ok!");
+				//printf("\n User logged with PAM ok!");
 				returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
 				if (returnCode <= 0)
 					return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -291,7 +291,7 @@ int parseCommandAuth(ftpDataType * data, int socketId)
 
 int parseCommandPwd(ftpDataType * data, int socketId)
 {
-	printf("\n pwd is %s", data->clients[socketId].login.ftpPath.text);
+	//printf("\n pwd is %s", data->clients[socketId].login.ftpPath.text);
     int returnCode;
     returnCode = socketPrintf(data, socketId, "sss", "257 \"", data->clients[socketId].login.ftpPath.text ,"\" is your current location\r\n");
 
@@ -745,18 +745,18 @@ int parseCommandCwd(ftpDataType * data, int socketId)
 
     thePath = getFtpCommandArg("CWD", data->clients[socketId].theCommandReceived, 0);
 
-    printf("\ncdw requested path: %s", thePath);
+    //printf("\ncdw requested path: %s", thePath);
 
     if (strlen(thePath) > 0)
     {
     	//printf("Memory data address 1st call : %lld", &data->clients[socketId].memoryTable);
         isSafePath = getSafePath(&theSafePath, thePath, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
-        printf("\ncdw safe path: %s", theSafePath.text);
+        //printf("\ncdw safe path: %s", theSafePath.text);
     }
 
     if (isSafePath == 1)
     {
-        printf("\n The Path requested for CWD IS:%s", theSafePath.text);
+        //printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen, &data->clients[socketId].memoryTable);
 
@@ -784,10 +784,9 @@ int parseCommandCwd(ftpDataType * data, int socketId)
 		}
 
 
-		printf("\ndata->clients[socketId].login.absolutePath = %s", data->clients[socketId].login.absolutePath.text);
-		printf("\ndata->clients[socketId].login.ftpPath = %s", data->clients[socketId].login.ftpPath.text);
-        printf("\nChecking the directory: %s", data->clients[socketId].login.absolutePath.text);
-        fflush(0);
+//		printf("\ndata->clients[socketId].login.absolutePath = %s", data->clients[socketId].login.absolutePath.text);
+//		printf("\ndata->clients[socketId].login.ftpPath = %s", data->clients[socketId].login.ftpPath.text);
+//        printf("\nChecking the directory: %s", data->clients[socketId].login.absolutePath.text);
 
 
 

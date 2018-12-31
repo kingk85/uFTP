@@ -107,13 +107,13 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
 			login->ownerShip.ownerShipSet = 1;
 			login->userLoggedIn = 1;
 
-			printf("\nLogin as: %s", pass->pw_name);
-			printf("\nPasswd: %s", pass->pw_passwd);
-			printf("\nDir: %s", pass->pw_dir);
-			printf("\nGid: %d", pass->pw_gid);
-			printf("\nUid: %d", pass->pw_uid);
-			printf("\nlogin->homePath.text: %s", login->homePath.text);
-			printf("\nlogin->absolutePath.text: %s", login->absolutePath.text);
+//			printf("\nLogin as: %s", pass->pw_name);
+//			printf("\nPasswd: %s", pass->pw_passwd);
+//			printf("\nDir: %s", pass->pw_dir);
+//			printf("\nGid: %d", pass->pw_gid);
+//			printf("\nUid: %d", pass->pw_uid);
+//			printf("\nlogin->homePath.text: %s", login->homePath.text);
+//			printf("\nlogin->absolutePath.text: %s", login->absolutePath.text);
     	}
     }
     else
