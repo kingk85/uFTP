@@ -85,9 +85,9 @@ struct ftpParameters
     int maximumIdleInactivity;
     int maximumConnectionsPerIp;
     int maximumUserAndPassowrdLoginTries;
-
     char certificatePath[MAXIMUM_INODE_NAME];
     char privateCertificatePath[MAXIMUM_INODE_NAME];
+    int pamAuthEnabled;
 } typedef ftpParameters_DataType;
     
 struct dynamicStringData
@@ -120,10 +120,10 @@ struct ipData
 
 struct workerData
 {
-		#ifdef OPENSSL_ENABLED
-		SSL *serverSsl;
-		SSL *clientSsl;
-		#endif
+	#ifdef OPENSSL_ENABLED
+	SSL *serverSsl;
+	SSL *clientSsl;
+	#endif
 
     int threadIsAlive;
     int threadHasBeenCreated;
@@ -261,6 +261,7 @@ struct ftpListData
 
 void cleanLoginData(loginDataType *loginData, int init, DYNMEM_MemoryTable_DataType **memoryTable);
 void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init, DYNMEM_MemoryTable_DataType **memoryTable);
+
 
 void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable);
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *theHomePath, DYNMEM_MemoryTable_DataType **memoryTable);

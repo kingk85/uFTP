@@ -81,5 +81,6 @@
     void FILE_checkAllOpenedFD(void);
     int fd_is_valid(int fd);
     int checkUserFilePermissions(char *fileName, int uid, int gid);
+    int checkParentDirectoryPermissions(char *fileName, int uid, int gid);
 #define	GEN_FILE_MANAGEMENT_TYPES
 #endif

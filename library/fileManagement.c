@@ -561,12 +561,42 @@ char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** 
     return modeval;
 }
 
+int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
+{
+	char theFileName[4096];
+	memset(theFileName, 0, 4096);
+
+	int i;
+	int theFileNameLen = 0;
+	int theLen = strlen(fileName);
+	int theParentLen = 0;
+
+	for (i = 0; i < theLen; i++)
+	{
+		if (fileName[i] == '/')
+		{
+			theParentLen = i;
+		}
+	}
+
+	for (i = 0; i < theParentLen; i++)
+	{
+		if (i < 4096)
+			theFileName[theFileNameLen++] = fileName[i];
+	}
+
+	printf ("\n checking parent permissions on : %s", theFileName);
+	fflush(0);
+	return checkUserFilePermissions(theFileName, uid, gid);
+}
+
 
 int checkUserFilePermissions(char *fileName, int uid, int gid)
 {
 
 	if (uid == 0 || gid == 0)
 	{
+		printf("\n User is root");
 		return FILE_PERMISSION_RW;
 	}
 
@@ -591,16 +621,21 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
     if (info.st_uid == uid ||
 		info.st_gid == gid)
     {
+		printf("\n User is owner");
     	filePermissions = FILE_PERMISSION_RW;
     }
     else
     {
         mode_t perm = info.st_mode;
-    	if ((perm & S_IROTH))
+    	if ((perm & S_IROTH)){
+    		printf("\nfile can be readen");
     		filePermissions |= FILE_PERMISSION_R;
+    	}
 
-    	if ((perm & S_IWOTH))
+    	if ((perm & S_IWOTH)){
+    		printf("\nfile can be written");
     		filePermissions |= FILE_PERMISSION_W;
+    	}
     }
 
     return filePermissions;

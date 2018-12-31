@@ -475,6 +475,18 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
        // printf("\nSINGLE_INSTANCE parameter not found in the configuration file, using the default value: %d", ftpParameters->singleInstanceModeOn);
     }
 
+    ftpParameters->pamAuthEnabled = 0;
+    searchIndex = searchParameter("ENABLE_PAM_AUTH", parametersVector);
+    if (searchIndex != -1)
+    {
+        if(compareStringCaseInsensitive(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "true", strlen("true")) == 1)
+        	ftpParameters->pamAuthEnabled = 1;
+    }
+    else
+    {
+       // printf("\nENABLE_PAM_AUTH parameter not found in the configuration file, using the default value: %d", ftpParameters->pamAuthEnabled);
+    }
+
     ftpParameters->maximumIdleInactivity = 3600;
     searchIndex = searchParameter("IDLE_MAX_TIMEOUT", parametersVector);
     if (searchIndex != -1)

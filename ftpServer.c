@@ -278,6 +278,20 @@ void *connectionWorkerHandle(void * socketId)
             ftpData.clients[theSocketId].fileToStor.textLen > 0)
         {
 
+        	if ((checkParentDirectoryPermissions(ftpData.clients[theSocketId].fileToStor.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_W) != FILE_PERMISSION_W)
+        	{
+            	returnCode = socketPrintf(&ftpData, theSocketId, "s", "550 No permissions to write the file\r\n");
+
+                if (returnCode <= 0)
+                {
+                    ftpData.clients[theSocketId].closeTheClient = 1;
+                    printf("\n Closing the client 6");
+                    pthread_exit(NULL);
+                }
+
+                break;
+        	}
+
             #ifdef LARGE_FILE_SUPPORT_ENABLED
 					//#warning LARGE FILE SUPPORT IS ENABLED!
                     ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
@@ -883,13 +897,12 @@ static int processCommand(int processingElement)
     {
        // printf("\nRNFR command received");
         toReturn = parseCommandRnfr(&ftpData, processingElement);
-
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "RNTO", strlen("RNTO")) == 1)
     {
        // printf("\nRNTO command received");
         toReturn = parseCommandRnto(&ftpData, processingElement);
-    }    
+    }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "SIZE", strlen("SIZE")) == 1)
     {
         //printf("\nSIZE command received");

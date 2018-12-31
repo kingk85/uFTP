@@ -85,11 +85,11 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
     	{
 			//printf("Authenticate with %s - %s through system\n", login, password);
 			setDynamicStringDataType(&login->name, name, strlen(name), &*memoryTable);
-			//setDynamicStringDataType(&login->homePath, pass->pw_dir, strlen(pass->pw_dir), &*memoryTable);
-			setDynamicStringDataType(&login->homePath, "/", 1, &*memoryTable);
+			setDynamicStringDataType(&login->homePath, pass->pw_dir, strlen(pass->pw_dir), &*memoryTable);
+			//setDynamicStringDataType(&login->homePath, "/", 1, &*memoryTable);
 			setDynamicStringDataType(&login->absolutePath, pass->pw_dir, strlen(pass->pw_dir), &*memoryTable);
+            setDynamicStringDataType(&login->ftpPath, "/", strlen("/"), &*memoryTable);
 
-			/*
 			if (login->homePath.text[login->homePath.textLen-1] != '/')
 			{
 				appendToDynamicStringDataType(&login->homePath, "/", 1, &*memoryTable);
@@ -98,9 +98,9 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
 			if (login->absolutePath.text[login->absolutePath.textLen-1] != '/')
 			{
 				appendToDynamicStringDataType(&login->absolutePath, "/", 1, &*memoryTable);
-			}*/
+			}
 
-			setDynamicStringDataType(&login->ftpPath, "/", strlen("/"), &*memoryTable);
+			//setDynamicStringDataType(&login->ftpPath, "/", strlen("/"), &*memoryTable);
 
 			login->ownerShip.uid = pass->pw_gid;
 			login->ownerShip.gid = pass->pw_uid;
