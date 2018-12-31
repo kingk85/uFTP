@@ -159,16 +159,19 @@ int parseCommandPass(ftpDataType * data, int socketId)
 
     	printf("\nLogin try with user %s, password %s", data->clients[socketId].login.name.text, thePass);
 
-    	//PAM AUTH METHOD
-    	loginCheck( data->clients[socketId].login.name.text, thePass, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
-    	if (data->clients[socketId].login.userLoggedIn == 1)
+    	//PAM AUTH METHOD IF ENABLED
+    	if (data->ftpParameters.pamAuthEnabled == 1)
     	{
-    		printf("\n User logged with PAM ok!");
-            returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
-            if (returnCode <= 0)
-            	return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+			loginCheck( data->clients[socketId].login.name.text, thePass, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
+			if (data->clients[socketId].login.userLoggedIn == 1)
+			{
+				printf("\n User logged with PAM ok!");
+				returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
+				if (returnCode <= 0)
+					return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
-            return 1;
+				return 1;
+			}
     	}
 
 
@@ -742,10 +745,13 @@ int parseCommandCwd(ftpDataType * data, int socketId)
 
     thePath = getFtpCommandArg("CWD", data->clients[socketId].theCommandReceived, 0);
 
+    printf("\ncdw requested path: %s", thePath);
+
     if (strlen(thePath) > 0)
     {
     	//printf("Memory data address 1st call : %lld", &data->clients[socketId].memoryTable);
         isSafePath = getSafePath(&theSafePath, thePath, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
+        printf("\ncdw safe path: %s", theSafePath.text);
     }
 
     if (isSafePath == 1)
@@ -753,42 +759,37 @@ int parseCommandCwd(ftpDataType * data, int socketId)
         printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen, &data->clients[socketId].memoryTable);
-        
-        if (theSafePath.text[0] != '/')
-        {
-            if (data->clients[socketId].login.absolutePath.text[data->clients[socketId].login.absolutePath.textLen-1] != '/')
-                appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, "/", 1, &data->clients[socketId].memoryTable);
 
-            if (data->clients[socketId].login.ftpPath.text[data->clients[socketId].login.ftpPath.textLen-1] != '/')
-                appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1, &data->clients[socketId].memoryTable);
+        cleanDynamicStringDataType(&data->clients[socketId].login.ftpPath, 0, &data->clients[socketId].memoryTable);
+        cleanDynamicStringDataType(&data->clients[socketId].login.absolutePath, 0, &data->clients[socketId].memoryTable);
+		setDynamicStringDataType(&data->clients[socketId].login.absolutePath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
 
-            appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
-            appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
-        }
-        else if (theSafePath.text[0] == '/')
-        {
-            cleanDynamicStringDataType(&data->clients[socketId].login.ftpPath, 0, &data->clients[socketId].memoryTable);
-            cleanDynamicStringDataType(&data->clients[socketId].login.absolutePath, 0, &data->clients[socketId].memoryTable);
+		if (data->clients[socketId].login.absolutePath.textLen == data->clients[socketId].login.homePath.textLen)
+		{
+	        setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1, &data->clients[socketId].memoryTable);
+		}
+		else if (data->clients[socketId].login.absolutePath.textLen > data->clients[socketId].login.homePath.textLen)
+		{
+			char *theFtpPathPointer = data->clients[socketId].login.absolutePath.text;
+			theFtpPathPointer += data->clients[socketId].login.homePath.textLen;
+			if (theFtpPathPointer[0] != '/')
+			{
+				setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1, &data->clients[socketId].memoryTable);
+				appendToDynamicStringDataType(&data->clients[socketId].login.ftpPath, theFtpPathPointer, strlen(theFtpPathPointer), &data->clients[socketId].memoryTable);
+			}
+			else
+			{
+				setDynamicStringDataType(&data->clients[socketId].login.ftpPath, theFtpPathPointer, strlen(theFtpPathPointer), &data->clients[socketId].memoryTable);
+			}
+		}
 
-            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
-            setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen, &data->clients[socketId].memoryTable);
 
-            if (strlen(theSafePath.text)> 0)
-            {
-                char *theDirPointer = theSafePath.text;
-                
-                if (data->clients[socketId].login.absolutePath.text[data->clients[socketId].login.absolutePath.textLen-1] == '/')
-                {
-                    while(theDirPointer[0] == '/')
-                        theDirPointer++;
-                }
-                
-                if (strlen(theDirPointer) > 0)
-                    appendToDynamicStringDataType(&data->clients[socketId].login.absolutePath, theDirPointer, strlen(theDirPointer), &data->clients[socketId].memoryTable);
-            }
-        }
+		printf("\ndata->clients[socketId].login.absolutePath = %s", data->clients[socketId].login.absolutePath.text);
+		printf("\ndata->clients[socketId].login.ftpPath = %s", data->clients[socketId].login.ftpPath.text);
+        printf("\nChecking the directory: %s", data->clients[socketId].login.absolutePath.text);
+        fflush(0);
 
-        printf("\nCheck the directory: %s", data->clients[socketId].login.absolutePath.text);
+
 
         if (FILE_IsDirectory(data->clients[socketId].login.absolutePath.text) == 1 )
         {
@@ -882,17 +883,49 @@ int parseCommandMkd(ftpDataType * data, int socketId)
     theDirectoryFilename = getFtpCommandArg("MKD", data->clients[socketId].theCommandReceived, 0);
     
     cleanDynamicStringDataType(&mkdFileName, 1, &data->clients[socketId].memoryTable);
-    
     isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     
     if (isSafePath == 1)
     {
-        int returnStatus;
-        returnStatus = mkdir(mkdFileName.text, S_IRWXU | S_IRWXG | S_IRWXO);
+    	if ((checkParentDirectoryPermissions(mkdFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) == FILE_PERMISSION_W)
+    	{
+            int returnStatus;
+            returnStatus = mkdir(mkdFileName.text, S_IRWXU | S_IRWXG | S_IRWXO);
 
-        if (returnStatus == -1)
-        {
-        	returnCode = socketPrintf(data, socketId, "sss", "550 error while creating directory ", theDirectoryFilename, "\r\n");
+            if (returnStatus == -1)
+            {
+            	returnCode = socketPrintf(data, socketId, "sss", "550 error while creating directory ", theDirectoryFilename, "\r\n");
+                if (returnCode <= 0)
+                {
+                    functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+                }
+                else
+                {
+                    functionReturnCode = FTP_COMMAND_PROCESSED;
+                }
+            }
+            else
+            {
+                if (data->clients[socketId].login.ownerShip.ownerShipSet == 1)
+                {
+                    returnStatus = FILE_doChownFromUidGid(mkdFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid);
+                }
+
+                returnCode = socketPrintf(data, socketId, "sss", "257 \"", theDirectoryFilename, "\" : The directory was successfully created\r\n");
+
+                if (returnCode <= 0)
+                {
+                    functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+                }
+                else
+                {
+                    functionReturnCode = FTP_COMMAND_PROCESSED;
+                }
+            }
+    	}
+    	else
+    	{
+        	returnCode = socketPrintf(data, socketId, "sss", "550 no permition to create directory ", theDirectoryFilename, "\r\n");
             if (returnCode <= 0) 
             {
                 functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -901,25 +934,8 @@ int parseCommandMkd(ftpDataType * data, int socketId)
             {
                 functionReturnCode = FTP_COMMAND_PROCESSED;
             }
-        }
-        else
-        {
-            if (data->clients[socketId].login.ownerShip.ownerShipSet == 1)
-            {
-                returnStatus = FILE_doChownFromUidGid(mkdFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid);
-            }
+    	}
 
-            returnCode = socketPrintf(data, socketId, "sss", "257 \"", theDirectoryFilename, "\" : The directory was successfully created\r\n");
-
-            if (returnCode <= 0) 
-            {
-                functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
-            }
-            else
-            {
-                functionReturnCode = FTP_COMMAND_PROCESSED;
-            }
-        }
     }
     else
     {
@@ -1200,15 +1216,24 @@ int parseCommandRnto(ftpDataType * data, int socketId)
         if (FILE_IsFile(data->clients[socketId].renameFromFile.text) == 1 ||
             FILE_IsDirectory(data->clients[socketId].renameFromFile.text) == 1)
         {
-            returnCode = rename (data->clients[socketId].renameFromFile.text, data->clients[socketId].renameToFile.text);
-            if (returnCode == 0) 
-            {
-            	returnCode = socketPrintf(data, socketId, "s",  "250 File successfully renamed or moved\r\n");
-            }
-            else
-            {
-            	returnCode = socketPrintf(data, socketId, "s",  "503 Error Renaming the file\r\n");
-            }
+
+        	if ((checkUserFilePermissions(data->clients[socketId].renameFromFile.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) == FILE_PERMISSION_W &&
+        		(checkParentDirectoryPermissions(data->clients[socketId].renameToFile.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) == FILE_PERMISSION_W)
+        	{
+                returnCode = rename (data->clients[socketId].renameFromFile.text, data->clients[socketId].renameToFile.text);
+                if (returnCode == 0)
+                {
+                	returnCode = socketPrintf(data, socketId, "s",  "250 File successfully renamed or moved\r\n");
+                }
+                else
+                {
+                	returnCode = socketPrintf(data, socketId, "s",  "503 Error Renaming the file\r\n");
+                }
+        	}
+        	else
+        	{
+            	returnCode = socketPrintf(data, socketId, "s", "550 No permissions to rename the file\r\n");
+        	}
         }
         else
         {

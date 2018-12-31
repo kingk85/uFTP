@@ -52,7 +52,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	int theStringSize = 0, theCommandSize = 0;
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
 	memset(&commandBuffer, 0, COMMAND_BUFFER);
-	//printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
+	printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
 
 	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
 
@@ -140,7 +140,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 		#endif
 	}
 
-	//printf("\n%s", commandBuffer);
+	printf("\n%s", commandBuffer);
 
 	pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
 
