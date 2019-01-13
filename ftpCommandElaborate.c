@@ -160,6 +160,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
     	//printf("\nLogin try with user %s, password %s", data->clients[socketId].login.name.text, thePass);
 
     	//PAM AUTH METHOD IF ENABLED
+#ifdef PAM_SUPPORT_ENABLED
     	if (data->ftpParameters.pamAuthEnabled == 1)
     	{
 			loginCheck( data->clients[socketId].login.name.text, thePass, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
@@ -173,7 +174,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
 				return 1;
 			}
     	}
-
+#endif
 
 
         int searchUserNameIndex;
