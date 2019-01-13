@@ -2,7 +2,9 @@
 #OPENSSL TEST COMMANDS
 
 #Required packages to compile with TLS
-sudo apt-get install libssl-dev
+sudo apt-get install libssl-devù
+#Required packages to compile with PAM
+sudo apt-get install libpam0g-dev
 
 #Remove password from a certificate
 openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
