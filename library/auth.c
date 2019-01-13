@@ -5,6 +5,8 @@
  *      Author: ugo
  */
 
+#ifdef PAM_SUPPORT_ENABLED
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -123,7 +125,7 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
 }
 
 
-
+#endif
 
 
 
