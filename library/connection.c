@@ -40,8 +40,6 @@
 #include "../ftpData.h"
 #include "connection.h"
 
-
-
 int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
 {
 	#define COMMAND_BUFFER								9600
@@ -54,7 +52,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	memset(&commandBuffer, 0, COMMAND_BUFFER);
 	//printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
 
-	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
+	//pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
 
 	va_list args;
 	va_start(args, __fmt);
@@ -76,6 +74,72 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 			case 'c':
 			case 'C':
 			{
+				int i = 0;
+				theStringSize = 0;
+				switch(*__fmt)
+				{
+					case 'd':
+					case 'D':
+					{
+						int theInteger = va_arg(args, int);
+						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%d", theInteger);
+					}
+					break;
+
+					case 'c':
+					case 'C':
+					{
+						int theCharInteger = va_arg(args, int);
+						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
+					}
+					break;
+
+					case 'f':
+					case 'F':
+					{
+						float theDouble = va_arg(args, double);
+						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%f", theDouble);
+					}
+					break;
+
+					case 's':
+					case 'S':
+					{
+						char * theString = va_arg(args, char *);
+						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%s", theString);
+					}
+					break;
+
+					case 'l':
+					case 'L':
+					{
+						long long int theLongLongInt = va_arg(args, long long int);
+						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
+						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%lld",  theLongLongInt);
+					}
+					break;
+
+					default:
+					{
+						printf("\n Switch is default (%c)", *__fmt);
+					}
+					break;
+				}
+
+				for (i = 0; i <theStringSize; i++)
+				{
+					if (theCommandSize < COMMAND_BUFFER)
+					{
+						commandBuffer[theCommandSize++] = theBuffer[i];
+					}
+				}
+
+				++__fmt;
+
 				int theCharInteger = va_arg(args, int);
 				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
 				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
@@ -128,9 +192,13 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	}
 	va_end(args);
 
+	if (ftpData->clients[clientId].socketIsConnected != 1)
+		return 0;
 
 	if (ftpData->clients[clientId].tlsIsEnabled != 1)
 	{
+		//printf("\nwriting[%d] %s",theCommandSize, commandBuffer);
+		//fflush(0);
 		bytesWritten = write(ftpData->clients[clientId].socketDescriptor, commandBuffer, theCommandSize);
 	}
 	else if (ftpData->clients[clientId].tlsIsEnabled == 1)
@@ -142,7 +210,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 
 	//printf("\n%s", commandBuffer);
 
-	pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
+	//pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
 
 	return bytesWritten;
 }
@@ -228,7 +296,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			//Write the buffer
 			if (theStringToWriteSize >= COMMAND_BUFFER)
 			{
-				//printf("\nData to write theStringToWriteSize >= COMMAND_BUFFER: %s", writeBuffer);
+
 				int theReturnCode = 0;
 				if (ftpData->clients[clientId].dataChannelIsTls != 1)
 				{

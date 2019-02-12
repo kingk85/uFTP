@@ -78,6 +78,7 @@ int parseCommandCwd(ftpDataType * data, int socketId);
 int parseCommandRest(ftpDataType * data, int socketId);
 int parseCommandCdup(ftpDataType * data, int socketId);
 int parseCommandDele(ftpDataType * data, int socketId);
+int parseCommandMdtm(ftpDataType * data, int socketId);
 int parseCommandOpts(ftpDataType * data, int socketId);
 int parseCommandRnfr(ftpDataType * data, int socketId);
 int parseCommandRnto(ftpDataType * data, int socketId);

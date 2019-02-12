@@ -1025,6 +1025,61 @@ int parseCommandDele(ftpDataType * data, int socketId)
     return functionReturnCode;
 }
 
+int parseCommandMdtm(ftpDataType * data, int socketId)
+{
+    int functionReturnCode = 0;
+    int returnCode;
+    int isSafePath;
+    char *theFileToGetModificationDate;
+
+    dynamicStringDataType mdtmFileName;
+    char theResponse[LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE];
+    memset(theResponse, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);
+
+    theFileToGetModificationDate = getFtpCommandArg("MDTM", data->clients[socketId].theCommandReceived, 0);
+
+    cleanDynamicStringDataType(&mdtmFileName, 1, &data->clients[socketId].memoryTable);
+    isSafePath = getSafePath(&mdtmFileName, theFileToGetModificationDate, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
+
+
+    printf("\ntheFileToGetModificationDate = %s", theFileToGetModificationDate);
+    printf("\nmdtmFileName.text = %s", mdtmFileName.text);
+    printf("\nisSafePath = %d", isSafePath);
+    printf("\n Safe ok is file: %d, is directory: %d", FILE_IsFile(mdtmFileName.text), FILE_IsDirectory(mdtmFileName.text));
+    if (isSafePath == 1)
+    {
+    	printf("\n Safe ok is file: %d, is directory: %d", FILE_IsFile(mdtmFileName.text), FILE_IsDirectory(mdtmFileName.text));
+
+        if (FILE_IsFile(mdtmFileName.text) == 1 ||
+			FILE_IsDirectory(mdtmFileName.text) == 1)
+        {
+        	time_t theTime = FILE_GetLastModifiedData(mdtmFileName.text);
+        	strftime(theResponse, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE, "213 %Y%m%d%H%M%S\r\n", localtime(&theTime));
+        	returnCode = socketPrintf(data, socketId, "s", theResponse);
+        	functionReturnCode = FTP_COMMAND_PROCESSED;
+
+            if (returnCode <= 0)
+                functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+        }
+        else
+        {
+            returnCode = socketPrintf(data, socketId, "s", "550 Can't check for file existence\r\n");
+            functionReturnCode = FTP_COMMAND_PROCESSED;
+
+            if (returnCode <= 0)
+                functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+    }
+    else
+    {
+        functionReturnCode = FTP_COMMAND_NOT_RECONIZED;
+    }
+
+    cleanDynamicStringDataType(&mdtmFileName, 0, &data->clients[socketId].memoryTable);
+    return functionReturnCode;
+}
+
 int parseCommandNoop(ftpDataType * data, int socketId)
 {
     int returnCode;
@@ -1343,6 +1398,8 @@ long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int s
 
       if (writtenSize <= 0)
       {
+
+    	  printf("\nError %d while writing retr file.");
           fclose(retrFP);
           retrFP = NULL;
           return -1;

@@ -263,7 +263,7 @@ void *connectionWorkerHandle(void * socketId)
     if (ftpData.clients[theSocketId].workerData.socketIsConnected > 0)
     {
     	//printf("\nWorker %d is waiting for commands!", theSocketId);
-        //Conditional lock on thread actions
+        //Conditional lock on tconditionVariablehread actions
         pthread_mutex_lock(&ftpData.clients[theSocketId].workerData.conditionMutex);
         while (ftpData.clients[theSocketId].workerData.commandReceived == 0)
         {
@@ -461,7 +461,7 @@ void *connectionWorkerHandle(void * socketId)
             writenSize = writeRetrFile(&ftpData, theSocketId, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
             ftpData.clients[theSocketId].workerData.retrRestartAtByte = 0;
 
-            if (writenSize == -1)
+            if (writenSize <= -1)
             {
               writeReturn = socketPrintf(&ftpData, theSocketId, "s", "550 unable to open the file for reading\r\n");
 
@@ -666,7 +666,7 @@ void runFtpServer(void)
                       if (ftpData.clients[processingSock].buffer[i] == '\n') 
                           {
                               ftpData.clients[processingSock].socketCommandReceived = 1;
-                              //printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
+                              printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
                               commandProcessStatus = processCommand(processingSock);
                               //Echo unrecognized commands
                               if (commandProcessStatus == FTP_COMMAND_NOT_RECONIZED) 
@@ -865,7 +865,7 @@ static int processCommand(int processingElement)
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "DELE", strlen("DELE")) == 1)
     {
-        //printf("\nDELE command received");
+        //printf("\nDELE comman200 OKd received");
         toReturn = parseCommandDele(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "OPTS", strlen("OPTS")) == 1)
@@ -873,10 +873,10 @@ static int processCommand(int processingElement)
         //printf("\nOPTS command received");
         toReturn = parseCommandOpts(&ftpData, processingElement);
     }    
-    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "MTDM", strlen("MTDM")) == 1)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "MDTM", strlen("MDTM")) == 1)
     {
-        //printf("\nMTDM command received");
-        //To implement
+        printf("\nMTDM command received");
+    	toReturn = parseCommandMdtm(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "NLST", strlen("NLST")) == 1)
     {
