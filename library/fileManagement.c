@@ -679,8 +679,10 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
 time_t FILE_GetLastModifiedData(char *path)
 {
     struct stat statbuf;
-    if (stat(path, &statbuf) == -1) {
-
+    if (stat(path, &statbuf) == -1)
+    {
+    	time_t theTime = 0;
+    	return theTime;
     }
     return statbuf.st_mtime;
 }

@@ -94,7 +94,6 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 }
 
 
-
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData, DYNMEM_MemoryTable_DataType **memoryTable)
 {
 	#define STRING_SIZE		4096
