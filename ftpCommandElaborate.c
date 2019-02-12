@@ -1399,7 +1399,7 @@ long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int s
       if (writtenSize <= 0)
       {
 
-    	  printf("\nError %d while writing retr file.");
+    	  printf("\nError %d while writing retr file.", writtenSize);
           fclose(retrFP);
           retrFP = NULL;
           return -1;
