@@ -568,6 +568,7 @@ void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 {
 
+	  printf("\nReset of worker id: %d", clientId);
       data->clients[clientId].workerData.connectionPort = 0;
       data->clients[clientId].workerData.passiveModeOn = 0;
       data->clients[clientId].workerData.socketIsConnected = 0;

@@ -192,8 +192,9 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	}
 	va_end(args);
 
-	if (ftpData->clients[clientId].socketIsConnected != 1)
-		return 0;
+	if (ftpData->clients[clientId].socketIsConnected != 1 ||
+		ftpData->clients[clientId].socketDescriptor == 0)
+		return -1;
 
 	if (ftpData->clients[clientId].tlsIsEnabled != 1)
 	{
@@ -638,7 +639,7 @@ void closeSocket(ftpDataType * ftpData, int processingSocket)
     theReturnCode = close(ftpData->clients[processingSocket].socketDescriptor);
 
     resetClientData(ftpData, processingSocket, 0);
-    resetWorkerData(ftpData, processingSocket, 0);
+    //resetWorkerData(ftpData, processingSocket, 0);
     
     //Update client connecteds
     ftpData->connectedClients--;
