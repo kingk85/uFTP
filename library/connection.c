@@ -74,72 +74,6 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 			case 'c':
 			case 'C':
 			{
-				int i = 0;
-				theStringSize = 0;
-				switch(*__fmt)
-				{
-					case 'd':
-					case 'D':
-					{
-						int theInteger = va_arg(args, int);
-						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%d", theInteger);
-					}
-					break;
-
-					case 'c':
-					case 'C':
-					{
-						int theCharInteger = va_arg(args, int);
-						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
-					}
-					break;
-
-					case 'f':
-					case 'F':
-					{
-						float theDouble = va_arg(args, double);
-						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%f", theDouble);
-					}
-					break;
-
-					case 's':
-					case 'S':
-					{
-						char * theString = va_arg(args, char *);
-						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%s", theString);
-					}
-					break;
-
-					case 'l':
-					case 'L':
-					{
-						long long int theLongLongInt = va_arg(args, long long int);
-						memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
-						theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%lld",  theLongLongInt);
-					}
-					break;
-
-					default:
-					{
-						printf("\n Switch is default (%c)", *__fmt);
-					}
-					break;
-				}
-
-				for (i = 0; i <theStringSize; i++)
-				{
-					if (theCommandSize < COMMAND_BUFFER)
-					{
-						commandBuffer[theCommandSize++] = theBuffer[i];
-					}
-				}
-
-				++__fmt;
-
 				int theCharInteger = va_arg(args, int);
 				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER);
 				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
@@ -194,7 +128,10 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 
 	if (ftpData->clients[clientId].socketIsConnected != 1 ||
 		ftpData->clients[clientId].socketDescriptor == 0)
+	{
+		printf("\n Client is not connected!");
 		return -1;
+	}
 
 	if (ftpData->clients[clientId].tlsIsEnabled != 1)
 	{
