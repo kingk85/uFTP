@@ -148,8 +148,6 @@ struct workerData
     long long int retrRestartAtByte;
 
     /* The PASV thread will wait the signal before start */
-    pthread_mutex_t conditionMutex;
-    pthread_cond_t conditionVariable;
     ftpCommandDataType    ftpCommand;
     DYNV_VectorGenericDataType directoryInfo;
     FILE *theStorFile;
@@ -206,6 +204,9 @@ struct clientData
 
     unsigned long long int connectionTimeStamp;
     unsigned long long int lastActivityTimeStamp;
+
+    pthread_mutex_t conditionMutex;
+    pthread_cond_t conditionVariable;
 
     DYNMEM_MemoryTable_DataType *memoryTable;
 } typedef clientDataType;
