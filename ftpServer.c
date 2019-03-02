@@ -264,12 +264,12 @@ void *connectionWorkerHandle(void * socketId)
     {
     	//printf("\nWorker %d is waiting for commands!", theSocketId);
         //Conditional lock on tconditionVariablehread actions
-        pthread_mutex_lock(&ftpData.clients[theSocketId].workerData.conditionMutex);
+        pthread_mutex_lock(&ftpData.clients[theSocketId].conditionMutex);
         while (ftpData.clients[theSocketId].workerData.commandReceived == 0)
         {
-            pthread_cond_wait(&ftpData.clients[theSocketId].workerData.conditionVariable, &ftpData.clients[theSocketId].workerData.conditionMutex);
+            pthread_cond_wait(&ftpData.clients[theSocketId].conditionVariable, &ftpData.clients[theSocketId].conditionMutex);
         }
-        pthread_mutex_unlock(&ftpData.clients[theSocketId].workerData.conditionMutex);
+        pthread_mutex_unlock(&ftpData.clients[theSocketId].conditionMutex);
 
         //printf("\nWorker %d unlocked", theSocketId);
 

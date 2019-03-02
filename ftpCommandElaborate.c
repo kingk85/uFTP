@@ -632,12 +632,13 @@ int parseCommandList(ftpDataType * data, int socketId)
         setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
     }
 
-    //pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
+    pthread_mutex_lock(&data->clients[socketId].conditionMutex);
     memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].workerData.commandReceived = 1;
-    //pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
+    pthread_cond_signal(&data->clients[socketId].conditionVariable);
+    pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
     return FTP_COMMAND_PROCESSED;
 }
 
@@ -663,12 +664,14 @@ int parseCommandNlst(ftpDataType * data, int socketId)
         setDynamicStringDataType(&data->clients[socketId].nlistPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
     }
     
-    //pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
+    pthread_mutex_lock(&data->clients[socketId].conditionMutex);
+
     memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
     strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
     data->clients[socketId].workerData.commandReceived = 1;
-    //pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
-    pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
+    pthread_cond_signal(&data->clients[socketId].conditionVariable);
+    pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
     return FTP_COMMAND_PROCESSED;
 }
 
@@ -688,12 +691,14 @@ int parseCommandRetr(ftpDataType * data, int socketId)
     if (isSafePath == 1 &&
         FILE_IsFile(data->clients[socketId].fileToRetr.text) == 1)
     {
-        //pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
+        pthread_mutex_lock(&data->clients[socketId].conditionMutex);
+
         memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
         strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
         data->clients[socketId].workerData.commandReceived = 1;
-        //pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
-        pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
+        pthread_cond_signal(&data->clients[socketId].conditionVariable);
+        pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
         return FTP_COMMAND_PROCESSED;
     }
     else
@@ -718,18 +723,19 @@ int parseCommandStor(ftpDataType * data, int socketId)
 
     if (isSafePath == 1)
     {
-        //pthread_mutex_trylock(&data->clients[socketId].workerData.conditionMutex);
+        pthread_mutex_lock(&data->clients[socketId].conditionMutex);
         memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
         strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
         data->clients[socketId].workerData.commandReceived = 1;
-        //pthread_mutex_unlock(&data->clients[socketId].workerData.conditionMutex);
-        pthread_cond_signal(&data->clients[socketId].workerData.conditionVariable);
+        pthread_cond_signal(&data->clients[socketId].conditionVariable);
+        pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
     }
     else
     {
         return FTP_COMMAND_NOT_RECONIZED;
     }
-    
+
     return FTP_COMMAND_PROCESSED;
 }
 

@@ -593,9 +593,6 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       /* wait main for action */
       if (isInitialization != 1)
       {
-        pthread_mutex_destroy(&data->clients[clientId].workerData.conditionMutex);
-        pthread_cond_destroy(&data->clients[clientId].workerData.conditionVariable);
-        
         if (data->clients[clientId].workerData.theStorFile != NULL)
         {
             fclose(data->clients[clientId].workerData.theStorFile);
@@ -614,18 +611,6 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         data->clients[clientId].workerData.threadHasBeenCreated = 0;
       }
 
-      if (pthread_mutex_init(&data->clients[clientId].workerData.conditionMutex, NULL) != 0)
-      {
-         // printf("\ndata->clients[clientId].workerData.conditionMutex init failed\n");
-          exit(0);
-      }
-
-
-      if (pthread_cond_init(&data->clients[clientId].workerData.conditionVariable, NULL) != 0)
-      {
-         // printf("\ndata->clients[clientId].workerData.conditionVariable init failed\n");
-          exit(0);
-      }
 
     //Clear the dynamic vector structure
     int theSize = data->clients[clientId].workerData.directoryInfo.Size;
@@ -645,11 +630,13 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 
 void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
-
     if (isInitialization != 1)
     {
 	if (data->clients[clientId].workerData.threadIsAlive == 1)
 		pthread_cancel(data->clients[clientId].workerData.workerThread);
+
+	pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
+	pthread_cond_destroy(&data->clients[clientId].conditionVariable);
 
 	pthread_mutex_destroy(&data->clients[clientId].writeMutex);
 
@@ -658,12 +645,28 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 	//SSL_free(data->clients[clientId].workerData.ssl);
 	#endif
     }
+    else
+    {
+
+    }
 
     if (pthread_mutex_init(&data->clients[clientId].writeMutex, NULL) != 0)
     {
         printf("\nclientData->writeMutex init failed\n");
         exit(0);
     }
+
+	if (pthread_mutex_init(&data->clients[clientId].conditionMutex, NULL) != 0)
+		  {
+		  printf("\ndata->clients[clientId].workerData.conditionMutex init failed\n");
+		  exit(0);
+		  }
+
+	if (pthread_cond_init(&data->clients[clientId].conditionVariable, NULL) != 0)
+	{
+		printf("\ndata->clients[clientId].workerData.conditionVariable init failed\n");
+		exit(0);
+	}
 
     data->clients[clientId].tlsIsNegotiating = 0;
     data->clients[clientId].tlsIsEnabled = 0;
