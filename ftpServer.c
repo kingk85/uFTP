@@ -634,10 +634,7 @@ void runFtpServer(void)
             //The client is not connected anymore
             if ((ftpData.clients[processingSock].bufferIndex) == 0)
             {
-              fdRemove(&ftpData, processingSock);
-              closeSocket(&ftpData, processingSock);
-              ftpData.connectionData.maxSocketFD = getMaximumSocketFd(ftpData.connectionData.theMainSocket, &ftpData);
-              //printf("\nA client has been disconnected!\n");
+              closeClient(&ftpData, processingSock);
             }
 
             //Debug print errors
