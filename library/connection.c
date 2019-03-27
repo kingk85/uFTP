@@ -596,9 +596,15 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
+
 		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
-		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
-		usleep(10000);
+
+    	do
+		{
+    		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
+    		usleep(10000);
+		} while (ftpData->clients[processingSocket].workerData.threadIsAlive == 1);
+
     }
 
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    

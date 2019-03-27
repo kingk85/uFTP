@@ -497,6 +497,11 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     {
     	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
     	//printf("\npasv pthread_cancel = %d", returnCode);
+    	do
+		{
+    		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
+    		usleep(10000);
+		} while (ftpData->clients[socketId].workerData.threadIsAlive == 1);
     }
 
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
@@ -533,6 +538,11 @@ int parseCommandPort(ftpDataType * data, int socketId)
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
     	returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
+    	do
+		{
+    		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
+    		usleep(10000);
+		} while (ftpData->clients[socketId].workerData.threadIsAlive == 1);
     }
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
@@ -566,6 +576,11 @@ int parseCommandAbor(ftpDataType * data, int socketId)
         if (data->clients[socketId].workerData.threadIsAlive == 1)
         {
             pthread_cancel(data->clients[socketId].workerData.workerThread);
+        	do
+    		{
+        		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
+        		usleep(10000);
+    		} while (ftpData->clients[socketId].workerData.threadIsAlive == 1);
         }
 
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");
