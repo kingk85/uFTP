@@ -632,9 +632,11 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
     if (isInitialization != 1)
     {
-	if (data->clients[clientId].workerData.threadIsAlive == 1)
+	if (data->clients[clientId].workerData.threadIsAlive == 1){
 		pthread_cancel(data->clients[clientId].workerData.workerThread);
-
+		usleep(10000);
+		printf("Thread had ben cancelled!");
+	}
 	pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
 	pthread_cond_destroy(&data->clients[clientId].conditionVariable);
 
