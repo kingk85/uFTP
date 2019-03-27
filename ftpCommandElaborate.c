@@ -501,7 +501,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
 		{
     		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
     		usleep(10000);
-		} while (ftpData->clients[socketId].workerData.threadIsAlive == 1);
+		} while (data->clients[socketId].workerData.threadIsAlive == 1);
     }
 
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
@@ -542,7 +542,7 @@ int parseCommandPort(ftpDataType * data, int socketId)
 		{
     		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
     		usleep(10000);
-		} while (ftpData->clients[socketId].workerData.threadIsAlive == 1);
+		} while (data->clients[socketId].workerData.threadIsAlive == 1);
     }
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
@@ -580,7 +580,7 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     		{
         		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
         		usleep(10000);
-    		} while (ftpData->clients[socketId].workerData.threadIsAlive == 1);
+    		} while (data->clients[socketId].workerData.threadIsAlive == 1);
         }
 
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");

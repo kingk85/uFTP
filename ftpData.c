@@ -638,7 +638,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 		{
     		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
     		usleep(10000);
-		} while (ftpData->clients[clientId].workerData.threadIsAlive == 1);
+		} while (data->clients[clientId].workerData.threadIsAlive == 1);
 
 	}
 	pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
