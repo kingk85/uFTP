@@ -58,9 +58,15 @@ void workerCleanup(void *socketId)
 	int theSocketId = *(int *)socketId;
 	int returnCode = 0;
 
+
+
+
 	//printf("\nWorker %d cleanup", theSocketId);
 
 	#ifdef OPENSSL_ENABLED
+    int error;
+    error = fcntl(ftpData.clients[theSocketId].workerData.socketConnection, F_SETFL, O_NONBLOCK);
+
 	if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
 	{
 		if(ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
@@ -258,15 +264,20 @@ void *connectionWorkerHandle(void * socketId)
 //Endless loop ftp process
   while (1)
   {
-    usleep(1000);
 
     if (ftpData.clients[theSocketId].workerData.socketIsConnected > 0)
     {
-    	//printf("\nWorker %d is waiting for commands!", theSocketId);
+    	printf("\nWorker %d is waiting for commands!", theSocketId);
         //Conditional lock on tconditionVariablehread actions
         pthread_mutex_lock(&ftpData.clients[theSocketId].conditionMutex);
+    	//int sleepTime = 1000;
         while (ftpData.clients[theSocketId].workerData.commandReceived == 0)
         {
+        	//usleep(sleepTime);
+        	//if (sleepTime < 200000)
+        	//{
+        		//sleepTime+= 1000;
+        	//}
             pthread_cond_wait(&ftpData.clients[theSocketId].conditionVariable, &ftpData.clients[theSocketId].conditionMutex);
         }
         pthread_mutex_unlock(&ftpData.clients[theSocketId].conditionMutex);

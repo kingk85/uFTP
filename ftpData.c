@@ -600,8 +600,21 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         }
 
 			#ifdef OPENSSL_ENABLED
-			SSL_free(data->clients[clientId].workerData.serverSsl);
-			SSL_free(data->clients[clientId].workerData.clientSsl);
+
+        	if (data->clients[clientId].workerData.serverSsl != NULL)
+        	{
+        		SSL_free(data->clients[clientId].workerData.serverSsl);
+        		data->clients[clientId].workerData.serverSsl = NULL;
+        	}
+
+
+        	if (data->clients[clientId].workerData.clientSsl != NULL)
+        	{
+        		SSL_free(data->clients[clientId].workerData.clientSsl);
+        		data->clients[clientId].workerData.clientSsl = NULL;
+        	}
+
+
 			#endif
       }
       else
@@ -633,13 +646,22 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     if (isInitialization != 1)
     {
 	if (data->clients[clientId].workerData.threadIsAlive == 1) {
-		pthread_cancel(data->clients[clientId].workerData.workerThread);
-    	do
-		{
-    		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
-    		usleep(10000);
-		} while (data->clients[clientId].workerData.threadIsAlive == 1);
+		void *pReturn;
 
+    	printf("\nRESET CLIENT PTHREAD CANCEL");
+		int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
+		printf ("\npthread_cancel return code: %d", returnCode);
+		//fflush(0);
+
+
+    	returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
+    	data->clients[clientId].workerData.threadHasBeenCreated = 0;
+    	printf("\nReset client data JOIN RETURN STATUS %d", returnCode);
+
+
+    		printf("\nReset client data thread cancelled!!!");
+
+    		printf("\nftpData->clients[processingSocket].workerData.threadIsAlive = %d", data->clients[clientId].workerData.threadIsAlive);
 	}
 	pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
 	pthread_cond_destroy(&data->clients[clientId].conditionVariable);
@@ -647,8 +669,11 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 	pthread_mutex_destroy(&data->clients[clientId].writeMutex);
 
 	#ifdef OPENSSL_ENABLED
-	SSL_free(data->clients[clientId].ssl);
-	//SSL_free(data->clients[clientId].workerData.ssl);
+	if (data->clients[clientId].ssl != NULL)
+	{
+		SSL_free(data->clients[clientId].ssl);
+		data->clients[clientId].ssl = NULL;
+	}
 	#endif
     }
     else

@@ -127,7 +127,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	va_end(args);
 
 	if (ftpData->clients[clientId].socketIsConnected != 1 ||
-		ftpData->clients[clientId].socketDescriptor == 0)
+		ftpData->clients[clientId].socketDescriptor < 0)
 	{
 		printf("\n Client is not connected!");
 		return -1;
@@ -459,7 +459,6 @@ int createActiveSocket(int port, char *ipAddress)
   struct sockaddr_in serv_addr;
 
   //printf("\n Connection socket is going to start ip: %s:%d \n", ipAddress, port);
-  //sleep(100);
   memset(&serv_addr, 0, sizeof(struct sockaddr_in)); 
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port); 
@@ -596,14 +595,18 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
+    	printf("\nCLOSE THE CLIENT PTHREAD CANCEL");
+    	void *pReturn;
+		int returnCode = pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
+		printf ("\npthread_cancel return code: %d", returnCode);
+		//fflush(0);
 
-		pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
+    	returnCode = pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
+    	ftpData->clients[processingSocket].workerData.threadHasBeenCreated = 0;
+    	printf("\nCLOSE THE CLIENT JOIN RETURN STATUS %d", returnCode);
 
-    	do
-		{
-    		printf("\nQuit command received the Pasv Thread has been cancelled!!!");
-    		usleep(10000);
-		} while (ftpData->clients[processingSocket].workerData.threadIsAlive == 1);
+		printf("\nClose client thread cancelled!!!");
+		printf("\nftpData->clients[processingSocket].workerData.threadIsAlive = %d", ftpData->clients[processingSocket].workerData.threadIsAlive);
 
     }
 
