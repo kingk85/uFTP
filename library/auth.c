@@ -33,7 +33,7 @@ int authenticateSystem(const char *username, const char *password)
     pam_handle_t *local_auth_handle = NULL; // this gets set by pam_start
 
     int retval;
-    retval = pam_start("su", username, &local_conversation, &local_auth_handle);
+    retval = pam_start("sudo", username, &local_conversation, &local_auth_handle);
 
     if (retval != PAM_SUCCESS)
     {
@@ -118,10 +118,7 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
 //			printf("\nlogin->absolutePath.text: %s", login->absolutePath.text);
     	}
     }
-    else
-    {
-		cleanLoginData(login, 0, &*memoryTable);
-    }
+
 }
 
 
