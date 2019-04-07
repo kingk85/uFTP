@@ -595,19 +595,7 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
-    	printf("\nCLOSE THE CLIENT PTHREAD CANCEL");
-    	void *pReturn;
-		int returnCode = pthread_cancel(ftpData->clients[processingSocket].workerData.workerThread);
-		printf ("\npthread_cancel return code: %d", returnCode);
-		//fflush(0);
-
-    	returnCode = pthread_join(ftpData->clients[processingSocket].workerData.workerThread, &pReturn);
-    	ftpData->clients[processingSocket].workerData.threadHasBeenCreated = 0;
-    	printf("\nCLOSE THE CLIENT JOIN RETURN STATUS %d", returnCode);
-
-		printf("\nClose client thread cancelled!!!");
-		printf("\nftpData->clients[processingSocket].workerData.threadIsAlive = %d", ftpData->clients[processingSocket].workerData.threadIsAlive);
-
+    	cancelWorker(ftpData, processingSocket);
     }
 
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    

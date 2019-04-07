@@ -512,7 +512,7 @@ void *connectionWorkerHandle(void * socketId)
 
 void runFtpServer(void)
 {
-    printf("\nHello uFTP server v%s starting..\n", UFTP_SERVER_VERSION);
+    printf("\nHello uFTP server %s starting..\n", UFTP_SERVER_VERSION);
 
     /* Needed for Select*/
     static int processingSock = 0, returnCode = 0;
@@ -674,7 +674,7 @@ void runFtpServer(void)
                       if (ftpData.clients[processingSock].buffer[i] == '\n') 
                           {
                               ftpData.clients[processingSock].socketCommandReceived = 1;
-                              printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
+                              //printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
                               commandProcessStatus = processCommand(processingSock);
                               //Echo unrecognized commands
                               if (commandProcessStatus == FTP_COMMAND_NOT_RECONIZED) 

@@ -495,19 +495,7 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     //printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
-    	printf("\nPASV PTHREAD CANCEL");
-		int returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
-		printf ("\npthread_cancel return code: %d", returnCode);
-
-		returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-		//fflush(0);
-    	data->clients[socketId].workerData.threadHasBeenCreated = 0;
-    	printf("\nparseCommand PASV JOIN RETURN STATUS %d", returnCode);
-
-    		printf("\nPASV THREAD CANCELLED!!!");
-
-    		printf("\nftpData->clients[processingSocket].workerData.threadIsAlive = %d", data->clients[socketId].workerData.threadIsAlive);
-
+    	cancelWorker(data, socketId);
     }
 
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
@@ -543,19 +531,9 @@ int parseCommandPort(ftpDataType * data, int socketId)
     void *pReturn;
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
-    	printf("\nPORT PTHREAD CANCEL");
-		int returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
-		printf ("\npthread_cancel return code: %d", returnCode);
-		//fflush(0);
-
-    	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-    	data->clients[socketId].workerData.threadHasBeenCreated = 0;
-    	printf("\nparseCommand PORT JOIN RETURN STATUS %d", returnCode);
-
-    		printf("\nPORT Thread cancelled!!!");
-
-    		printf("\nftpData->clients[processingSocket].workerData.threadIsAlive = %d", data->clients[socketId].workerData.threadIsAlive);
+    	cancelWorker(data, socketId);
     }
+
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
     	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
@@ -588,20 +566,7 @@ int parseCommandAbor(ftpDataType * data, int socketId)
     {
         if (data->clients[socketId].workerData.threadIsAlive == 1)
         {
-        	void *pReturn;
-
-        	printf("\nABOR PTHREAD CANCEL");
-    		int returnCode = pthread_cancel(data->clients[socketId].workerData.workerThread);
-    		printf ("\npthread_cancel return code: %d", returnCode);
-    		//fflush(0);
-
-        	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        	data->clients[socketId].workerData.threadHasBeenCreated = 0;
-        	printf("\nparseCommand ABOR JOIN RETURN STATUS %d", returnCode);
-
-        		printf("\nAbor thread cancelled!!!");
-
-        		printf("\nftpData->clients[processingSocket].workerData.threadIsAlive = %d", data->clients[socketId].workerData.threadIsAlive);
+        	cancelWorker(data, socketId);
         }
 
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");

@@ -565,6 +565,15 @@ void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
     }
 }
 
+void cancelWorker(ftpDataType *data, int clientId)
+{
+	void *pReturn;
+	int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
+	returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
+	data->clients[clientId].workerData.threadHasBeenCreated = 0;
+}
+
+
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 {
 
@@ -645,24 +654,11 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
     if (isInitialization != 1)
     {
-	if (data->clients[clientId].workerData.threadIsAlive == 1) {
-		void *pReturn;
-
-    	printf("\nRESET CLIENT PTHREAD CANCEL");
-		int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
-		printf ("\npthread_cancel return code: %d", returnCode);
-		//fflush(0);
-
-
-    	returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
-    	data->clients[clientId].workerData.threadHasBeenCreated = 0;
-    	printf("\nReset client data JOIN RETURN STATUS %d", returnCode);
-
-
-    		printf("\nReset client data thread cancelled!!!");
-
-    		printf("\nftpData->clients[processingSocket].workerData.threadIsAlive = %d", data->clients[clientId].workerData.threadIsAlive);
+	if (data->clients[clientId].workerData.threadIsAlive == 1)
+	{
+		cancelWorker(data, clientId);
 	}
+
 	pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
 	pthread_cond_destroy(&data->clients[clientId].conditionVariable);
 
