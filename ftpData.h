@@ -27,8 +27,12 @@
 #define FTPDATA_H
 
 #include <netinet/in.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+
+#ifdef OPENSSL_ENABLED
+	#include <openssl/ssl.h>
+	#include <openssl/err.h>
+#endif
+
 #include "library/dynamicVectors.h"
 #include "library/dynamicMemory.h"
 
