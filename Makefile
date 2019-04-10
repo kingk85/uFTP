@@ -1,14 +1,14 @@
 #Linux Generic
-CC=/opt/crosstool/gcc-linaro-7.3.1-2018.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc
+CC=gcc
 
 OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
 
 #FOR DEBUG PURPOSE
-CFLAGSTEMP=-c -Wall -I. -g -O0
+#CFLAGSTEMP=-c -Wall -I. -g -O0
 
 #FOR RELEASE
-#CFLAGSTEMP=-c -Wall -I.
+CFLAGSTEMP=-c -Wall -I.
 
 OPTIMIZATION=-O3
 HEADERS=-I
@@ -22,8 +22,8 @@ ENABLE_LARGE_FILE_SUPPORT=-D LARGE_FILE_SUPPORT_ENABLED -D _LARGEFILE64_SOURCE
 
 ENABLE_OPENSSL_SUPPORT=
 #TO ENABLE OPENSSL SUPPORT UNCOMMENT NEXT 2 LINES
-#ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
-#LIBS=-lpthread -lssl -lcrypto
+ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
+LIBS=-lpthread -lssl -lcrypto
 
 ENABLE_PAM_SUPPORT=
 PAM_AUTH_LIB=
@@ -61,7 +61,7 @@ auth.o:
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)auth.c -o $(LIBPATH)auth.o
 
 configRead.o: dynamicVectors.o fileManagement.o
-	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)configRead.c -o $(LIBPATH)configRead.o 
+	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)configRead.c -o $(LIBPATH)configRead.o
 
 dynamicMemory.o:
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)dynamicMemory.c -o $(LIBPATH)dynamicMemory.o
