@@ -30,7 +30,11 @@
 #include "configRead.h"
 #include "../ftpData.h"
 #include "dynamicVectors.h"
-#include "openSsl.h"
+
+#ifdef OPENSSL_ENABLED
+	#include "openSsl.h"
+#endif
+
 #include "fileManagement.h"
 #include "daemon.h"
 #include "dynamicMemory.h"

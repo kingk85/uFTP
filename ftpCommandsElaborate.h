@@ -37,8 +37,12 @@
 #define FTP_CHMODE_COMMAND_RETURN_CODE_NO_FILE          2
 #define FTP_CHMODE_COMMAND_RETURN_CODE_NO_PERMISSIONS   3
 #define FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG         4
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+
+#ifdef OPENSSL_ENABLED
+	#include <openssl/ssl.h>
+	#include <openssl/err.h>
+#endif
+
 #include "ftpData.h"
 
 #ifdef __cplusplus
