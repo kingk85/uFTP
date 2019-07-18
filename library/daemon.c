@@ -34,11 +34,13 @@
 #include <sys/resource.h>
 #include <signal.h>
 
-
 #include "fileManagement.h"
 
 #define LOCKFILE "/var/run/uFTP.pid"
 #define LOCKMODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
+#define MAXIMUM_IDLE_TIME			60
+
+static int WatchDogTime = 0, WatchDogTimerTimeOut = MAXIMUM_IDLE_TIME;
 
 int isProcessAlreadyRunning(void)
 {
@@ -72,9 +74,8 @@ int isProcessAlreadyRunning(void)
     return(0);
 }
 
-
 void daemonize(const char *cmd)
-{
+	{
     int
     i, fd0, fd1, fd2;
     pid_t pid;
@@ -135,3 +136,67 @@ void daemonize(const char *cmd)
     fd1 = dup(0);
     fd2 = dup(0);
     }
+
+void respawnProcess(void)
+	{
+	  pid_t spawnedProcess;
+
+	  //Respawn
+	  while(1)
+			{
+			spawnedProcess = fork();
+
+			if (spawnedProcess == 0)
+				{
+				//is child, exit from the loop
+				printf("\nRespawn mode is active");
+				break;
+				}
+			else
+				{
+				int returnStatus;
+				waitpid(spawnedProcess, &returnStatus, 0);
+				printf("\nwaitpid done with status: %d", returnStatus);
+
+				if (WIFEXITED(returnStatus))
+					{
+					if (WEXITSTATUS(returnStatus) == 99)
+						{
+						printf("\nWIFEXITED verified the respawn is now disabled with return code %d.", WEXITSTATUS(returnStatus));
+						exit(3);
+						}
+					}
+				sleep(1);
+				}
+			}
+		return;
+	}
+
+void *watchDog(void * arg)
+{
+	WatchDogTime = (int)time(NULL);
+
+	while(1)
+	{
+		//Check if the time is expired
+		if ((int)time(NULL) - WatchDogTime > WatchDogTimerTimeOut)
+		{
+			printf("\nWatchDog Time Expired");
+			exit(98);
+		}
+
+		//printf("\nWatchDog Time ok %d, %d", (int)time(NULL), WatchDogTime);
+
+		sleep(5);
+	}
+}
+
+void setWatchDogTimeout(int theTime)
+{
+	WatchDogTimerTimeOut = theTime;
+}
+
+void updateWatchDogTime(int theTime)
+{
+	WatchDogTime = theTime;
+}

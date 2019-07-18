@@ -31,6 +31,9 @@ extern "C" {
 
 int isProcessAlreadyRunning(void);
 void daemonize(const char *cmd);
+void respawnProcess(void);
+void *watchDog(void * arg);
+void updateWatchDogTime(int theTime);
 
 #ifdef __cplusplus
 }
