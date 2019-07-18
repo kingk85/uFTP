@@ -44,12 +44,16 @@
 #include "library/connection.h"
 #include "library/dynamicMemory.h"
 #include "library/errorHandling.h"
+#include "library/daemon.h"
 
 #include "ftpServer.h"
 #include "ftpData.h"
 #include "ftpCommandsElaborate.h"
 
 ftpDataType ftpData;
+
+
+pthread_t watchDogThread;
 
 static int processCommand(int processingElement);
 
@@ -514,6 +518,11 @@ void runFtpServer(void)
 {
     printf("\nHello uFTP server %s starting..\n", UFTP_SERVER_VERSION);
 
+    //Fork the process
+    respawnProcess();
+
+    printf("\nRespawn routine okay\n");
+
     /* Needed for Select*/
     static int processingSock = 0, returnCode = 0;
 
@@ -539,33 +548,41 @@ void runFtpServer(void)
     /* the maximum socket fd is now the main socket descriptor */
     ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
 
+    returnCode = pthread_create(&watchDogThread, NULL, watchDog, NULL);
+
+	if(returnCode != 0)
+		{
+		printf("pthread_create WatchDog Error %d", returnCode);
+		exit(0);
+		}
+
   //Endless loop ftp process
     while (1)
     {
-    	/*
+    //Update watchdog timer
+   	updateWatchDogTime((int)time(NULL));
 
-    	printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());
 
-    	int memCount = 0;
+	/*
+	printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());
+	int memCount = 0;
+	for (memCount = 0; memCount < ftpData.ftpParameters.maxClients; memCount++)
+	{
+		if (ftpData.clients[memCount].memoryTable != NULL)
+		{
+			printf("\nftpData.clients[%d].memoryTable = %s", memCount, ftpData.clients[memCount].memoryTable->theName);
+		}
+		if (ftpData.clients[memCount].workerData.memoryTable != NULL)
+		{
+			printf("\nftpData.clients[%d].workerData.memoryTable = %s", memCount, ftpData.clients[memCount].workerData.memoryTable->theName);
+		}
 
-    	for (memCount = 0; memCount < ftpData.ftpParameters.maxClients; memCount++)
-    	{
-    		if (ftpData.clients[memCount].memoryTable != NULL)
-    		{
-    			printf("\nftpData.clients[%d].memoryTable = %s", memCount, ftpData.clients[memCount].memoryTable->theName);
-    		}
-
-    		if (ftpData.clients[memCount].workerData.memoryTable != NULL)
-    		{
-    			printf("\nftpData.clients[%d].workerData.memoryTable = %s", memCount, ftpData.clients[memCount].workerData.memoryTable->theName);
-    		}
-
-    		if (ftpData.clients[memCount].workerData.directoryInfo.memoryTable != NULL)
-    		{
-    			printf("\nftpData.clients[%d].workerData.directoryInfo.memoryTable = %s", memCount, ftpData.clients[memCount].workerData.directoryInfo.memoryTable->theName);
-    		}
-    	}
-    	*/
+		if (ftpData.clients[memCount].workerData.directoryInfo.memoryTable != NULL)
+		{
+			printf("\nftpData.clients[%d].workerData.directoryInfo.memoryTable = %s", memCount, ftpData.clients[memCount].workerData.directoryInfo.memoryTable->theName);
+		}
+	}
+	*/
 
         /* waits for socket activity, if no activity then checks for client socket timeouts */
         if (selectWait(&ftpData) == 0)
@@ -573,6 +590,8 @@ void runFtpServer(void)
             checkClientConnectionTimeout(&ftpData);
             flushLoginWrongTriesData(&ftpData);
         }
+
+
 
         /*Main loop handle client commands */
         for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
