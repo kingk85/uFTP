@@ -740,6 +740,36 @@ int parseCommandStor(ftpDataType * data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
+int parseCommandAppe(ftpDataType * data, int socketId)
+{
+    int isSafePath = 0;
+    char *theNameToStor;
+    theNameToStor = getFtpCommandArg("APPE", data->clients[socketId].theCommandReceived, 0);
+    cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0, &data->clients[socketId].memoryTable);
+
+    if (strlen(theNameToStor) > 0)
+    {
+        isSafePath = getSafePath(&data->clients[socketId].fileToStor, theNameToStor, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
+    }
+
+    if (isSafePath == 1)
+    {
+        pthread_mutex_lock(&data->clients[socketId].conditionMutex);
+        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+        strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        data->clients[socketId].workerData.commandReceived = 1;
+        pthread_cond_signal(&data->clients[socketId].conditionVariable);
+        pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
+    }
+    else
+    {
+        return FTP_COMMAND_NOT_RECONIZED;
+    }
+
+    return FTP_COMMAND_PROCESSED;
+}
+
 int parseCommandCwd(ftpDataType * data, int socketId)
 {
     dynamicStringDataType absolutePathPrevious, ftpPathPrevious, theSafePath;

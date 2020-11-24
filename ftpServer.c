@@ -63,8 +63,6 @@ void workerCleanup(void *socketId)
 	int returnCode = 0;
 
 
-
-
 	//printf("\nWorker %d cleanup", theSocketId);
 
 	#ifdef OPENSSL_ENABLED
@@ -79,53 +77,43 @@ void workerCleanup(void *socketId)
 			returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.serverSsl);
 			//printf("\nnSSL worker Shutdown 1 return code : %d", returnCode);
 
-			if (returnCode < 0)
+			if (!returnCode)
 			{
-				//printf("SSL_shutdown failed return code %d", returnCode);
-			}
-			else if (returnCode == 0)
-			{
+			    shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
+			    shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
+
 				//printf("\nSSL worker Shutdown 2");
 				returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.serverSsl);
 				//printf("\nnSSL worker Shutdown 2 return code : %d", returnCode);
-
-				if (returnCode <= 0)
-				{
-					//printf("SSL_shutdown (2nd time) failed");
-				}
 			}
 		}
 
 		if(ftpData.clients[theSocketId].workerData.activeModeOn == 1)
 		{
-			//printf("\nSSL worker Shutdown 1");
 			returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.clientSsl);
-			//printf(" return code : %d", returnCode);
 
-			if (returnCode < 0)
+			if (!returnCode)
 			{
-				//printf("SSL_shutdown failed return code %d", returnCode);
-			}
-			else if (returnCode == 0)
-			{
-				returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.clientSsl);
-
-				if (returnCode <= 0)
-				{
-					//printf("SSL_shutdown (2nd time) failed");
-				}
+			    shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
+			    shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
+			    returnCode = SSL_shutdown(ftpData.clients[theSocketId].workerData.clientSsl);
 			}
 		}
 	}
 	#endif
 
     shutdown(ftpData.clients[theSocketId].workerData.socketConnection, SHUT_RDWR);
+
     shutdown(ftpData.clients[theSocketId].workerData.passiveListeningSocket, SHUT_RDWR);
+
     returnCode = close(ftpData.clients[theSocketId].workerData.socketConnection);
     returnCode = close(ftpData.clients[theSocketId].workerData.passiveListeningSocket);
+
     resetWorkerData(&ftpData, theSocketId, 0);
+
    // printf("\nWorker cleaned!");
     //printf("\nWorker memory table :%lld", ftpData.clients[theSocketId].workerData.memoryTable);
+
     if (ftpData.clients[theSocketId].workerData.memoryTable != NULL)
     	;//printf("\nMemory table element label: %s", ftpData.clients[theSocketId].workerData.memoryTable->theName);
     else
@@ -289,7 +277,7 @@ void *connectionWorkerHandle(void * socketId)
         //printf("\nWorker %d unlocked", theSocketId);
 
         if (ftpData.clients[theSocketId].workerData.commandReceived == 1 &&
-            compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "STOR", strlen("STOR")) == 1 &&
+            (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "STOR", strlen("STOR")) == 1 || compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "APPE", strlen("APPE")) == 1) &&
             ftpData.clients[theSocketId].fileToStor.textLen > 0)
         {
 
@@ -307,15 +295,30 @@ void *connectionWorkerHandle(void * socketId)
                 break;
         	}
 
-            #ifdef LARGE_FILE_SUPPORT_ENABLED
-					//#warning LARGE FILE SUPPORT IS ENABLED!
-                    ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
-            #endif
+        	if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "APPE", strlen("APPE")) == 1)
+        	{
+				#ifdef LARGE_FILE_SUPPORT_ENABLED
+						//#warning LARGE FILE SUPPORT IS ENABLED!
+						ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "ab");
+				#endif
 
-            #ifndef LARGE_FILE_SUPPORT_ENABLED
-					#warning LARGE FILE SUPPORT IS NOT ENABLED!
-                    ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
-            #endif
+				#ifndef LARGE_FILE_SUPPORT_ENABLED
+						#warning LARGE FILE SUPPORT IS NOT ENABLED!
+						ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "ab");
+				#endif
+        	}
+        	else
+        	{
+				#ifdef LARGE_FILE_SUPPORT_ENABLED
+						//#warning LARGE FILE SUPPORT IS ENABLED!
+						ftpData.clients[theSocketId].workerData.theStorFile = fopen64(ftpData.clients[theSocketId].fileToStor.text, "wb");
+				#endif
+
+				#ifndef LARGE_FILE_SUPPORT_ENABLED
+						#warning LARGE FILE SUPPORT IS NOT ENABLED!
+						ftpData.clients[theSocketId].workerData.theStorFile = fopen(ftpData.clients[theSocketId].fileToStor.text, "wb");
+				#endif
+        	}
 
             if (ftpData.clients[theSocketId].workerData.theStorFile == NULL)
             {
@@ -939,7 +942,7 @@ static int processCommand(int processingElement)
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "APPE", strlen("APPE")) == 1)
     {
        // printf("\nAPPE command received");
-        //To implement
+    	toReturn = parseCommandAppe(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "NOOP", strlen("NOOP")) == 1)
     {
