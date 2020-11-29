@@ -392,11 +392,17 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
 {
     int searchIndex, userIndex;
 
-    char    userX[PARAMETER_SIZE_LIMIT], 
+    /*char    userX[PARAMETER_SIZE_LIMIT], 
             passwordX[PARAMETER_SIZE_LIMIT], 
             homeX[PARAMETER_SIZE_LIMIT], 
             userOwnerX[PARAMETER_SIZE_LIMIT], 
-            groupOwnerX[PARAMETER_SIZE_LIMIT];
+            groupOwnerX[PARAMETER_SIZE_LIMIT];*/
+    //10/09/2019
+    char* TuserX = "USER_";
+    char* TpasswordX = "PASSWORD_";
+    char* ThomeX = "HOME_";
+    char* TuserOwnerX = "GROUP_NAME_OWNER_";
+    char* TgroupOwnerX = "USER_NAME_OWNER_";
     
     //printf("\nReading configuration settings..");
     
@@ -550,17 +556,40 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
 
     /* USER SETTINGS */
     userIndex = 0;
-    memset(userX, 0, PARAMETER_SIZE_LIMIT);
+    /*memset(userX, 0, PARAMETER_SIZE_LIMIT);
     memset(passwordX, 0, PARAMETER_SIZE_LIMIT);
     memset(homeX, 0, PARAMETER_SIZE_LIMIT);
     memset(userOwnerX, 0, PARAMETER_SIZE_LIMIT);
-    memset(groupOwnerX, 0, PARAMETER_SIZE_LIMIT);
+    memset(groupOwnerX, 0, PARAMETER_SIZE_LIMIT);*/
     
     DYNV_VectorGeneric_Init(&ftpParameters->usersVector);
     while(1)
     {
         int searchUserIndex, searchPasswordIndex, searchHomeIndex, searchUserOwnerIndex, searchGroupOwnerIndex, returnCode;
         usersParameters_DataType userData;
+	    
+	char    userX[PARAMETER_SIZE_LIMIT],
+                passwordX[PARAMETER_SIZE_LIMIT],
+                homeX[PARAMETER_SIZE_LIMIT],
+                userOwnerX[PARAMETER_SIZE_LIMIT],
+                groupOwnerX[PARAMETER_SIZE_LIMIT],
+		StrNo[2];
+	//10/09/2019
+        sprintf(StrNo, "%d", userIndex);
+        strcpy(userX, TuserX);
+        strcat(userX, StrNo);
+
+        strcpy(passwordX, TpasswordX);
+        strcat(passwordX, StrNo);
+
+        strcpy(homeX, ThomeX);
+        strcat(homeX, StrNo);
+
+        strcpy(userOwnerX, TuserOwnerX);
+        strcat(userOwnerX, StrNo);
+
+        strcpy(groupOwnerX, TgroupOwnerX);
+        strcat(groupOwnerX, StrNo);
 
         returnCode = snprintf(userX, PARAMETER_SIZE_LIMIT, "USER_%d", userIndex);
         returnCode = snprintf(passwordX, PARAMETER_SIZE_LIMIT, "PASSWORD_%d", userIndex);
