@@ -92,6 +92,7 @@ struct ftpParameters
     char certificatePath[MAXIMUM_INODE_NAME];
     char privateCertificatePath[MAXIMUM_INODE_NAME];
     int pamAuthEnabled;
+    int forceTLS;
 } typedef ftpParameters_DataType;
     
 struct dynamicStringData

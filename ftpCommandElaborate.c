@@ -53,25 +53,27 @@ int parseCommandUser(ftpDataType * data, int socketId)
     char *theUserName;
     theUserName = getFtpCommandArg("USER", data->clients[socketId].theCommandReceived, 0);
 
-    if (strlen(theUserName) >= 1)
-    {
-        setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName), &data->clients[socketId].memoryTable);
-        returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
+	if (data->ftpParameters.forceTLS == 1 && data->clients[socketId].tlsIsEnabled == 0)
+	{
+		returnCode = socketPrintf(data, socketId, "s", "534 Policy Requires SSL.\r\n");
+	}
+	else
+	{
+		if (strlen(theUserName) >= 1)
+		{
+			setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName), &data->clients[socketId].memoryTable);
+			returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
+		}
+		else
+		{
+			returnCode = socketPrintf(data, socketId, "s", "430 Invalid username.\r\n");
+		}
+	}
 
-        if (returnCode <= 0) 
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+	if (returnCode <= 0)
+		return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
-        return FTP_COMMAND_PROCESSED;
-    }
-    else
-    {
-        returnCode = socketPrintf(data, socketId, "s", "430 Invalid username.\r\n");
-
-        if (returnCode <= 0)
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-
-        return FTP_COMMAND_PROCESSED;
-    }
+	return FTP_COMMAND_PROCESSED;
 }
 
 /* Elaborate the User login command */
@@ -248,6 +250,7 @@ int parseCommandPass(ftpDataType * data, int socketId)
 int parseCommandAuth(ftpDataType * data, int socketId)
 {
     int returnCode, returnCodeTls;
+    char *theAuthArg;
 
 	#ifndef OPENSSL_ENABLED
     	returnCode = socketPrintf(data, socketId, "s", "502 Security extensions not implemented.\r\n");
@@ -257,35 +260,43 @@ int parseCommandAuth(ftpDataType * data, int socketId)
 
 	#ifdef OPENSSL_ENABLED
 
-		returnCode = socketPrintf(data, socketId, "s", "234 AUTH TLS OK..\r\n");
-		if (returnCode <= 0)
-			return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-
-		returnCode = SSL_set_fd(data->clients[socketId].ssl, data->clients[socketId].socketDescriptor);
-
-		if (returnCode == 0)
+        theAuthArg = getFtpCommandArg("AUTH", data->clients[socketId].theCommandReceived, 0);
+		if (theAuthArg[0] != 'T' && theAuthArg[0] != 't')
 		{
-			return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-		}
-
-		returnCodeTls = SSL_accept(data->clients[socketId].ssl);
-		data->clients[socketId].tlsNegotiatingTimeStart = (int)time(NULL);
-
-		if (returnCodeTls <= 0)
-		{
-			//printf("\nSSL NOT YET ACCEPTED: %d", returnCodeTls);
-			data->clients[socketId].tlsIsEnabled = 0;
-			data->clients[socketId].tlsIsNegotiating = 1;
+			returnCode = socketPrintf(data, socketId, "s", "504 Only TLS supported.\r\n");
+			if (returnCode <= 0)
+				return FTP_COMMAND_PROCESSED_WRITE_ERROR;			
 		}
 		else
 		{
-			//printf("\nSSL ACCEPTED");
-			data->clients[socketId].tlsIsEnabled = 1;
-			data->clients[socketId].tlsIsNegotiating = 0;
+			returnCode = socketPrintf(data, socketId, "s", "234 AUTH TLS OK..\r\n");
+			if (returnCode <= 0)
+				return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+
+			returnCode = SSL_set_fd(data->clients[socketId].ssl, data->clients[socketId].socketDescriptor);
+
+			if (returnCode == 0)
+			{
+				return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+			}
+
+			returnCodeTls = SSL_accept(data->clients[socketId].ssl);
+			data->clients[socketId].tlsNegotiatingTimeStart = (int)time(NULL);
+
+			if (returnCodeTls <= 0)
+			{
+				//printf("\nSSL NOT YET ACCEPTED: %d", returnCodeTls);
+				data->clients[socketId].tlsIsEnabled = 0;
+				data->clients[socketId].tlsIsNegotiating = 1;
+			}
+			else
+			{
+				//printf("\nSSL ACCEPTED");
+				data->clients[socketId].tlsIsEnabled = 1;
+				data->clients[socketId].tlsIsNegotiating = 0;
+			}
 		}
 	#endif
-
-
 
     return FTP_COMMAND_PROCESSED;
 }
@@ -379,25 +390,32 @@ int parseCommandProt(ftpDataType * data, int socketId)
     char *theProtArg;
     theProtArg = getFtpCommandArg("PROT", data->clients[socketId].theCommandReceived, 0);
 
-    if (theProtArg[0] == 'C' || theProtArg[0] == 'c')
-    {
-    	//Clear
-    	//printf("\nSet data channel to clear");
-    	data->clients[socketId].dataChannelIsTls = 0;
-    	returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
-
-    }
-    else if (theProtArg[0] == 'P' || theProtArg[0] == 'p')
+    if (theProtArg[0] == 'P' || theProtArg[0] == 'p')
     {
     	//Private
     	//printf("\nSet data channel to private");
     	data->clients[socketId].dataChannelIsTls = 1;
     	returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
-    else
-    {
-    	returnCode = socketPrintf(data, socketId, "scs", "502 Mode ", theProtArg[0]," is not implemented\r\n");
-    }
+    else 
+	{
+		if (data->ftpParameters.forceTLS == 1)
+		{
+			returnCode = socketPrintf(data, socketId, "s", "534 Policy Requires SSL.\r\n");
+		}
+		else if (theProtArg[0] == 'C' || theProtArg[0] == 'c')
+		{
+			//Clear
+			//printf("\nSet data channel to clear");
+			data->clients[socketId].dataChannelIsTls = 0;
+			returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
+
+		}
+		else
+		{
+			returnCode = socketPrintf(data, socketId, "scs", "502 Mode ", theProtArg[0]," is not implemented\r\n");
+		}
+	}
 
     if (returnCode <= 0)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -407,24 +425,31 @@ int parseCommandProt(ftpDataType * data, int socketId)
 
 int parseCommandCcc(ftpDataType * data, int socketId)
 {
-	    int returnCode;
+	int returnCode;
 
 	#ifdef OPENSSL_ENABLED
 
-    returnCode = socketPrintf(data, socketId, "s", "200 TLS connection aborted\r\n");
-    SSL_set_shutdown(data->clients[socketId].ssl, SSL_SENT_SHUTDOWN);
-    data->clients[socketId].tlsIsEnabled = 0;
+	if (data->ftpParameters.forceTLS == 1)
+	{
+		returnCode = socketPrintf(data, socketId, "s", "534 Policy Requires SSL.\r\n");
+	}
+	else
+	{
+		returnCode = socketPrintf(data, socketId, "s", "200 TLS connection aborted\r\n");
+		SSL_set_shutdown(data->clients[socketId].ssl, SSL_SENT_SHUTDOWN);
+		data->clients[socketId].tlsIsEnabled = 0;
+	}
 
-    if (returnCode <= 0)
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 	#endif
 
 	#ifndef OPENSSL_ENABLED
+
     returnCode = socketPrintf(data, socketId, "s", "500 command not supported\r\n");
 
-    if (returnCode <= 0)
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 	#endif
+
+	if (returnCode <= 0)
+		return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     return FTP_COMMAND_PROCESSED;
 }
@@ -491,22 +516,39 @@ int parseCommandPasv(ftpDataType * data, int socketId)
     void *pReturn;
     int returnCode;
     //printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
-
     //printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-    	cancelWorker(data, socketId);
-    }
 
-    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
-    {
-    	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-    	printf("\nPASV JOIN RETURN STATUS %d", returnCode);
-    }
+	#ifdef OPENSSL_ENABLED
 
-    data->clients[socketId].workerData.passiveModeOn = 1;
-    data->clients[socketId].workerData.activeModeOn = 0;    
-    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+	if (data->ftpParameters.forceTLS == 1 && data->clients[socketId].dataChannelIsTls == 0)
+	{
+		returnCode = socketPrintf(data, socketId, "s", "534 Policy Requires SSL. Preceding PROT P expected.\r\n");
+	}
+	else
+	{
+	
+	#endif
+
+		if (data->clients[socketId].workerData.threadIsAlive == 1)
+		{
+			cancelWorker(data, socketId);
+		}
+
+		if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
+		{
+			returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+			printf("\nPASV JOIN RETURN STATUS %d", returnCode);
+		}
+
+		data->clients[socketId].workerData.passiveModeOn = 1;
+		data->clients[socketId].workerData.activeModeOn = 0;    
+		returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+
+	#ifdef OPENSSL_ENABLED
+	
+	}
+
+	#endif
 
     if (returnCode != 0)
     {
@@ -523,25 +565,43 @@ int parseCommandPort(ftpDataType * data, int socketId)
     char *theIpAndPort;
     int ipAddressBytes[4];
     int portBytes[2];
-    theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived, 0);    
-    sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
-    data->clients[socketId].workerData.connectionPort = (portBytes[0]*256)+portBytes[1];
-    returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
-
     void *pReturn;
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-    	cancelWorker(data, socketId);
-    }
 
-    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
-    {
-    	returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-    	printf("\nPORT JOIN RETURN STATUS %d", returnCode);
-    }
-    data->clients[socketId].workerData.passiveModeOn = 0;
-    data->clients[socketId].workerData.activeModeOn = 1;    
-    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+	#ifdef OPENSSL_ENABLED
+
+	if (data->ftpParameters.forceTLS == 1 && data->clients[socketId].dataChannelIsTls == 0)
+	{
+		returnCode = socketPrintf(data, socketId, "s", "534 Policy Requires SSL. Preceding PROT P expected.\r\n");
+	}
+	else
+	{
+	
+	#endif
+
+		theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived, 0);    
+		sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
+		data->clients[socketId].workerData.connectionPort = (portBytes[0]*256)+portBytes[1];
+		returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0],ipAddressBytes[1],ipAddressBytes[2],ipAddressBytes[3]);
+
+		if (data->clients[socketId].workerData.threadIsAlive == 1)
+		{
+			cancelWorker(data, socketId);
+		}
+
+		if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
+		{
+			returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+			printf("\nPORT JOIN RETURN STATUS %d", returnCode);
+		}
+		data->clients[socketId].workerData.passiveModeOn = 0;
+		data->clients[socketId].workerData.activeModeOn = 1;    
+		returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *) &data->clients[socketId].clientProgressiveNumber);
+
+	#ifdef OPENSSL_ENABLED
+	
+	}
+
+	#endif
 
     if (returnCode != 0)
     {
