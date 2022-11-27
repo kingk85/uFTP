@@ -92,6 +92,10 @@ struct ftpParameters
     char certificatePath[MAXIMUM_INODE_NAME];
     char privateCertificatePath[MAXIMUM_INODE_NAME];
     int pamAuthEnabled;
+
+    /* If specified, use a port range for pasv connections */
+    int connectionPortMin;
+    int connectionPortMax;
 } typedef ftpParameters_DataType;
     
 struct dynamicStringData

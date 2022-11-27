@@ -93,7 +93,6 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
     }
 }
 
-
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData, DYNMEM_MemoryTable_DataType **memoryTable)
 {
 	#define STRING_SIZE		4096
@@ -199,25 +198,16 @@ void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *t
 
 void setRandomicPort(ftpDataType *data, int socketPosition)
 {
-    static unsigned short int randomizeInteger = 0;
     unsigned short int randomicPort = 5000;
     int i;
 
-    randomizeInteger += 1;
-    
-    if (randomizeInteger >  100 )
-        randomizeInteger = 1;
-
-    while(randomicPort < 10000)
-        randomicPort = ((rand() + socketPosition + randomizeInteger) % (50000)) + 10000;
-   i = 0;
+  randomicPort = data->ftpParameters.connectionPortMin + (rand()%(data->ftpParameters.connectionPortMax - data->ftpParameters.connectionPortMin)); 
 
    while (i < data->ftpParameters.maxClients)
    {
-       if (randomicPort == data->clients[i].workerData.connectionPort ||
-           randomicPort < 10000)
+       if (randomicPort == data->clients[i].workerData.connectionPort)
        {
-        randomicPort = ((rand() + socketPosition + i + randomizeInteger) % (50000)) + 10000;
+        randomicPort = data->ftpParameters.connectionPortMin + (rand()%(data->ftpParameters.connectionPortMax - data->ftpParameters.connectionPortMin)); 
         i = 0;
        }
        else 
@@ -225,10 +215,11 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
         i++;
        }
    }
-   
-   
+      
    data->clients[socketPosition].workerData.connectionPort = randomicPort;
-   //printf("data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
+
+   printf("\n  data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
+
 }
 
 int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable)

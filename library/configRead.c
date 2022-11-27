@@ -548,6 +548,33 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         //printf("\nPRIVATE_CERTIFICATE_PATH parameter not found in the configuration file, using the default value: %s", ftpParameters->privateCertificatePath);
     }
 
+
+    searchIndex = searchParameter("RANDOM_PORT_START", parametersVector);
+    if (searchIndex != -1)
+    {
+        ftpParameters->connectionPortMin = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        printf("\n RANDOM_PORT_START: %d", ftpParameters->connectionPortMin);
+    }
+    else
+    {
+        ftpParameters->connectionPortMin = 10000;
+        printf("\n RANDOM_PORT_START parameter not found in the configuration file, using the default value: %d", ftpParameters->connectionPortMin);
+    }
+
+
+    searchIndex = searchParameter("RANDOM_PORT_END", parametersVector);
+    if (searchIndex != -1)
+    {
+        ftpParameters->connectionPortMax = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        printf("\n RANDOM_PORT_END: %d", ftpParameters->connectionPortMax);
+    }
+    else
+    {
+        ftpParameters->connectionPortMax = 50000;
+        printf("\n RANDOM_PORT_END parameter not found in the configuration file, using the default value: %d", ftpParameters->connectionPortMax);
+    }
+
+
     /* USER SETTINGS */
     userIndex = 0;
     memset(userX, 0, PARAMETER_SIZE_LIMIT);
