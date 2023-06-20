@@ -67,6 +67,8 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead, 
 		if(newItem == NULL)
 		{
 			report_error_q("Memory allocation error, no room for memory list item.",__FILE__,__LINE__, 0);
+			free(memory);
+			return NULL;
 		}
 
 		DYNMEM_IncreaseMemoryCounter(bytes + sizeof(DYNMEM_MemoryTable_DataType));
@@ -99,6 +101,8 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead, 
 	}
 	else
 	{
+		if(newItem)
+			free(newItem);
 		report_error_q("Memory allocation error, out of memory.", __FILE__,__LINE__,0);
 		return NULL;
 	}
@@ -134,7 +138,9 @@ void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_Da
 			//strcpy(theData, "NOOOOOOOOOOOOOOOO");
 
 			report_error_q("Unable to reallocate memory not previously allocated",__FILE__,__LINE__, 0);
+			free(newMemory);
 			// Report this as an error
+			return NULL;
 		}
 
 		if (found->size > bytes)
@@ -187,6 +193,8 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 		//strcpy(theData, "ciaociaociao");
 		report_error_q("Unable to free memory not previously allocated",__FILE__,__LINE__, 1);
 		// Report this as an error
+
+		return;
 	}
 
 	DYNMEM_DecreaseMemoryCounter(found->size + sizeof(DYNMEM_MemoryTable_DataType));

@@ -44,7 +44,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 {
 	#define COMMAND_BUFFER								9600
 	#define SOCKET_PRINTF_BUFFER						2048
-	int bytesWritten = 0;
+	ssize_t bytesWritten = 0;
 	char theBuffer[SOCKET_PRINTF_BUFFER];
 	char commandBuffer[COMMAND_BUFFER];
 	int theStringSize = 0, theCommandSize = 0;
@@ -235,7 +235,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			if (theStringToWriteSize >= COMMAND_BUFFER)
 			{
 
-				int theReturnCode = 0;
+				ssize_t theReturnCode = 0;
 				if (ftpData->clients[clientId].dataChannelIsTls != 1)
 				{
 					theReturnCode = write(ftpData->clients[clientId].workerData.socketConnection, writeBuffer, theStringToWriteSize);

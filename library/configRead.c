@@ -85,12 +85,12 @@ void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable
     if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s \n", LOCAL_CONFIGURATION_FILENAME);
-        returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters, &*memoryTable);
+        returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters, memoryTable);
     }
     else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME) == 1)
     {
         printf("\nReading configuration from \n -> %s\n", DEFAULT_CONFIGURATION_FILENAME);
-        returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters, &*memoryTable);
+        returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters, memoryTable);
     }
 
     if (returnCode == 1) 
@@ -190,7 +190,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
     int i, state, nameIndex, valueIndex, allowSpacesInValue;
     char * theFileContent;
 
-    theFileSize = FILE_GetStringFromFile(path, &theFileContent, &*memoryTable);
+    theFileSize = FILE_GetStringFromFile(path, &theFileContent, memoryTable);
 
     char name[PARAMETER_SIZE_LIMIT];
     char value[PARAMETER_SIZE_LIMIT];
@@ -343,6 +343,9 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
                 parametersVector->PushBack(parametersVector, &parameter, sizeof(parameter_DataType));
             }
             break;
+
+            default:
+            break;
          }
     }
     
@@ -367,7 +370,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
 
     if (theFileSize > 0)
     {
-        DYNMEM_free(theFileContent, &*memoryTable);
+        DYNMEM_free(theFileContent, memoryTable);
     }
 
     return 1;

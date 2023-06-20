@@ -31,8 +31,8 @@
 
 void printTimeStamp(void)
 {
-   // time_t ltime; /* calendar time */
-   // ltime=time(NULL); /* get current cal time */
+   // time_t ltime;  calendar time 
+   // ltime=time(NULL);  get current cal time 
    // printf("\n\n %s -->",asctime( localtime(&ltime) ) );
 }
 

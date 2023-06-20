@@ -32,5 +32,5 @@ int main(int argc, char** argv)
 {
 
     runFtpServer();
-    return (EXIT_SUCCESS);
+    return EXIT_SUCCESS;
 }

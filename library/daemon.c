@@ -33,6 +33,8 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "fileManagement.h"
 
@@ -46,8 +48,8 @@ int isProcessAlreadyRunning(void)
 {
     int fd;
     int returnCode;
-    char buf[30];
-    memset(buf, 0,30);
+    char buf[101];
+    memset(buf, 0,101);
     fd = open(LOCKFILE, O_RDWR|O_CREAT, LOCKMODE);
     if (fd < 0) 
     {
@@ -71,7 +73,7 @@ int isProcessAlreadyRunning(void)
     ftruncate(fd, 0);
     returnCode = snprintf(buf, 100, "%ld", (long)getpid());
     returnCode = write(fd, buf, strlen(buf)+1);
-    return(0);
+    return 0;
 }
 
 void daemonize(const char *cmd)

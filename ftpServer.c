@@ -404,7 +404,7 @@ void *connectionWorkerHandle(void * socketId)
                || (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1))
               )
         {
-          int theFiles = 0, theCommandType;
+          int theFiles = 0, theCommandType = 0;
 
           if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "LIST", strlen("LIST")) == 1)
               theCommandType = COMMAND_TYPE_LIST;

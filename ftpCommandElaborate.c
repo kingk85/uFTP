@@ -107,10 +107,8 @@ int parseCommandSite(ftpDataType * data, int socketId)
 
             case FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG:
             default: 
-            {
-                return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-            }
-            break;
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+            
         }
     }
     else
@@ -773,7 +771,7 @@ int parseCommandAppe(ftpDataType * data, int socketId)
 int parseCommandCwd(ftpDataType * data, int socketId)
 {
     dynamicStringDataType absolutePathPrevious, ftpPathPrevious, theSafePath;
-    int isSafePath;
+    int isSafePath = 0;
     int returnCode;
     char *thePath;
 
@@ -792,7 +790,7 @@ int parseCommandCwd(ftpDataType * data, int socketId)
         //printf("\ncdw safe path: %s", theSafePath.text);
     }
 
-    if (isSafePath == 1)
+    if (isSafePath)
     {
         //printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
@@ -1436,7 +1434,7 @@ long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int s
       if (writtenSize <= 0)
       {
 
-    	  printf("\nError %d while writing retr file.", writtenSize);
+    	  printf("\nError %lld while writing retr file.", writtenSize);
           fclose(retrFP);
           retrFP = NULL;
           return -1;
@@ -1547,14 +1545,17 @@ int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCo
                 }
             }
             break;
+
+            default:
+            break;
         }
     }
     
     if (argMainIndex > 0)
-        setDynamicStringDataType(&ftpCommand->commandArgs, argMain, argMainIndex, &*memoryTable);
+        setDynamicStringDataType(&ftpCommand->commandArgs, argMain, argMainIndex, memoryTable);
 
     if (argSecondaryIndex > 0)
-        setDynamicStringDataType(&ftpCommand->commandOps, argSecondary, argSecondaryIndex, &*memoryTable);
+        setDynamicStringDataType(&ftpCommand->commandOps, argSecondary, argSecondaryIndex, memoryTable);
         
     return 1;
 }
@@ -1573,7 +1574,7 @@ int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataTyp
     char thePermissionString[MAXIMUM_FILENAME_LEN];
     char theLocalPath[MAXIMUM_FILENAME_LEN];
     char theFinalFilename[MAXIMUM_FILENAME_LEN];
-    int returnCodeSetPermissions, returnCodeSetOwnership;
+    int returnCodeSetPermissions, returnCodeSetOwnership = 0;
 
     memset(theLocalPath, 0, MAXIMUM_FILENAME_LEN);
     memset(thePermissionString, 0, MAXIMUM_FILENAME_LEN);
@@ -1610,6 +1611,9 @@ int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataTyp
                         theLocalPath[theLocalPathCursor++] = permissionsCommand[permissionsCommandCursor];
                     else
                         return FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG;
+            break;
+
+            default:
             break;
         }
 

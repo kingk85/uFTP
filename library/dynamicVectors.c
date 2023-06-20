@@ -38,12 +38,12 @@ void DYNV_VectorGeneric_Init(DYNV_VectorGenericDataType *TheVectorGeneric)
     TheVectorGeneric->memoryTable = NULL;
 
     //Functions Pointers
-    TheVectorGeneric->DeleteAt = (void *)DYNV_VectorGeneric_DeleteAt;
-    TheVectorGeneric->Destroy = (void *)DYNV_VectorGeneric_Destroy;
-    TheVectorGeneric->PopBack = (void *)DYNV_VectorGeneric_PopBack;
-    TheVectorGeneric->PushBack = (void *)DYNV_VectorGeneric_PushBack;
-    TheVectorGeneric->SoftDestroy = (void *)DYNV_VectorGeneric_SoftDestroy;
-    TheVectorGeneric->SoftPopBack = (void *)DYNV_VectorGeneric_SoftPopBack;
+    TheVectorGeneric->DeleteAt = &DYNV_VectorGeneric_DeleteAt;
+    TheVectorGeneric->Destroy = &DYNV_VectorGeneric_Destroy;
+    TheVectorGeneric->PopBack = &DYNV_VectorGeneric_PopBack;
+    TheVectorGeneric->PushBack = &DYNV_VectorGeneric_PushBack;
+    TheVectorGeneric->SoftDestroy = &DYNV_VectorGeneric_SoftDestroy;
+    TheVectorGeneric->SoftPopBack = &DYNV_VectorGeneric_SoftPopBack;
 }
 
 void DYNV_VectorGeneric_InitWithSearchFunction(DYNV_VectorGenericDataType *TheVectorGeneric, int (*SearchFunction)(void *TheVectorGeneric, void * TheElementData))
@@ -72,7 +72,7 @@ void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, v
         TheVectorGeneric->ElementSize = (int *) DYNMEM_malloc (sizeof(int), &TheVectorGeneric->memoryTable, "PushBack");
     }
 
-    TheVectorGeneric->Data[TheVectorGeneric->Size] = (void *) DYNMEM_malloc(TheElementSize, &TheVectorGeneric->memoryTable, "pushback");
+    TheVectorGeneric->Data[TheVectorGeneric->Size] =  DYNMEM_malloc(TheElementSize, &TheVectorGeneric->memoryTable, "pushback");
     memcpy(TheVectorGeneric->Data[TheVectorGeneric->Size], TheElementData, TheElementSize);
     TheVectorGeneric->ElementSize[TheVectorGeneric->Size] = TheElementSize;
     TheVectorGeneric->Size++;
@@ -80,7 +80,7 @@ void DYNV_VectorGeneric_PushBack(DYNV_VectorGenericDataType *TheVectorGeneric, v
 
 void DYNV_VectorGeneric_PopBack(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(void *TheElementToDelete))
 {
-    DeleteElementFunction((void *) TheVector->Data[TheVector->Size-1]);
+    DeleteElementFunction( TheVector->Data[TheVector->Size-1]);
     DYNMEM_free(TheVector->Data[TheVector->Size-1], &TheVector->memoryTable);
     if (TheVector->Size > 1)
     {
@@ -159,7 +159,7 @@ void DYNV_VectorGeneric_DeleteAt(DYNV_VectorGenericDataType *TheVector, int inde
     }
 
     //Permanent delete of the item At on the Heap
-    DeleteElementFunction((void *) TheVector->Data[index]);
+    DeleteElementFunction(TheVector->Data[index]);
 
     while (TheVector->Size > index)
     {
@@ -182,10 +182,10 @@ void DYNV_VectorString_Init(DYNV_VectorString_DataType *TheVector)
     TheVector->memoryTable = NULL;
 
     //Functions Pointers
-    TheVector->DeleteAt = (void *)DYNV_VectorString_DeleteAt;
-    TheVector->Destroy = (void *)DYNV_VectorString_Destroy;
-    TheVector->PopBack = (void *)DYNV_VectorString_PopBack;
-    TheVector->PushBack = (void *)DYNV_VectorString_PushBack;
+    TheVector->DeleteAt = &DYNV_VectorString_DeleteAt;
+    TheVector->Destroy = &DYNV_VectorString_Destroy;
+    TheVector->PopBack = &DYNV_VectorString_PopBack;
+    TheVector->PushBack = &DYNV_VectorString_PushBack;
 }
 
 void DYNV_VectorString_PushBack(DYNV_VectorString_DataType *TheVector, char * TheString, int StringLenght)
@@ -264,11 +264,10 @@ void DYNV_VectorString_Destroy(DYNV_VectorString_DataType *TheVector)
 
 void DYNV_VectorString_DeleteAt(DYNV_VectorString_DataType *TheVector, int index)
 {
-    int i;
     DYNV_VectorString_DataType TempVector;
     DYNV_VectorString_Init(&TempVector);
 
-    for (i = index + 1; i < TheVector->Size; i++)
+    for (int i = index + 1; i < TheVector->Size; i++)
     {
         DYNV_VectorString_PushBack(&TempVector, TheVector->Data[i], TheVector->ElementSize[i]);
     }
@@ -278,7 +277,7 @@ void DYNV_VectorString_DeleteAt(DYNV_VectorString_DataType *TheVector, int index
         DYNV_VectorString_PopBack(TheVector);
     }
 
-    for (i = 0; i < TempVector.Size; i++)
+    for (int i = 0; i < TempVector.Size; i++)
     {
         DYNV_VectorString_PushBack(TheVector, TempVector.Data[i], TempVector.ElementSize[i]);
     }

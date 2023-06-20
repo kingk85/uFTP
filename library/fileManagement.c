@@ -192,7 +192,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     //Allocate the array for the 1st time
     if (*InodeList == NULL)
     {
-        (*InodeList) = (char **) DYNMEM_malloc(sizeof(char *) * (1), &*memoryTable, "InodeList");
+        (*InodeList) = (char **) DYNMEM_malloc(sizeof(char *), memoryTable, "InodeList");
     }
 
     
@@ -217,10 +217,10 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
                 //Set the row to needed size
                 int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
-                (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, &*memoryTable);
-                int nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
+                (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, memoryTable);
+                size_t nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
                 //Allocate the path string size
-                (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize , &*memoryTable, "InodeList");
+                (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize , memoryTable, "InodeList");
                 strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
                 strcat((*InodeList)[FileAndFolderIndex], "/" );
                 strcat((*InodeList)[FileAndFolderIndex], dir->d_name );
@@ -244,10 +244,10 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     {
         //printf("\nAdding single file to inode list: %s", DirectoryInodeName);
         int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
-        (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, &*memoryTable);
+        (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, memoryTable);
         int nsize = strlen(DirectoryInodeName) * sizeof(char) + 2;
 
-        (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize, &*memoryTable, "InodeList");
+        (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize, memoryTable, "InodeList");
         strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
         (*InodeList)[FileAndFolderIndex][strlen(DirectoryInodeName)] = '\0';
         (*FilesandFolders)++;
@@ -319,7 +319,7 @@ int FILE_GetStringFromFile(char * filename, char **file_content, DYNMEM_MemoryTa
     file_size = FILE_GetFileSize(file);
 
     count = 0;
-    *file_content  = (char *) DYNMEM_malloc((file_size * sizeof(char) + 100), &*memoryTable, "getstringfromfile");
+    *file_content  = (char *) DYNMEM_malloc((file_size * sizeof(char) + 100), memoryTable, "getstringfromfile");
 
     while ((c = fgetc(file)) != EOF)
     {
@@ -422,12 +422,10 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
 
                             //Get the parameter name
                             if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar == 0 && BufferNameCursor < FILE_MAX_PAR_VAR_SIZE )
-                                    if(BufferNameCursor < FILE_MAX_PAR_VAR_SIZE)
                                             TheParameter.Name[BufferNameCursor++] = (char) c;
 
                             //Get the parameter value
                             if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar != 0 && ParameterChar != 0 && BufferValueCursor < FILE_MAX_PAR_VAR_SIZE )
-                                    if(BufferValueCursor < FILE_MAX_PAR_VAR_SIZE)
                                             TheParameter.Value[BufferValueCursor++] = (char) c;
                     }
                 }
@@ -455,8 +453,8 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
 
 int FILE_StringParametersLinearySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * name)
 {
-    int i;
-    for(i=0; i<TheVectorGeneric->Size; i++)
+
+    for(int i = 0; i < TheVectorGeneric->Size; i++)
     {
         if(strcmp(((FILE_StringParameter_DataType *)TheVectorGeneric->Data[i])->Name, (char *) name) == 0)
         {
@@ -504,21 +502,15 @@ int FILE_StringParametersBinarySearch(DYNV_VectorGenericDataType *TheVectorGener
 			middle = (littler + last)/2;
 			}
 
-	if (littler > last)
-		{
-		//printf("Not found! %d is not present in the list.\n", Needle);
-		return -1;
-		}
 
-  return -1;
+    return -1;
 
 	}
 
 char * FILE_GetFilenameFromPath(char * FileName)
 {
-	int i = 0;
 	char * TheStr = FileName;
-	for (i = 0; i< strlen(FileName); i++)
+	for (int i = 0; i< strlen(FileName); i++)
 		{
 		if (FileName[i] == '/' || FileName[i] == '\\')
 		{
@@ -531,7 +523,7 @@ char * FILE_GetFilenameFromPath(char * FileName)
 
 char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** memoryTable) {
     struct stat st, stl;
-    char *modeval = DYNMEM_malloc(sizeof(char) * 10 + 1, &*memoryTable, "getperm");
+    char *modeval = DYNMEM_malloc(sizeof(char) * 10 + 1, memoryTable, "getperm");
     if(stat(file, &st) == 0) 
     {
         mode_t perm = st.st_mode;
@@ -547,9 +539,9 @@ char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** 
         modeval[9] = (perm & S_IXOTH) ? 'x' : '-';
         modeval[10] = '\0';
 
-        if(lstat(file, &stl) == 0)
+        if(lstat(file, &stl) == 0 &&
+          S_ISLNK(stl.st_mode))
         {
-            if (S_ISLNK(stl.st_mode)) 
                 modeval[0] = 'l'; // is a link
         }
            
@@ -566,12 +558,11 @@ int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
 	char theFileName[4096];
 	memset(theFileName, 0, 4096);
 
-	int i;
-	int theFileNameLen = 0;
-	int theLen = strlen(fileName);
-	int theParentLen = 0;
+	size_t theFileNameLen = 0;
+	size_t theLen = strlen(fileName);
+	size_t theParentLen = 0;
 
-	for (i = 0; i < theLen; i++)
+	for (size_t i = 0; i < theLen; i++)
 	{
 		if (fileName[i] == '/')
 		{
@@ -579,7 +570,7 @@ int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
 		}
 	}
 
-	for (i = 0; i < theParentLen; i++)
+	for (size_t i = 0; i < theParentLen; i++)
 	{
 		if (i < 4096)
 			theFileName[theFileNameLen++] = fileName[i];
@@ -598,14 +589,6 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
 		//printf("\n User is root");
 		return FILE_PERMISSION_RW;
 	}
-
-	static int init = 0;
-	if (init == 0)
-	{
-
-	}
-
-	init = 1;
 
 	int filePermissions = FILE_PERMISSION_NO_RW;
     int returnCode = 0;
@@ -626,12 +609,12 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
     else
     {
         mode_t perm = info.st_mode;
-    	if ((perm & S_IROTH)){
+    	if (perm & S_IROTH){
     		//printf("\nfile can be readen");
     		filePermissions |= FILE_PERMISSION_R;
     	}
 
-    	if ((perm & S_IWOTH)){
+    	if (perm & S_IWOTH){
     		//printf("\nfile can be written");
     		filePermissions |= FILE_PERMISSION_W;
     	}
@@ -653,7 +636,7 @@ char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
     if ( (pw = getpwuid(info.st_uid)) == NULL)
         return NULL;
 
-    toReturn = (char *) DYNMEM_malloc (strlen(pw->pw_name) + 1, &*memoryTable, "getowner");
+    toReturn = (char *) DYNMEM_malloc (strlen(pw->pw_name) + 1, memoryTable, "getowner");
     strcpy(toReturn, pw->pw_name);
 
     return toReturn;
@@ -670,7 +653,7 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
     if ((gr = getgrgid(info.st_gid)) == NULL)
         return NULL;
     
-    toReturn = (char *) DYNMEM_malloc (strlen(gr->gr_name) + 1, &*memoryTable, "getowner");
+    toReturn = (char *) DYNMEM_malloc (strlen(gr->gr_name) + 1, memoryTable, "getowner");
     strcpy(toReturn, gr->gr_name);
     
     return toReturn;
@@ -689,8 +672,8 @@ time_t FILE_GetLastModifiedData(char *path)
 
 void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
-    int theNewSize = strlen(*sourceString) + strlen(theString);
-    *sourceString = DYNMEM_realloc(*sourceString, theNewSize + 10, &*memoryTable);
+    size_t theNewSize = strlen(*sourceString) + strlen(theString);
+    *sourceString = DYNMEM_realloc(*sourceString, theNewSize + 10, memoryTable);
     strcat(*sourceString, theString);
     (*sourceString)[theNewSize] = '\0';
 }
@@ -698,12 +681,14 @@ void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTab
 void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     //printf("\n");
-   int i = 0, theLastSlash = -1, strLen = 0;
+
+   size_t theLastSlash = -1;
+   size_t strLen = 0;
 
    strLen = strlen(*sourceString);
    //printf("\nstrLen = %d", strLen);
 
-   for (i = 0; i < strLen; i++)
+   for (size_t i = 0; i < strLen; i++)
    {
        //printf("%c", (*sourceString)[i]);
        if ( (*sourceString)[i] == '/')
@@ -751,8 +736,8 @@ int FILE_doChownFromUidGidString (  const char *file_path,
 {
     uid_t          uid;
     gid_t          gid;
-    struct passwd *pwd;
-    struct group  *grp;
+    const struct passwd *pwd;
+    const struct group  *grp;
 
     pwd = getpwnam(user_name);
     if (pwd == NULL) 
@@ -772,13 +757,13 @@ int FILE_doChownFromUidGidString (  const char *file_path,
     {
         return 0;
     }
-
+    
     return 1;
 }
 
 uid_t FILE_getUID(const char *user_name)
 {
-    struct passwd *pwd;
+    const struct passwd *pwd;
     pwd = getpwnam(user_name);
 
     if (pwd == NULL) 
@@ -804,7 +789,8 @@ gid_t FILE_getGID(const char *group_name)
 
 void FILE_checkAllOpenedFD(void)
 {
-	int openedFd = 0, i,ret;
+	int openedFd = 0;
+    int ret;
 
 	struct rlimit rl;
 	if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
@@ -813,7 +799,7 @@ void FILE_checkAllOpenedFD(void)
 	if (rl.rlim_max == RLIM_INFINITY)
 		rl.rlim_max = 1024;
 
-	for (i = 0; i < rl.rlim_max; i++)
+	for (int i = 0; i < rl.rlim_max; i++)
 	{
 		ret = FILE_fdIsValid(i);
 		//printf("\nret = %d", ret);
@@ -830,24 +816,6 @@ void FILE_checkAllOpenedFD(void)
 				//printf("\n fd %d is dir", i);
 			}
 
-			/*
-			else if (S_ISSOCK(statbuf.st_mode))
-			{
-				printf("\n fd %d is socket", fd);
-			}
-			else if (S_ISSOCK(statbuf.st_mode))
-			{
-				printf("\n fd %d is socket", fd);
-			}
-			else if (S_ISSOCK(statbuf.st_mode))
-			{
-				printf("\n fd %d is socket", fd);
-			}
-			else if (S_ISSOCK(statbuf.st_mode))
-			{
-				printf("\n fd %d is socket", fd);
-			}
-			*/
 
 			openedFd++;
 		}
