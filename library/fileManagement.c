@@ -230,7 +230,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
                 if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
                 {
-                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive, &*memoryTable);
+                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive, memoryTable);
                     FileAndFolderIndex = (*FilesandFolders);
                 }
 
@@ -629,15 +629,20 @@ char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
     char *toReturn;
     struct stat info;
 
+    struct passwd pd;
+    struct passwd* pwdptr=&pd;
+    struct passwd* tempPwdPtr;
+    char pwdbuffer[200];
+    int  pwdlinelen = sizeof(pwdbuffer);
+
     if ((returnCode = stat(fileName, &info)) == -1)
         return NULL;
 
-    struct passwd *pw;
-    if ( (pw = getpwuid(info.st_uid)) == NULL)
+    if ((getpwuid_r(info.st_uid, pwdptr, pwdbuffer, pwdlinelen, &tempPwdPtr))!=0)
         return NULL;
 
-    toReturn = (char *) DYNMEM_malloc (strlen(pw->pw_name) + 1, memoryTable, "getowner");
-    strcpy(toReturn, pw->pw_name);
+    toReturn = (char *) DYNMEM_malloc (strlen(pd.pw_name) + 1, memoryTable, "getowner");
+    strcpy(toReturn, pd.pw_name);
 
     return toReturn;
 }
@@ -646,15 +651,21 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
 {
     char *toReturn;
     struct stat info;
+    short int lp;
+    struct group grp;
+    struct group * grpptr=&grp;
+    struct group * tempGrpPtr;
+    char grpbuffer[200];
+    int  grplinelen = sizeof(grpbuffer);
+
     if (stat(fileName, &info) == -1 )
         return NULL;
-    struct group  *gr;
-    
-    if ((gr = getgrgid(info.st_gid)) == NULL)
+
+    if ((getgrgid_r(info.st_gid,grpptr,grpbuffer,grplinelen,&tempGrpPtr))!=0)
         return NULL;
     
-    toReturn = (char *) DYNMEM_malloc (strlen(gr->gr_name) + 1, memoryTable, "getowner");
-    strcpy(toReturn, gr->gr_name);
+    toReturn = (char *) DYNMEM_malloc (strlen(grp.gr_name) + 1, memoryTable, "getowner");
+    strcpy(toReturn, grp.gr_name);
     
     return toReturn;
 }
@@ -736,22 +747,9 @@ int FILE_doChownFromUidGidString (  const char *file_path,
 {
     uid_t          uid;
     gid_t          gid;
-    const struct passwd *pwd;
     const struct group  *grp;
-
-    pwd = getpwnam(user_name);
-    if (pwd == NULL) 
-    {
-        return 0;
-    }
-    uid = pwd->pw_uid;
-
-    grp = getgrnam(group_name);
-    if (grp == NULL)
-    {
-        return 0;
-    }
-    gid = grp->gr_gid;
+    uid = FILE_getUID(user_name);
+    gid = FILE_getGID(group_name);
 
     if (chown(file_path, uid, gid) == -1)
     {
@@ -763,27 +761,33 @@ int FILE_doChownFromUidGidString (  const char *file_path,
 
 uid_t FILE_getUID(const char *user_name)
 {
-    const struct passwd *pwd;
-    pwd = getpwnam(user_name);
+    struct passwd pd;
+    struct passwd* pwdptr=&pd;
+    struct passwd* tempPwdPtr;
+    char pwdbuffer[200];
+    int  pwdlinelen = sizeof(pwdbuffer);
 
-    if (pwd == NULL) 
-    {
-        return -1;
-    }
+    if ((getpwnam_r(user_name, pwdptr, pwdbuffer, pwdlinelen, &tempPwdPtr))!=0)
+        return 0;
+    else
+        return pd.pw_uid;
 
-    return pwd->pw_uid;
 }
 
 gid_t FILE_getGID(const char *group_name)
 {
-    struct group  *grp;
-    grp = getgrnam(group_name);
-    if (grp == NULL)
-    {
-        return -1;
-    }
+    short int lp;
+    struct group grp;
+    struct group * grpptr=&grp;
+    struct group * tempGrpPtr;
 
-    return grp->gr_gid;
+    char grpbuffer[200];
+    int  grplinelen = sizeof(grpbuffer);
+
+    if ((getgrnam_r(group_name, grpptr, grpbuffer, grplinelen, &tempGrpPtr))!=0)
+        return 0;
+    else
+        return grp.gr_gid;
 }
 
 

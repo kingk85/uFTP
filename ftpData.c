@@ -306,7 +306,10 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             }
 
         memset(data.lastModifiedDataString, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);       
-        strftime(data.lastModifiedDataString, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE, "%b %d %Y", localtime(&data.lastModifiedData));
+
+        struct tm newtime;
+        localtime_r(&data.lastModifiedData, &newtime);
+        strftime(data.lastModifiedDataString, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE, "%b %d %Y", &newtime);
         
         
         switch (commandType)
@@ -495,8 +498,11 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
                 }
             }
 
-        memset(data.lastModifiedDataString, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);       
-        strftime(data.lastModifiedDataString, 80, "%b %d %Y", localtime(&data.lastModifiedData));
+        memset(data.lastModifiedDataString, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);    
+        
+        struct tm newtime;
+        localtime_r(&data.lastModifiedData, &newtime);   
+        strftime(data.lastModifiedDataString, 80, "%b %d %Y", &newtime);
 
         /*
         -1 List one file per line
