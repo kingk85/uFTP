@@ -587,9 +587,9 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       data->clients[clientId].workerData.passiveModeOn = 0;
       data->clients[clientId].workerData.activeIpAddressIndex = 0;
 
-      memset(data->clients[clientId].workerData.buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(data->clients[clientId].workerData.buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
       memset(data->clients[clientId].workerData.activeIpAddress, 0, CLIENT_BUFFER_STRING_SIZE);
-      memset(data->clients[clientId].workerData.theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE);
+      memset(data->clients[clientId].workerData.theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE+1);
 
       cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandArgs, isInitialization, &data->clients[clientId].workerData.memoryTable);
       cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandOps, isInitialization, &data->clients[clientId].workerData.memoryTable);
@@ -708,8 +708,8 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     memset(&data->clients[clientId].client_sockaddr_in, 0, data->clients[clientId].sockaddr_in_size);
     memset(&data->clients[clientId].server_sockaddr_in, 0, data->clients[clientId].sockaddr_in_server_size);
     memset(data->clients[clientId].clientIpAddress, 0, INET_ADDRSTRLEN);
-    memset(data->clients[clientId].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
-    memset(data->clients[clientId].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+    memset(data->clients[clientId].buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
+    memset(data->clients[clientId].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
     cleanLoginData(&data->clients[clientId].login, isInitialization, &data->clients[clientId].memoryTable);
     
     //Rename from and to data init

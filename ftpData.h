@@ -144,13 +144,13 @@ struct workerData
     int socketConnection;
     int socketIsConnected;
     int bufferIndex;
-    char buffer[CLIENT_BUFFER_STRING_SIZE];
+    char buffer[CLIENT_BUFFER_STRING_SIZE+1];
 
     int activeIpAddressIndex;
     char activeIpAddress[CLIENT_BUFFER_STRING_SIZE];
     
     int commandIndex;
-    char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];    
+    char theCommandReceived[CLIENT_COMMAND_STRING_SIZE+1];    
     int commandReceived;
 
     long long int retrRestartAtByte;
@@ -179,12 +179,12 @@ struct clientData
     int socketIsConnected;
     
     int bufferIndex;
-    char buffer[CLIENT_BUFFER_STRING_SIZE];
+    char buffer[CLIENT_BUFFER_STRING_SIZE+1];
     
     int socketCommandReceived;
     
     int commandIndex;
-    char theCommandReceived[CLIENT_COMMAND_STRING_SIZE];
+    char theCommandReceived[CLIENT_COMMAND_STRING_SIZE+1];
     
     dynamicStringDataType renameFromFile;
     dynamicStringDataType renameToFile;

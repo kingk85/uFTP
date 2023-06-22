@@ -727,7 +727,7 @@ void runFtpServer(void)
                       //Command overflow can't be processed
                       int returnCode;
                       ftpData.clients[processingSock].commandIndex = 0;
-                      memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+                      memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
                       returnCode = socketPrintf(&ftpData, processingSock, "s", "500 Unknown command\r\n");
                       if (returnCode <= 0) 
                           ftpData.clients[processingSock].closeTheClient = 1;
@@ -737,7 +737,7 @@ void runFtpServer(void)
                   }
               }
               usleep(100);
-              memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE);
+              memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
             }
         }
       }
@@ -769,7 +769,7 @@ static int processCommand(int processingElement)
         {
             toReturn = notLoggedInMessage(&ftpData, processingElement);
             ftpData.clients[processingElement].commandIndex = 0;
-            memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+            memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
             return 1;
         }
 
@@ -955,7 +955,7 @@ static int processCommand(int processingElement)
     }
 
     ftpData.clients[processingElement].commandIndex = 0;
-    memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
+    memset(ftpData.clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
     return toReturn;
 }
 

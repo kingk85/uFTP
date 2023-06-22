@@ -129,7 +129,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
 
     thePass = getFtpCommandArg("PASS", data->clients[socketId].theCommandReceived, 0);
 
-    strcpy(element.ipAddress, data->clients[socketId].clientIpAddress);
+    strncpy(element.ipAddress, data->clients[socketId].clientIpAddress, INET_ADDRSTRLEN);
     element.failTimeStamp = time(NULL);
     element.failureNumbers = 1;
 
@@ -624,8 +624,8 @@ int parseCommandList(ftpDataType *data, int socketId)
     }
 
     pthread_mutex_lock(&data->clients[socketId].conditionMutex);
-    memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+    memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
+    strncpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived, CLIENT_COMMAND_STRING_SIZE);
     data->clients[socketId].workerData.commandReceived = 1;
     pthread_cond_signal(&data->clients[socketId].conditionVariable);
     pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
@@ -657,8 +657,8 @@ int parseCommandNlst(ftpDataType *data, int socketId)
 
     pthread_mutex_lock(&data->clients[socketId].conditionMutex);
 
-    memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-    strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+    memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
+    strncpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived, CLIENT_COMMAND_STRING_SIZE);
     data->clients[socketId].workerData.commandReceived = 1;
     pthread_cond_signal(&data->clients[socketId].conditionVariable);
     pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
@@ -684,8 +684,8 @@ int parseCommandRetr(ftpDataType *data, int socketId)
     {
         pthread_mutex_lock(&data->clients[socketId].conditionMutex);
 
-        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-        strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
+        strncpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived, CLIENT_COMMAND_STRING_SIZE);
         data->clients[socketId].workerData.commandReceived = 1;
         pthread_cond_signal(&data->clients[socketId].conditionVariable);
         pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
@@ -715,8 +715,8 @@ int parseCommandStor(ftpDataType *data, int socketId)
     if (isSafePath == 1)
     {
         pthread_mutex_lock(&data->clients[socketId].conditionMutex);
-        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-        strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
+        strncpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived, CLIENT_COMMAND_STRING_SIZE);
         data->clients[socketId].workerData.commandReceived = 1;
         pthread_cond_signal(&data->clients[socketId].conditionVariable);
         pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
@@ -744,8 +744,8 @@ int parseCommandAppe(ftpDataType *data, int socketId)
     if (isSafePath == 1)
     {
         pthread_mutex_lock(&data->clients[socketId].conditionMutex);
-        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE);
-        strcpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived);
+        memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
+        strncpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived, CLIENT_COMMAND_STRING_SIZE);
         data->clients[socketId].workerData.commandReceived = 1;
         pthread_cond_signal(&data->clients[socketId].conditionVariable);
         pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
@@ -855,8 +855,8 @@ int parseCommandRest(ftpDataType *data, int socketId)
 {
     int returnCode;
     int i, theSizeIndex;
-    char theSize[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(theSize, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+    char theSize[FTP_COMMAND_ELABORATE_CHAR_BUFFER+1];
+    memset(theSize, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER+1);
     theSizeIndex = 0;
 
     for (i = strlen("REST") + 1; i < data->clients[socketId].commandIndex; i++)
@@ -1476,10 +1476,10 @@ int getFtpCommandArgWithOptions(char *theCommand, char *theCommandString, ftpCom
 
     int i = 0;
     int isSecondArg = 0;
-    char argMain[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    char argSecondary[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
-    memset(argMain, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
-    memset(argSecondary, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
+    char argMain[FTP_COMMAND_ELABORATE_CHAR_BUFFER+1];
+    char argSecondary[FTP_COMMAND_ELABORATE_CHAR_BUFFER+1];
+    memset(argMain, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER+1);
+    memset(argSecondary, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER+1);
 
     int argMainIndex = 0;
     int argSecondaryIndex = 0;
