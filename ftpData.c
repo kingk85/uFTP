@@ -737,8 +737,8 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)
 {
     int i = 0;
-    char * alfaLowerCase = "qwertyuiopasdfghjklzxcvbnm ";
-    char * alfaUpperCase = "QWERTYUIOPASDFGHJKLZXCVBNM ";
+    char * alfaLowerCase = "qwertyuiopasdfghjklzxcvbnm .";
+    char * alfaUpperCase = "QWERTYUIOPASDFGHJKLZXCVBNM .";
 
     int stringInIndex;
     int stringRefIndex;

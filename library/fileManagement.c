@@ -709,13 +709,14 @@ void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTab
 
 void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
-    //printf("\n");
+   //printf("\n");
 
-   size_t theLastSlash = -1;
+   int theLastSlash = -1;
    size_t strLen = 0;
 
    strLen = strlen(*sourceString);
-   //printf("\nstrLen = %d", strLen);
+   //printf("\nThe directory = %s", (*sourceString));   
+   //printf("\ndirectory to parent strLen = %d", strLen);
 
    for (size_t i = 0; i < strLen; i++)
    {
@@ -723,9 +724,10 @@ void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType **
        if ( (*sourceString)[i] == '/')
        {
            theLastSlash = i;
-           //printf("\n theLastSlash = %d", theLastSlash);
        }
    }
+   
+   //printf("\n theLastSlash = %d", theLastSlash);
 
    if (theLastSlash > -1)
    {
@@ -734,8 +736,13 @@ void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType **
        {
            theNewSize = 1;
        }
+
+       //printf("\n theNewSize = %d", theNewSize);
+
        *sourceString = DYNMEM_realloc(*sourceString, theNewSize+1, &*memoryTable);
        (*sourceString)[theNewSize] = '\0';
+
+       //printf("\nThe directory upped is = %s", (*sourceString));  
    }
 }
 

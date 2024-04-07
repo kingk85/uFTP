@@ -773,18 +773,18 @@ int parseCommandCwd(ftpDataType *data, int socketId)
 
     thePath = getFtpCommandArg("CWD", data->clients[socketId].theCommandReceived, 0);
 
-    // printf("\ncdw requested path: %s", thePath);
+    //printf("\ncdw requested path: %s", thePath);
 
     if (strlen(thePath) > 0)
     {
         // printf("Memory data address 1st call : %lld", &data->clients[socketId].memoryTable);
         isSafePath = getSafePath(&theSafePath, thePath, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
-        // printf("\ncdw safe path: %s", theSafePath.text);
+        //printf("\ncdw safe path: %s", theSafePath.text);
     }
 
     if (isSafePath)
     {
-        // printf("\n The Path requested for CWD IS:%s", theSafePath.text);
+        //printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen, &data->clients[socketId].memoryTable);
 

@@ -753,7 +753,7 @@ static int processCommand(int processingElement)
 {
     int toReturn = 0;
     //printTimeStamp();
-    //printf ("\nCommand received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
+    // printf ("\nCommand received from (%d): %s", processingElement, ftpData.clients[processingElement].theCommandReceived);
 
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandArgs, 0, &ftpData.clients[processingElement].memoryTable);
     cleanDynamicStringDataType(&ftpData.clients[processingElement].ftpCommand.commandOps, 0, &ftpData.clients[processingElement].memoryTable);
@@ -859,15 +859,16 @@ static int processCommand(int processingElement)
         //printf("\nLIST COMMAND RECEIVED");
         toReturn = parseCommandList(&ftpData, processingElement);
     }
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CDUP", strlen("CDUP")) == 1 ||
+            compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CWD ..", strlen("CWD ..")) == 1)
+    {
+        //printf("\nCDUP COMMAND RECEIVED");
+        toReturn = parseCommandCdup(&ftpData, processingElement);
+    }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CWD", strlen("CWD")) == 1)
     {
         //printf("\nCWD COMMAND RECEIVED");
         toReturn = parseCommandCwd(&ftpData, processingElement);
-    }
-    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CDUP", strlen("CDUP")) == 1)
-    {
-        //printf("\nCDUP COMMAND RECEIVED");
-        toReturn = parseCommandCdup(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "REST", strlen("REST")) == 1)
     {
