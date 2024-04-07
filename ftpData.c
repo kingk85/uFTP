@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#define _REENTRANT
 #include <pthread.h>
 #include <netinet/in.h>
 #include <unistd.h>

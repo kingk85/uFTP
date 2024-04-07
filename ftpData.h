@@ -27,6 +27,9 @@
 #define FTPDATA_H
 
 #include <netinet/in.h>
+#define _REENTRANT
+#include <pthread.h>
+#include <sys/select.h>
 
 #ifdef OPENSSL_ENABLED
 	#include <openssl/ssl.h>
@@ -138,6 +141,7 @@ struct workerData
     int threadHasBeenCreated;
     int connectionPort;
     int passiveModeOn;
+    int extendedPassiveModeOn;
     int activeModeOn;
 
     pthread_t workerThread;

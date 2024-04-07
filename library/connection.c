@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#define _REENTRANT
 #include <pthread.h>
 #include <stdarg.h>
 

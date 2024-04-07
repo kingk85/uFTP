@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#define _REENTRANT
 #include <pthread.h>
 
 #include "ftpData.h"
