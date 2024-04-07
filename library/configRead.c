@@ -493,6 +493,20 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
        // printf("\nENABLE_PAM_AUTH parameter not found in the configuration file, using the default value: %d", ftpParameters->pamAuthEnabled);
     }
 
+
+    ftpParameters->forceTLS = 0;
+    searchIndex = searchParameter("FORCE_TLS", parametersVector);
+    if (searchIndex != -1)
+    {
+        if(compareStringCaseInsensitive(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "true", strlen("true")) == 1)
+            ftpParameters->forceTLS = 1;
+    }
+    else
+    {
+        // printf("\FORCE_TLS parameter not found in the configuration file, using the default value: %d", ftpParameters->forceTLS);
+    }
+
+
     ftpParameters->maximumIdleInactivity = 3600;
     searchIndex = searchParameter("IDLE_MAX_TIMEOUT", parametersVector);
     if (searchIndex != -1)

@@ -46,31 +46,33 @@
 #include "ftpCommandsElaborate.h"
 
 /* Elaborate the User login command */
-int parseCommandUser(ftpDataType *data, int socketId)
+int parseCommandUser(ftpDataType * data, int socketId)
 {
     int returnCode;
     char *theUserName;
     theUserName = getFtpCommandArg("USER", data->clients[socketId].theCommandReceived, 0);
 
-    if (strlen(theUserName) >= 1)
-    {
-        setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName), &data->clients[socketId].memoryTable);
-        returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
+	if (data->ftpParameters.forceTLS == 1 && data->clients[socketId].tlsIsEnabled == 0)
+	{
+		returnCode = socketPrintf(data, socketId, "s", "534 Policy Requires SSL.\r\n");
+	}
+	else
+	{
+		if (strlen(theUserName) >= 1)
+		{
+			setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName), &data->clients[socketId].memoryTable);
+			returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
+		}
+		else
+		{
+			returnCode = socketPrintf(data, socketId, "s", "430 Invalid username.\r\n");
+		}
+	}
 
-        if (returnCode <= 0)
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+	if (returnCode <= 0)
+		return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
-        return FTP_COMMAND_PROCESSED;
-    }
-    else
-    {
-        returnCode = socketPrintf(data, socketId, "s", "430 Invalid username.\r\n");
-
-        if (returnCode <= 0)
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-
-        return FTP_COMMAND_PROCESSED;
-    }
+	return FTP_COMMAND_PROCESSED;
 }
 
 /* Elaborate the User login command */
