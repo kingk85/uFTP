@@ -55,6 +55,22 @@ static int FILE_CompareStringParameter(const void * a, const void * b)
     return strcmp(typeA->Name, typeB->Name);
 }
 
+static time_t convertToUTC(time_t inputTime);
+
+time_t convertToUTC(time_t inputTime) 
+{
+    struct tm *utc_tm;
+    time_t utc_time;
+    utc_tm = gmtime(&inputTime);
+    utc_time = mktime(utc_tm);
+
+    //printf("\nLocal time: %ld", inputTime);
+    //printf("\nutc_time time: %ld", utc_time);
+
+    return utc_time;
+}
+
+
 int FILE_fdIsValid(int fd)
 {
     return fcntl(fd, F_GETFD);
@@ -670,6 +686,7 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
     return toReturn;
 }
 
+
 time_t FILE_GetLastModifiedData(char *path)
 {
     struct stat statbuf;
@@ -678,7 +695,8 @@ time_t FILE_GetLastModifiedData(char *path)
     	time_t theTime = 0;
     	return theTime;
     }
-    return statbuf.st_mtime;
+
+    return convertToUTC(statbuf.st_mtime);
 }
 
 void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTable_DataType ** memoryTable)
