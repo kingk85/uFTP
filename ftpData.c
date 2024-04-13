@@ -40,6 +40,8 @@
 #include "library/connection.h"
 #include "library/dynamicMemory.h"
 
+#include "debugHelper.h"
+
 void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     if (init == 1)
@@ -72,9 +74,9 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 {
     if (dynamicString->textLen == 0)
     {
-    	//printf("\nMemory data address before memset call : %lld", memoryTable);
+    	//my_printf("\nMemory data address before memset call : %lld", memoryTable);
         dynamicString->text = (char *) DYNMEM_malloc (((sizeof(char) * stringLen) + 1), memoryTable, "setDynamicString");
-        //printf("\nMemory data address after memset call : %lld", memoryTable);
+        //my_printf("\nMemory data address after memset call : %lld", memoryTable);
         memset(dynamicString->text, 0, stringLen + 1);
         memcpy(dynamicString->text, theString, stringLen);
         dynamicString->textLen = stringLen;
@@ -161,9 +163,9 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
         while (theDirectoryNamePointer[0] == '/')
             theDirectoryNamePointer++;
 
-        //printf("\nMemory data address 2nd call : %lld", memoryTable);
+        //my_printf("\nMemory data address 2nd call : %lld", memoryTable);
         setDynamicStringDataType(safePath, loginData->homePath.text, loginData->homePath.textLen, memoryTable);
-        //printf("\nMemory data address 3rd call : %lld", memoryTable);
+        //my_printf("\nMemory data address 3rd call : %lld", memoryTable);
         appendToDynamicStringDataType(safePath, theDirectoryNamePointer, strlen(theDirectoryNamePointer), memoryTable);
     }
     else
@@ -183,7 +185,7 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
 
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable)
 {
-	//printf("\nRealloc dynamicString->text = %lld", dynamicString->text);
+	//my_printf("\nRealloc dynamicString->text = %lld", dynamicString->text);
     int theNewSize = dynamicString->textLen + stringLen;
 
     dynamicString->text = DYNMEM_realloc(dynamicString->text, theNewSize + 1, memoryTable);
@@ -217,7 +219,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
       
    data->clients[socketPosition].workerData.connectionPort = randomicPort;
 
-   printf("\n  data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
+   my_printf("\n  data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
 
 }
 
@@ -247,11 +249,11 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         data.isFile = 0;
         data.isDirectory = 0;
 
-        //printf("\nPROCESSING: %s", fileList[i]);
+        //my_printf("\nPROCESSING: %s", fileList[i]);
         
         if (FILE_IsDirectory(fileList[i]) == 1)
         {
-            //printf("\nis directory");
+            //my_printf("\nis directory");
             //fflush(0);
             data.isDirectory = 1;
             data.isFile = 0;
@@ -261,7 +263,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         }
         else if (FILE_IsFile(fileList[i]) == 1)
         {
-            //printf("\nis file");
+            //my_printf("\nis file");
             //fflush(0);
             data.isDirectory = 0;
             data.isFile = 1;
@@ -271,12 +273,12 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         }
         if (data.isDirectory == 0 && data.isFile == 0)
         {
-            //printf("\nNot a directory, not a file, broken link");
+            //my_printf("\nNot a directory, not a file, broken link");
             continue;
         }
         
       
-        //printf("\nFILE SIZE : %lld", data.fileSize);
+        //my_printf("\nFILE SIZE : %lld", data.fileSize);
 
         data.owner = FILE_GetOwner(fileList[i], memoryTable);
         data.groupOwner = FILE_GetGroupOwner(fileList[i], memoryTable);
@@ -354,7 +356,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             
             default:
             {
-                printf("\nWarning switch default in function writeListDataInfoToSocket (%d)", commandType);
+                my_printf("\nWarning switch default in function writeListDataInfoToSocket (%d)", commandType);
             }
             break;
         }
@@ -399,13 +401,13 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
 int searchInLoginFailsVector(void * loginFailsVector, void *element)
 {
     int i = 0;
-    //printf("((DYNV_VectorGenericDataType *)loginFailsVector)->Size = %d", ((DYNV_VectorGenericDataType *)loginFailsVector)->Size);
+    //my_printf("((DYNV_VectorGenericDataType *)loginFailsVector)->Size = %d", ((DYNV_VectorGenericDataType *)loginFailsVector)->Size);
 
     for (i = 0; i < ((DYNV_VectorGenericDataType *)loginFailsVector)->Size; i++)
     {
         if (strcmp( ((loginFailsDataType *) element)->ipAddress, (((loginFailsDataType *) ((DYNV_VectorGenericDataType *)loginFailsVector)->Data[i])->ipAddress)) == 0)
         {
-            //printf("\n\n***IP address found: %s in %d", ((loginFailsDataType *) element)->ipAddress, i);
+            //my_printf("\n\n***IP address found: %s in %d", ((loginFailsDataType *) element)->ipAddress, i);
             return i;
         }
     }
@@ -425,7 +427,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
     ftpListDataType data;
     FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0, memoryTable);
     
-    //printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
+    //my_printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
     //fflush(0);
     
     for (i = 0; i < fileAndFoldersCount; i++)
@@ -442,12 +444,12 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
         data.isDirectory = 0;
         
         
-        //printf("\nPROCESSING: %s", data.fileList[i]);
+        //my_printf("\nPROCESSING: %s", data.fileList[i]);
         //fflush(0);
         
         if (FILE_IsDirectory(data.fileList[i]) == 1)
         {
-            //printf("\nis file");
+            //my_printf("\nis file");
             //fflush(0);
             data.isDirectory = 1;
             data.isFile = 0;
@@ -456,7 +458,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
         }
         else if (FILE_IsFile(data.fileList[i]) == 1)
         {
-            //printf("\nis file");
+            //my_printf("\nis file");
             //fflush(0);
             data.isDirectory = 0;
             data.isFile = 1;
@@ -465,11 +467,11 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
         }
         if (data.isDirectory == 0 && data.isFile == 0)
         {
-            //printf("\nNot a directory, not a file, broken link");
+            //my_printf("\nNot a directory, not a file, broken link");
             continue;
         }
         
-       // printf("\nFILE SIZE : %lld", data.fileSize);
+       // my_printf("\nFILE SIZE : %lld", data.fileSize);
 
         data.owner = FILE_GetOwner(data.fileList[i], memoryTable);
         data.groupOwner = FILE_GetGroupOwner(data.fileList[i], memoryTable);
@@ -569,11 +571,10 @@ void cancelWorker(ftpDataType *data, int clientId)
 	data->clients[clientId].workerData.threadHasBeenCreated = 0;
 }
 
-
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 {
 
-	  printf("\nReset of worker id: %d", clientId);
+	  my_printf("\nReset of worker id: %d", clientId);
       data->clients[clientId].workerData.connectionPort = 0;
       data->clients[clientId].workerData.passiveModeOn = 0;
       data->clients[clientId].workerData.socketIsConnected = 0;
@@ -585,7 +586,7 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       data->clients[clientId].workerData.retrRestartAtByte = 0;
       data->clients[clientId].workerData.threadIsAlive = 0;
       data->clients[clientId].workerData.activeModeOn = 0;
-      data->clients[clientId].workerData.passiveModeOn = 0;
+      data->clients[clientId].workerData.extendedPassiveModeOn = 0;
       data->clients[clientId].workerData.activeIpAddressIndex = 0;
 
       memset(data->clients[clientId].workerData.buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
@@ -672,19 +673,19 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 
     if (pthread_mutex_init(&data->clients[clientId].writeMutex, NULL) != 0)
     {
-        printf("\nclientData->writeMutex init failed\n");
+        my_printf("\nclientData->writeMutex init failed\n");
         exit(0);
     }
 
 	if (pthread_mutex_init(&data->clients[clientId].conditionMutex, NULL) != 0)
 		  {
-		  printf("\ndata->clients[clientId].workerData.conditionMutex init failed\n");
+		  my_printf("\ndata->clients[clientId].workerData.conditionMutex init failed\n");
 		  exit(0);
 		  }
 
 	if (pthread_cond_init(&data->clients[clientId].conditionVariable, NULL) != 0)
 	{
-		printf("\ndata->clients[clientId].workerData.conditionVariable init failed\n");
+		my_printf("\ndata->clients[clientId].workerData.conditionVariable init failed\n");
 		exit(0);
 	}
 
@@ -732,7 +733,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 	data->clients[clientId].ssl = SSL_new(data->serverCtx);
 	#endif
 
-	//printf("\nclient memory table :%lld", data->clients[clientId].memoryTable);
+	//my_printf("\nclient memory table :%lld", data->clients[clientId].memoryTable);
 }
 
 int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)

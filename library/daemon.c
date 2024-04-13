@@ -37,6 +37,7 @@
 #include <sys/wait.h>
 
 #include "fileManagement.h"
+#include "../debugHelper.h"
 
 #define LOCKFILE "/var/run/uFTP.pid"
 #define LOCKMODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
@@ -56,7 +57,7 @@ int isProcessAlreadyRunning(void)
         syslog(LOG_ERR, "can’t open %s: %s", LOCKFILE, strerror(errno));
         exit(1);
     }
-    //printf("\nFile pid opened.");
+    //my_printf("\nFile pid opened.");
     
     if ((returnCode = FILE_LockFile(fd)) < 0) 
     {
@@ -69,7 +70,7 @@ int isProcessAlreadyRunning(void)
         exit(1);
     }
     
-    //printf("\nFILE_LockFile returnCode = %d", returnCode);    
+    //my_printf("\nFILE_LockFile returnCode = %d", returnCode);    
     ftruncate(fd, 0);
     returnCode = snprintf(buf, 100, "%ld", (long)getpid());
     returnCode = write(fd, buf, strlen(buf)+1);
@@ -93,13 +94,13 @@ void daemonize(const char *cmd)
     * Get maximum number of file descriptors.
     */
     if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
-    printf("%s: can’t get file limit", cmd);
+    my_printf("%s: can’t get file limit", cmd);
     
     /*
     * Become a session leader to lose controlling TTY.
     */
     if ((pid = fork()) < 0)
-        printf("%s: can’t fork", cmd);
+        my_printf("%s: can’t fork", cmd);
     else if (pid != 0) /* parent */
         exit(0);
     
@@ -113,9 +114,9 @@ void daemonize(const char *cmd)
     
     sa.sa_flags = 0;
     if (sigaction(SIGHUP, &sa, NULL) < 0)
-        printf("%s: can’t ignore SIGHUP", cmd);
+        my_printf("%s: can’t ignore SIGHUP", cmd);
     if ((pid = fork()) < 0)
-        printf("%s: can’t fork", cmd);
+        my_printf("%s: can’t fork", cmd);
     else if (pid != 0) /* parent */
     exit(0);
     /*
@@ -123,7 +124,7 @@ void daemonize(const char *cmd)
     * we won’t prevent file systems from being unmounted.
     */
     if (chdir("/") < 0)
-        printf("%s: can’t change directory to /", cmd);
+        my_printf("%s: can’t change directory to /", cmd);
     /*
     * Close all open file descriptors.
     */
@@ -151,20 +152,20 @@ void respawnProcess(void)
 			if (spawnedProcess == 0)
 				{
 				//is child, exit from the loop
-				printf("\nRespawn mode is active");
+				my_printf("\nRespawn mode is active");
 				break;
 				}
 			else
 				{
 				int returnStatus;
 				waitpid(spawnedProcess, &returnStatus, 0);
-				printf("\nwaitpid done with status: %d", returnStatus);
+				my_printf("\nwaitpid done with status: %d", returnStatus);
 
 				if (WIFEXITED(returnStatus))
 					{
 					if (WEXITSTATUS(returnStatus) == 99)
 						{
-						printf("\nWIFEXITED verified the respawn is now disabled with return code %d.", WEXITSTATUS(returnStatus));
+						my_printf("\nWIFEXITED verified the respawn is now disabled with return code %d.", WEXITSTATUS(returnStatus));
 						exit(3);
 						}
 					}
@@ -183,11 +184,11 @@ void *watchDog(void * arg)
 		//Check if the time is expired
 		if ((int)time(NULL) - WatchDogTime > WatchDogTimerTimeOut)
 		{
-			printf("\nWatchDog Time Expired");
+			my_printf("\nWatchDog Time Expired");
 			exit(98);
 		}
 
-		//printf("\nWatchDog Time ok %d, %d", (int)time(NULL), WatchDogTime);
+		//my_printf("\nWatchDog Time ok %d, %d", (int)time(NULL), WatchDogTime);
 
 		sleep(5);
 	}

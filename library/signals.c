@@ -27,14 +27,16 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "../ftpServer.h"
+#include "../debugHelper.h"
 
 static void ignore_sigpipe(void);
 
 /* Catch Signal Handler functio */
 void signal_callback_handler(int signum) 
 {
-    printf("Caught signal SIGPIPE %d\n",signum);
+    my_printf("Caught signal SIGPIPE %d\n",signum);
 }
 
 static void ignore_sigpipe(void)
@@ -58,7 +60,7 @@ static void ignore_sigpipe(void)
 
 void onUftpClose(int sig)
 {
-    printf("\nuFTP exit() sig %d\n", sig);
+    my_printf("\nuFTP exit() sig %d\n", sig);
     deallocateMemory();
     exit(0);
 }

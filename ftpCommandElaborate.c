@@ -46,6 +46,8 @@
 #include "library/auth.h"
 #include "ftpCommandsElaborate.h"
 
+#include "debugHelper.h"
+
 /* Elaborate the User login command */
 int parseCommandUser(ftpDataType * data, int socketId)
 {
@@ -144,7 +146,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
         {
             if (((loginFailsDataType *)data->loginFailsVector.Data[searchPosition])->failureNumbers >= data->ftpParameters.maximumUserAndPassowrdLoginTries)
             {
-                // printf("\n TOO MANY LOGIN FAILS! \n");
+                // my_printf("\n TOO MANY LOGIN FAILS! \n");
                 data->clients[socketId].closeTheClient = 1;
                 returnCode = socketPrintf(data, socketId, "s", "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
                 if (returnCode <= 0)
@@ -157,7 +159,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
     if (strlen(thePass) >= 1)
     {
 
-        // printf("\nLogin try with user %s, password %s", data->clients[socketId].login.name.text, thePass);
+        // my_printf("\nLogin try with user %s, password %s", data->clients[socketId].login.name.text, thePass);
 
         // PAM AUTH METHOD IF ENABLED
 #ifdef PAM_SUPPORT_ENABLED
@@ -166,7 +168,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
             loginCheck(data->clients[socketId].login.name.text, thePass, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
             if (data->clients[socketId].login.userLoggedIn == 1)
             {
-                // printf("\n User logged with PAM ok!");
+                // my_printf("\n User logged with PAM ok!");
                 returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
                 if (returnCode <= 0)
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -210,9 +212,9 @@ int parseCommandPass(ftpDataType *data, int socketId)
             data->clients[socketId].login.ownerShip.uid = ((usersParameters_DataType *)data->ftpParameters.usersVector.Data[searchUserNameIndex])->ownerShip.uid;
             data->clients[socketId].login.userLoggedIn = 1;
 
-            printf("\ndata->clients[socketId].login.ownerShip.ownerShipSet = %d", data->clients[socketId].login.ownerShip.ownerShipSet);
-            printf("\ndata->clients[socketId].login.ownerShip.gid = %d", data->clients[socketId].login.ownerShip.gid);
-            printf("\ndata->clients[socketId].login.ownerShip.uid = %d", data->clients[socketId].login.ownerShip.uid);
+            my_printf("\ndata->clients[socketId].login.ownerShip.ownerShipSet = %d", data->clients[socketId].login.ownerShip.ownerShipSet);
+            my_printf("\ndata->clients[socketId].login.ownerShip.gid = %d", data->clients[socketId].login.ownerShip.gid);
+            my_printf("\ndata->clients[socketId].login.ownerShip.uid = %d", data->clients[socketId].login.ownerShip.uid);
 
             returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
             if (returnCode <= 0)
@@ -271,13 +273,13 @@ int parseCommandAuth(ftpDataType *data, int socketId)
 
     if (returnCodeTls <= 0)
     {
-        // printf("\nSSL NOT YET ACCEPTED: %d", returnCodeTls);
+        // my_printf("\nSSL NOT YET ACCEPTED: %d", returnCodeTls);
         data->clients[socketId].tlsIsEnabled = 0;
         data->clients[socketId].tlsIsNegotiating = 1;
     }
     else
     {
-        // printf("\nSSL ACCEPTED");
+        // my_printf("\nSSL ACCEPTED");
         data->clients[socketId].tlsIsEnabled = 1;
         data->clients[socketId].tlsIsNegotiating = 0;
     }
@@ -288,7 +290,7 @@ int parseCommandAuth(ftpDataType *data, int socketId)
 
 int parseCommandPwd(ftpDataType *data, int socketId)
 {
-    // printf("\n pwd is %s", data->clients[socketId].login.ftpPath.text);
+    // my_printf("\n pwd is %s", data->clients[socketId].login.ftpPath.text);
     int returnCode;
     returnCode = socketPrintf(data, socketId, "sss", "257 \"", data->clients[socketId].login.ftpPath.text, "\" is your current location\r\n");
 
@@ -357,10 +359,10 @@ int parseCommandFeat(ftpDataType *data, int socketId)
 
     int returnCode;
 #ifdef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\n211 End.\r\n");
 #endif
 #ifndef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nUTF8\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nUTF8\r\n211 End.\r\n");
 #endif
     if (returnCode <= 0)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -377,14 +379,14 @@ int parseCommandProt(ftpDataType *data, int socketId)
     if (theProtArg[0] == 'C' || theProtArg[0] == 'c')
     {
         // Clear
-        // printf("\nSet data channel to clear");
+        // my_printf("\nSet data channel to clear");
         data->clients[socketId].dataChannelIsTls = 0;
         returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
     else if (theProtArg[0] == 'P' || theProtArg[0] == 'p')
     {
         // Private
-        // printf("\nSet data channel to private");
+        // my_printf("\nSet data channel to private");
         data->clients[socketId].dataChannelIsTls = 1;
         returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
@@ -484,9 +486,9 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     /* Create worker thread */
     void *pReturn;
     int returnCode;
-    // printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
+    // my_printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
-    // printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
+    // my_printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         cancelWorker(data, socketId);
@@ -495,16 +497,52 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
         returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        printf("\nPASV JOIN RETURN STATUS %d", returnCode);
+        my_printf("\nPASV JOIN RETURN STATUS %d", returnCode);
     }
 
     data->clients[socketId].workerData.passiveModeOn = 1;
+    data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 0;
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
 
     if (returnCode != 0)
     {
-        // printf("\nError in pthread_create %d", returnCode);
+        // my_printf("\nError in pthread_create %d", returnCode);
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    return FTP_COMMAND_PROCESSED;
+}
+
+
+int parseCommandEpsv(ftpDataType *data, int socketId)
+{
+    /* Create worker thread */
+    void *pReturn;
+    int returnCode;
+    // my_printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
+
+    // my_printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
+    {
+        cancelWorker(data, socketId);
+    }
+
+    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
+    {
+        returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        my_printf("\nEPSV JOIN RETURN STATUS %d", returnCode);
+    }
+
+    data->clients[socketId].workerData.passiveModeOn = 1;
+    data->clients[socketId].workerData.extendedPassiveModeOn = 1;
+    data->clients[socketId].workerData.activeModeOn = 0;
+
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
+
+    if (returnCode != 0)
+    {
+        // my_printf("\nError in pthread_create %d", returnCode);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -531,15 +569,18 @@ int parseCommandPort(ftpDataType *data, int socketId)
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
         returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        printf("\nPORT JOIN RETURN STATUS %d", returnCode);
+        my_printf("\nPORT JOIN RETURN STATUS %d", returnCode);
     }
+
     data->clients[socketId].workerData.passiveModeOn = 0;
+    data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;
+    
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
 
     if (returnCode != 0)
     {
-        // printf("\nError in pthread_create %d", returnCode);
+        // my_printf("\nError in pthread_create %d", returnCode);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -606,10 +647,10 @@ int parseCommandList(ftpDataType *data, int socketId)
     getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand, &data->clients[socketId].workerData.memoryTable);
 
     // if (data->clients[socketId].workerData.ftpCommand.commandArgs.text != NULL)
-    //	printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    //	my_printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
     // if (data->clients[socketId].workerData.ftpCommand.commandOps.text != NULL)
-    //	printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
-    // printf("\ntheNameToList: %s", theNameToList);
+    //	my_printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+    // my_printf("\ntheNameToList: %s", theNameToList);
 
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0, &data->clients[socketId].workerData.memoryTable);
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0, &data->clients[socketId].workerData.memoryTable);
@@ -643,9 +684,9 @@ int parseCommandNlst(ftpDataType *data, int socketId)
     theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived, 1);
     cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0, &data->clients[socketId].memoryTable);
 
-    // printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
-    // printf("\nNLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
-    // printf("\ntheNameToNlist: %s", theNameToNlist);
+    // my_printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+    // my_printf("\nNLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+    // my_printf("\ntheNameToNlist: %s", theNameToNlist);
 
     if (strlen(theNameToNlist) > 0)
     {
@@ -774,18 +815,18 @@ int parseCommandCwd(ftpDataType *data, int socketId)
 
     thePath = getFtpCommandArg("CWD", data->clients[socketId].theCommandReceived, 0);
 
-    //printf("\ncdw requested path: %s", thePath);
+    //my_printf("\ncdw requested path: %s", thePath);
 
     if (strlen(thePath) > 0)
     {
-        // printf("Memory data address 1st call : %lld", &data->clients[socketId].memoryTable);
+        // my_printf("Memory data address 1st call : %lld", &data->clients[socketId].memoryTable);
         isSafePath = getSafePath(&theSafePath, thePath, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
-        //printf("\ncdw safe path: %s", theSafePath.text);
+        //my_printf("\ncdw safe path: %s", theSafePath.text);
     }
 
     if (isSafePath)
     {
-        //printf("\n The Path requested for CWD IS:%s", theSafePath.text);
+        //my_printf("\n The Path requested for CWD IS:%s", theSafePath.text);
         setDynamicStringDataType(&absolutePathPrevious, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&ftpPathPrevious, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen, &data->clients[socketId].memoryTable);
 
@@ -812,9 +853,9 @@ int parseCommandCwd(ftpDataType *data, int socketId)
             }
         }
 
-        //		printf("\ndata->clients[socketId].login.absolutePath = %s", data->clients[socketId].login.absolutePath.text);
-        //		printf("\ndata->clients[socketId].login.ftpPath = %s", data->clients[socketId].login.ftpPath.text);
-        //        printf("\nChecking the directory: %s", data->clients[socketId].login.absolutePath.text);
+        //		my_printf("\ndata->clients[socketId].login.absolutePath = %s", data->clients[socketId].login.absolutePath.text);
+        //		my_printf("\ndata->clients[socketId].login.ftpPath = %s", data->clients[socketId].login.ftpPath.text);
+        //        my_printf("\nChecking the directory: %s", data->clients[socketId].login.absolutePath.text);
 
         if (FILE_IsDirectory(data->clients[socketId].login.absolutePath.text) == 1)
         {
@@ -997,7 +1038,7 @@ int parseCommandDele(ftpDataType *data, int socketId)
 
     if (isSafePath == 1)
     {
-        // printf("\nThe file to delete is: %s", deleFileName.text);
+        // my_printf("\nThe file to delete is: %s", deleFileName.text);
         if (FILE_IsFile(deleFileName.text) == 1)
         {
 
@@ -1063,13 +1104,13 @@ int parseCommandMdtm(ftpDataType *data, int socketId)
     cleanDynamicStringDataType(&mdtmFileName, 1, &data->clients[socketId].memoryTable);
     isSafePath = getSafePath(&mdtmFileName, theFileToGetModificationDate, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
 
-    printf("\ntheFileToGetModificationDate = %s", theFileToGetModificationDate);
-    printf("\nmdtmFileName.text = %s", mdtmFileName.text);
-    printf("\nisSafePath = %d", isSafePath);
-    printf("\n Safe ok is file: %d, is directory: %d", FILE_IsFile(mdtmFileName.text), FILE_IsDirectory(mdtmFileName.text));
+    my_printf("\ntheFileToGetModificationDate = %s", theFileToGetModificationDate);
+    my_printf("\nmdtmFileName.text = %s", mdtmFileName.text);
+    my_printf("\nisSafePath = %d", isSafePath);
+    my_printf("\n Safe ok is file: %d, is directory: %d", FILE_IsFile(mdtmFileName.text), FILE_IsDirectory(mdtmFileName.text));
     if (isSafePath == 1)
     {
-        printf("\n Safe ok is file: %d, is directory: %d", FILE_IsFile(mdtmFileName.text), FILE_IsDirectory(mdtmFileName.text));
+        my_printf("\n Safe ok is file: %d, is directory: %d", FILE_IsFile(mdtmFileName.text), FILE_IsDirectory(mdtmFileName.text));
 
         if (FILE_IsFile(mdtmFileName.text) == 1 ||
             FILE_IsDirectory(mdtmFileName.text) == 1)
@@ -1137,7 +1178,7 @@ int parseCommandQuit(ftpDataType *data, int socketId)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
     data->clients[socketId].closeTheClient = 1;
-    // printf("\n Closing the client quit received");
+    // my_printf("\n Closing the client quit received");
     return FTP_COMMAND_PROCESSED;
 }
 
@@ -1423,7 +1464,7 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
         if (writtenSize <= 0)
         {
 
-            printf("\nError %lld while writing retr file.", writtenSize);
+            my_printf("\nError %lld while writing retr file.", writtenSize);
             fclose(retrFP);
             retrFP = NULL;
             return -1;
@@ -1643,7 +1684,7 @@ int setPermissions(char *permissionsCommand, char *basePath, ownerShip_DataType 
     returnCode = strtol(thePermissionString, 0, 8);
     if ((returnCodeSetPermissions = chmod(theFinalFilename, returnCode)) < 0)
     {
-        // printf("\n---> ERROR WHILE SETTING FILE PERMISSION");
+        // my_printf("\n---> ERROR WHILE SETTING FILE PERMISSION");
     }
 
     if (returnCodeSetOwnership != 1 || returnCodeSetPermissions == -1)

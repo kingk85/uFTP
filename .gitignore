@@ -1,0 +1,5 @@
+# Ignore files ending in .o (object files)
+*.o
+
+#Ignore binary 
+build/uFTP

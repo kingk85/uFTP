@@ -29,11 +29,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "../debugHelper.h"
+
 void printTimeStamp(void)
 {
    // time_t ltime;  calendar time 
    // ltime=time(NULL);  get current cal time 
-   // printf("\n\n %s -->",asctime( localtime(&ltime) ) );
+   // my_printf("\n\n %s -->",asctime( localtime(&ltime) ) );
 }
 
 void makeTimeout(struct timespec *tsp, long seconds)

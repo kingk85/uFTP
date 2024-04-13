@@ -38,6 +38,7 @@
 #include "fileManagement.h"
 #include "dynamicVectors.h"
 #include "dynamicMemory.h"
+#include "../debugHelper.h"
 
 static int FILE_CompareString(const void * a, const void * b);
 static int FILE_CompareString(const void * a, const void * b)
@@ -51,7 +52,7 @@ static int FILE_CompareStringParameter(const void * a, const void * b)
 {
     const FILE_StringParameter_DataType * typeA = *(const FILE_StringParameter_DataType **)a;
     const FILE_StringParameter_DataType * typeB = *(const FILE_StringParameter_DataType **)b;
-   //printf("Comparing  %s with %s",typeA->Name, typeB->Name);
+   //my_printf("Comparing  %s with %s",typeA->Name, typeB->Name);
     return strcmp(typeA->Name, typeB->Name);
 }
 
@@ -64,8 +65,8 @@ time_t convertToUTC(time_t inputTime)
     utc_tm = gmtime(&inputTime);
     utc_time = mktime(utc_tm);
 
-    //printf("\nLocal time: %ld", inputTime);
-    //printf("\nutc_time time: %ld", utc_time);
+    //my_printf("\nLocal time: %ld", inputTime);
+    //my_printf("\nutc_time time: %ld", utc_time);
 
     return utc_time;
 }
@@ -214,7 +215,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     
     if (FILE_IsDirectory(DirectoryInodeName))
     {
-        //printf("\nReading directory: %s", DirectoryInodeName);
+        //my_printf("\nReading directory: %s", DirectoryInodeName);
         
         DIR *TheDirectory;
         struct dirent *dir;
@@ -258,7 +259,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     }
     else if (FILE_IsFile(DirectoryInodeName))
     {
-        //printf("\nAdding single file to inode list: %s", DirectoryInodeName);
+        //my_printf("\nAdding single file to inode list: %s", DirectoryInodeName);
         int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
         (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, memoryTable);
         int nsize = strlen(DirectoryInodeName) * sizeof(char) + 2;
@@ -271,7 +272,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     }
     else
     {
-        //printf("\n%s is not a file or a directory", DirectoryInodeName);
+        //my_printf("\n%s is not a file or a directory", DirectoryInodeName);
         //No valid path specified, returns zero elements
         (*FilesandFolders) = 0;
     }
@@ -371,15 +372,15 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
     File = fopen(filename, "r");
     if(File == NULL)
     {
-        printf("error while opening file %s", filename);
+        my_printf("error while opening file %s", filename);
     }
     else
     {
-    //printf("Parameter initializing from file %s", filename);
+    //my_printf("Parameter initializing from file %s", filename);
 
     while(fgets(Line, FILE_MAX_LINE_LENGHT, File) != NULL)
             {
-            //printf("LINE: %s", Line);
+            //my_printf("LINE: %s", Line);
             i = 0;
 
             while (i<FILE_MAX_LINE_LENGHT)
@@ -396,8 +397,8 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
                     {
                     TheParameter.Name[BufferNameCursor] = '\0';
                     TheParameter.Value[BufferValueCursor] = '\0';
-                    //printf("Adding name: %s value: %s", TheParameter.Name, TheParameter.Value);
-                    //printf("TheParameter.Name[0] = %d", TheParameter.Name[0]);
+                    //my_printf("Adding name: %s value: %s", TheParameter.Name, TheParameter.Value);
+                    //my_printf("TheParameter.Name[0] = %d", TheParameter.Name[0]);
 
                     ParametersVector->PushBack(ParametersVector, &TheParameter, sizeof(FILE_StringParameter_DataType));
                             BufferNameCursor = 0;
@@ -417,23 +418,23 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
                }
                else
                     {
-                     //printf("Checking chars");
+                     //my_printf("Checking chars");
 
                             //first char, parameter name
                             if (FirstChar == 0)
                                     {
                                     FirstChar = (char) c;
-                                    //printf("FirstChar = %c", FirstChar);
+                                    //my_printf("FirstChar = %c", FirstChar);
                                     }
                             else if (FirstChar != 0 && SeparatorChar == 0 && (char) c == '=')
                                     {
                                     SeparatorChar = (char) c;
-                                    //printf("SeparatorChar = %c", SeparatorChar);
+                                    //my_printf("SeparatorChar = %c", SeparatorChar);
                                     }
                             else if (FirstChar != 0 && SeparatorChar != 0 && ParameterChar == 0)
                                     {
                                     ParameterChar = (char) c;
-                                    //printf("ParameterChar = %c", ParameterChar);
+                                    //my_printf("ParameterChar = %c", ParameterChar);
                                     }
 
                             //Get the parameter name
@@ -450,19 +451,19 @@ void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *Para
             fclose(File);
             }
 
-   // printf("ParametersVector->Size %d", ParametersVector->Size);
+   // my_printf("ParametersVector->Size %d", ParametersVector->Size);
 
     for (i = 0; i < ParametersVector->Size; i++)
             {
-            //printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
+            //my_printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
             }
 
     qsort(ParametersVector->Data, ParametersVector->Size, sizeof(void *), FILE_CompareStringParameter);
 
-    //printf("Sorted");
+    //my_printf("Sorted");
     for (i = 0; i < ParametersVector->Size; i++)
             {
-            //printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
+            //my_printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
             }
 
 }
@@ -497,22 +498,22 @@ int FILE_StringParametersBinarySearch(DYNV_VectorGenericDataType *TheVectorGener
 	while (littler <= last)
 		{
 		CompareResult = strcmp(((FILE_StringParameter_DataType *)TheVectorGeneric->Data[middle])->Name, Needle);
-		//printf("CompareResult = %d.\n", CompareResult);
+		//my_printf("CompareResult = %d.\n", CompareResult);
 
 		if ((CompareResult == 0))
 			{
-			//printf("%d found at location %d.\n", Needle, middle);
+			//my_printf("%d found at location %d.\n", Needle, middle);
 			return middle;
 			}
 			else if (CompareResult < 0)
 			{
 			littler = middle + 1;
-			//printf("Needle bigger than middle  at %d .\n", middle);
+			//my_printf("Needle bigger than middle  at %d .\n", middle);
 			}
 		else
 			{
 			last = middle - 1;
-			//printf("Needle lower than middle  at %d.\n", middle);
+			//my_printf("Needle lower than middle  at %d.\n", middle);
 			}
 
 			middle = (littler + last)/2;
@@ -592,7 +593,7 @@ int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
 			theFileName[theFileNameLen++] = fileName[i];
 	}
 
-	//printf ("\n checking parent permissions on : %s", theFileName);
+	//my_printf ("\n checking parent permissions on : %s", theFileName);
 	return checkUserFilePermissions(theFileName, uid, gid);
 }
 
@@ -602,7 +603,7 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
 
 	if (uid == 0 || gid == 0)
 	{
-		//printf("\n User is root");
+		//my_printf("\n User is root");
 		return FILE_PERMISSION_RW;
 	}
 
@@ -619,19 +620,19 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
     if (info.st_uid == uid ||
 		info.st_gid == gid)
     {
-		//printf("\n User is owner");
+		//my_printf("\n User is owner");
     	filePermissions = FILE_PERMISSION_RW;
     }
     else
     {
         mode_t perm = info.st_mode;
     	if (perm & S_IROTH){
-    		//printf("\nfile can be readen");
+    		//my_printf("\nfile can be readen");
     		filePermissions |= FILE_PERMISSION_R;
     	}
 
     	if (perm & S_IWOTH){
-    		//printf("\nfile can be written");
+    		//my_printf("\nfile can be written");
     		filePermissions |= FILE_PERMISSION_W;
     	}
     }
@@ -709,25 +710,25 @@ void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTab
 
 void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
-   //printf("\n");
+   //my_printf("\n");
 
    int theLastSlash = -1;
    size_t strLen = 0;
 
    strLen = strlen(*sourceString);
-   //printf("\nThe directory = %s", (*sourceString));   
-   //printf("\ndirectory to parent strLen = %d", strLen);
+   //my_printf("\nThe directory = %s", (*sourceString));   
+   //my_printf("\ndirectory to parent strLen = %d", strLen);
 
    for (size_t i = 0; i < strLen; i++)
    {
-       //printf("%c", (*sourceString)[i]);
+       //my_printf("%c", (*sourceString)[i]);
        if ( (*sourceString)[i] == '/')
        {
            theLastSlash = i;
        }
    }
    
-   //printf("\n theLastSlash = %d", theLastSlash);
+   //my_printf("\n theLastSlash = %d", theLastSlash);
 
    if (theLastSlash > -1)
    {
@@ -737,12 +738,12 @@ void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType **
            theNewSize = 1;
        }
 
-       //printf("\n theNewSize = %d", theNewSize);
+       //my_printf("\n theNewSize = %d", theNewSize);
 
        *sourceString = DYNMEM_realloc(*sourceString, theNewSize+1, &*memoryTable);
        (*sourceString)[theNewSize] = '\0';
 
-       //printf("\nThe directory upped is = %s", (*sourceString));  
+       //my_printf("\nThe directory upped is = %s", (*sourceString));  
    }
 }
 
@@ -823,7 +824,7 @@ void FILE_checkAllOpenedFD(void)
 
 	struct rlimit rl;
 	if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
-		printf("%s: can’t get file limit", "");
+		my_printf("%s: can’t get file limit", "");
 
 	if (rl.rlim_max == RLIM_INFINITY)
 		rl.rlim_max = 1024;
@@ -831,23 +832,23 @@ void FILE_checkAllOpenedFD(void)
 	for (int i = 0; i < rl.rlim_max; i++)
 	{
 		ret = FILE_fdIsValid(i);
-		//printf("\nret = %d", ret);
+		//my_printf("\nret = %d", ret);
 		if (ret != -1)
 		{
 			struct stat statbuf;
 			fstat(i, &statbuf);
 			if (S_ISSOCK(statbuf.st_mode))
 			{
-				//printf("\n fd %d is socket", i);
+				//my_printf("\n fd %d is socket", i);
 			}
 			else if (S_ISDIR(statbuf.st_mode))
 			{
-				//printf("\n fd %d is dir", i);
+				//my_printf("\n fd %d is dir", i);
 			}
 
 
 			openedFd++;
 		}
 	}
-	//printf("\n\nOpened fd : %d", openedFd);
+	//my_printf("\n\nOpened fd : %d", openedFd);
 }

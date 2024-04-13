@@ -18,6 +18,7 @@
 
 #include "auth.h"
 #include "ftpData.h"
+#include "../debugHelper.h"
 
 struct pam_response *reply;
 
@@ -38,7 +39,7 @@ int authenticateSystem(const char *username, const char *password)
 
     if (retval != PAM_SUCCESS)
     {
-		printf("pam_start returned: %d\n ", retval);
+		my_printf("pam_start returned: %d\n ", retval);
 		return 0;
     }
 
@@ -51,11 +52,11 @@ int authenticateSystem(const char *username, const char *password)
     {
 		if (retval == PAM_AUTH_ERR)
 		{
-			printf("Authentication failure.\n");
+			my_printf("Authentication failure.\n");
 		}
 		else
 		{
-			printf("pam_authenticate returned %d\n", retval);
+			my_printf("pam_authenticate returned %d\n", retval);
 		}
 		return 0;
     }
@@ -64,7 +65,7 @@ int authenticateSystem(const char *username, const char *password)
 
     if (retval != PAM_SUCCESS)
     {
-		printf("pam_end returned\n");
+		my_printf("pam_end returned\n");
 		return 0;
     }
 
@@ -86,7 +87,7 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
     	}
     	else
     	{
-			//printf("Authenticate with %s - %s through system\n", login, password);
+			//my_printf("Authenticate with %s - %s through system\n", login, password);
 			setDynamicStringDataType(&login->name, name, strlen(name), &*memoryTable);
 			setDynamicStringDataType(&login->homePath, pass->pw_dir, strlen(pass->pw_dir), &*memoryTable);
 			//setDynamicStringDataType(&login->homePath, "/", 1, &*memoryTable);
@@ -110,13 +111,13 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
 			login->ownerShip.ownerShipSet = 1;
 			login->userLoggedIn = 1;
 
-//			printf("\nLogin as: %s", pass->pw_name);
-//			printf("\nPasswd: %s", pass->pw_passwd);
-//			printf("\nDir: %s", pass->pw_dir);
-//			printf("\nGid: %d", pass->pw_gid);
-//			printf("\nUid: %d", pass->pw_uid);
-//			printf("\nlogin->homePath.text: %s", login->homePath.text);
-//			printf("\nlogin->absolutePath.text: %s", login->absolutePath.text);
+//			my_printf("\nLogin as: %s", pass->pw_name);
+//			my_printf("\nPasswd: %s", pass->pw_passwd);
+//			my_printf("\nDir: %s", pass->pw_dir);
+//			my_printf("\nGid: %d", pass->pw_gid);
+//			my_printf("\nUid: %d", pass->pw_uid);
+//			my_printf("\nlogin->homePath.text: %s", login->homePath.text);
+//			my_printf("\nlogin->absolutePath.text: %s", login->absolutePath.text);
     	}
     }
 

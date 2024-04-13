@@ -12,6 +12,7 @@
 #include <string.h>
 #include "dynamicMemory.h"
 #include "errorHandling.h"
+#include "../debugHelper.h"
 
 //total memory allocated
 static unsigned long long int theTotalMemory;
@@ -61,7 +62,7 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead, 
 	DYNMEM_MemoryTable_DataType *newItem = NULL;
 	memory = calloc(bytes,1);
 	newItem = calloc(1, sizeof(DYNMEM_MemoryTable_DataType));
-	//printf("Allocating new item in memory, size of %d", bytes);
+	//my_printf("Allocating new item in memory, size of %d", bytes);
 
 	if(memory)
 	{
@@ -88,15 +89,15 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead, 
 		}
 		else
 		{
-			//printf("\nmemoryListHead = %ld", (int) *memoryListHead);
+			//my_printf("\nmemoryListHead = %ld", (int) *memoryListHead);
 			*memoryListHead = newItem;
-			//printf("\nmemoryListHead = newItem %ld", (int) *memoryListHead);
+			//my_printf("\nmemoryListHead = newItem %ld", (int) *memoryListHead);
 		}
 
-//		printf("\nElement size: %ld", (*memoryListHead)->size);
-//		printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
-//		printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
-//		printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
+//		my_printf("\nElement size: %ld", (*memoryListHead)->size);
+//		my_printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
+//		my_printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
+//		my_printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
 
 		return memory;
 	}
@@ -112,19 +113,19 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead, 
 void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead)
 {
 	void *newMemory = NULL;
-	//printf("\nSearching address %lld", theMemoryAddress);
+	//my_printf("\nSearching address %lld", theMemoryAddress);
 	newMemory = realloc(theMemoryAddress, bytes);
 
-	//printf("\nReallocating item in memory, size of %d", bytes);
-	//printf("\nSearching address %lld", theMemoryAddress);
-	//printf("(*memoryListHead) = %lld", (*memoryListHead));
+	//my_printf("\nReallocating item in memory, size of %d", bytes);
+	//my_printf("\nSearching address %lld", theMemoryAddress);
+	//my_printf("(*memoryListHead) = %lld", (*memoryListHead));
 
 	if(newMemory)
 	{
 		DYNMEM_MemoryTable_DataType *temp = NULL,*found = NULL;
 		for( temp = (*memoryListHead); temp!=NULL; temp = temp->nextElement)
 		{
-			//printf("\n %lld == %lld", temp->address, theMemoryAddress);
+			//my_printf("\n %lld == %lld", temp->address, theMemoryAddress);
 			if(temp->address == theMemoryAddress)
 			{
 				found = temp;
@@ -156,10 +157,10 @@ void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_Da
 		found->address = newMemory;
 		found->size = bytes;
 
-		//printf("\nElement size: %ld", (*found)->size);
-		//printf("\nElement address: %ld", (long int) (*found)->address);
-		//printf("\nElement nextElement: %ld",(long int) (*found)->nextElement);
-		//printf("\nElement previousElement: %ld",(long int) (*found)->previousElement);
+		//my_printf("\nElement size: %ld", (*found)->size);
+		//my_printf("\nElement address: %ld", (long int) (*found)->address);
+		//my_printf("\nElement nextElement: %ld",(long int) (*found)->nextElement);
+		//my_printf("\nElement previousElement: %ld",(long int) (*found)->previousElement);
 
 		return newMemory;
 	}
@@ -188,7 +189,7 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 
 	if(!found)
 	{
-		//printf("\n\nMemory address : %ld not found\n\n", f_address);
+		//my_printf("\n\nMemory address : %ld not found\n\n", f_address);
 		//Debug TRAP
 		//char *theData ="c";
 		//strcpy(theData, "ciaociaociao");
@@ -201,7 +202,7 @@ void DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead)
 	DYNMEM_DecreaseMemoryCounter(found->size + sizeof(DYNMEM_MemoryTable_DataType));
 
 
-	//printf("\nFree of %ld", f_address);
+	//my_printf("\nFree of %ld", f_address);
 
 	free(f_address);
 	if(found->previousElement)
@@ -223,14 +224,14 @@ void DYNMEM_freeAll(DYNMEM_MemoryTable_DataType **memoryListHead)
 
 	while((*memoryListHead) != NULL)
 	{
-//		printf("\nDYNMEM_freeAll called");
-//		printf("\nElement size: %ld", (*memoryListHead)->size);
-//		printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
-//		printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
-//		printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
+//		my_printf("\nDYNMEM_freeAll called");
+//		my_printf("\nElement size: %ld", (*memoryListHead)->size);
+//		my_printf("\nElement address: %ld", (long int) (*memoryListHead)->address);
+//		my_printf("\nElement nextElement: %ld",(long int) (*memoryListHead)->nextElement);
+//		my_printf("\nElement previousElement: %ld",(long int) (*memoryListHead)->previousElement);
 
 		DYNMEM_DecreaseMemoryCounter((*memoryListHead)->size + sizeof(DYNMEM_MemoryTable_DataType));
-		//printf("\nFree table element");
+		//my_printf("\nFree table element");
 		free((*memoryListHead)->address);
 		temp = (*memoryListHead)->nextElement;
 		free((*memoryListHead));

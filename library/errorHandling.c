@@ -10,7 +10,7 @@
 #define _REENTRANT
 #include <pthread.h>
 #include "errorHandling.h"
-
+#include "../debugHelper.h"
 
 void report_error(const char *msg, const char *file, int line_no, int use_perror)
 {

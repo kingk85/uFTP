@@ -29,6 +29,7 @@
 
 #include "dynamicVectors.h"
 #include "dynamicMemory.h"
+#include "../debugHelper.h"
 
 void DYNV_VectorGeneric_Init(DYNV_VectorGenericDataType *TheVectorGeneric)
 {
@@ -121,7 +122,7 @@ void DYNV_VectorGeneric_SoftPopBack(DYNV_VectorGenericDataType *TheVector)
 void DYNV_VectorGeneric_Destroy(DYNV_VectorGenericDataType *TheVector, void (*DeleteElementFunction)(DYNV_VectorGenericDataType *TheVector))
 {
 
-	//printf("\n Deleting vector element %d address %ld", i,TheVector->Data[i]);
+	//my_printf("\n Deleting vector element %d address %ld", i,TheVector->Data[i]);
 	DeleteElementFunction(TheVector);
 	//DYNMEM_free(TheVector->Data[i], &TheVector->memoryTable);
 
