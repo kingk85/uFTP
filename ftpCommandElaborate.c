@@ -503,11 +503,12 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 0;
+
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
 
     if (returnCode != 0)
     {
-        // my_printf("\nError in pthread_create %d", returnCode);
+        my_printf("\nError in pthread_create %d", returnCode);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 

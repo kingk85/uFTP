@@ -128,7 +128,7 @@ void *connectionWorkerHandle(void * socketId)
   ftpData.clients[theSocketId].workerData.threadHasBeenCreated = 1;
   int returnCode;
 
-  //my_printf("\nWORKER CREATED!");
+  my_printf("\nWORKER CREATED!");
 
   //Passive data connection mode
   if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
@@ -150,7 +150,7 @@ void *connectionWorkerHandle(void * socketId)
     if (ftpData.clients[theSocketId].workerData.passiveListeningSocket == -1)
     {
         ftpData.clients[theSocketId].closeTheClient = 1;
-        //my_printf("\n Closing the client 1");
+        my_printf("\n Closing the client 1");
         pthread_exit(NULL);
     }
 
@@ -163,13 +163,14 @@ void *connectionWorkerHandle(void * socketId)
         else
         {
             returnCode = -1;
+            my_printf("\nUnknown passive state, should be PASV or EPSV");
             perror("Unknown passive state, should be PASV or EPSV");
         }
 
         if (returnCode <= 0)
         {
             ftpData.clients[theSocketId].closeTheClient = 1;
-            //my_printf("\n Closing the client 2");
+            my_printf("\n Closing the client 2");
             pthread_exit(NULL);
         }
 
@@ -211,6 +212,8 @@ void *connectionWorkerHandle(void * socketId)
             pthread_exit(NULL);
         }
     }
+    else
+        my_printf("\n Socket already connected");
   }
   else if (ftpData.clients[theSocketId].workerData.activeModeOn == 1)
   {
