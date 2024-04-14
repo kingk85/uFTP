@@ -167,6 +167,8 @@ void *connectionWorkerHandle(void * socketId)
             perror("Unknown passive state, should be PASV or EPSV");
         }
 
+        ftpData.clients[theSocketId].workerData.socketIsReadyForConnection = 1;
+
         if (returnCode <= 0)
         {
             ftpData.clients[theSocketId].closeTheClient = 1;
@@ -250,7 +252,9 @@ void *connectionWorkerHandle(void * socketId)
         pthread_exit(NULL);
     }
 
+
     returnCode = socketPrintf(&ftpData, theSocketId, "s", "200 connection accepted\r\n");
+    ftpData.clients[theSocketId].workerData.socketIsReadyForConnection = 1;
 
     if (returnCode <= 0)
     {
@@ -423,7 +427,6 @@ void *connectionWorkerHandle(void * socketId)
           else if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1)
               theCommandType = COMMAND_TYPE_NLST;
 
-
       	if ((checkUserFilePermissions(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
           {
               returnCode = socketPrintf(&ftpData, theSocketId, "s", "550 No permissions\r\n");
@@ -531,7 +534,7 @@ void *connectionWorkerHandle(void * socketId)
 
 void runFtpServer(void)
 {
-    my_printf("\nHello uFTP server %s starting..\n", UFTP_SERVER_VERSION);
+    printf("\nHello uFTP server %s starting..\n", UFTP_SERVER_VERSION);
 
     /* Needed for Select*/
     static int processingSock = 0, returnCode = 0;
@@ -555,7 +558,7 @@ void runFtpServer(void)
 
     //Socket main creator
     ftpData.connectionData.theMainSocket = createSocket(&ftpData);
-    my_printf("\nuFTP server starting..");
+    printf("\nuFTP server starting..");
 
     /* init fd set needed for select */
     fdInit(&ftpData);
@@ -724,7 +727,6 @@ void runFtpServer(void)
                               else if (commandProcessStatus == FTP_COMMAND_PROCESSED)
                               {
                                   ftpData.clients[processingSock].lastActivityTimeStamp = (int)time(NULL);
-                                  
                               }
                               else if (commandProcessStatus == FTP_COMMAND_PROCESSED_WRITE_ERROR)
                               {

@@ -148,6 +148,7 @@ struct workerData
     int passiveListeningSocket;
     int socketConnection;
     int socketIsConnected;
+    int socketIsReadyForConnection;
     int bufferIndex;
     char buffer[CLIENT_BUFFER_STRING_SIZE+1];
 

@@ -216,7 +216,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
         i++;
        }
    }
-      
+
    data->clients[socketPosition].workerData.connectionPort = randomicPort;
 
    my_printf("\n  data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
@@ -578,6 +578,7 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       data->clients[clientId].workerData.connectionPort = 0;
       data->clients[clientId].workerData.passiveModeOn = 0;
       data->clients[clientId].workerData.socketIsConnected = 0;
+      data->clients[clientId].workerData.socketIsReadyForConnection = 0;      
       data->clients[clientId].workerData.commandIndex = 0;
       data->clients[clientId].workerData.passiveListeningSocket = 0;
       data->clients[clientId].workerData.socketConnection = 0;
@@ -588,6 +589,7 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       data->clients[clientId].workerData.activeModeOn = 0;
       data->clients[clientId].workerData.extendedPassiveModeOn = 0;
       data->clients[clientId].workerData.activeIpAddressIndex = 0;
+      data->clients[clientId].workerData.threadHasBeenCreated = 0;
 
       memset(data->clients[clientId].workerData.buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
       memset(data->clients[clientId].workerData.activeIpAddress, 0, CLIENT_BUFFER_STRING_SIZE);
