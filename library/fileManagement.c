@@ -205,6 +205,7 @@ int FILE_IsFile(const char *TheFileName)
 void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     int FileAndFolderIndex = *FilesandFolders;
+    my_printf("\nLIST DETAILS OF: %s", DirectoryInodeName);
 
     //Allocate the array for the 1st time
     if (*InodeList == NULL)
@@ -215,7 +216,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
     
     if (FILE_IsDirectory(DirectoryInodeName))
     {
-        //my_printf("\nReading directory: %s", DirectoryInodeName);
+        
         
         DIR *TheDirectory;
         struct dirent *dir;

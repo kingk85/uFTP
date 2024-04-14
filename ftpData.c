@@ -225,6 +225,9 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
 
 int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable)
 {
+
+
+    my_printf("\nFILE_GetDirectoryInodeList arg path: %s", ftpData->clients[clientId].listPath.text);
     int i, x, returnCode;
     int fileAndFoldersCount = 0;
     char **fileList = NULL;
@@ -722,7 +725,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     cleanDynamicStringDataType(&data->clients[clientId].fileToStor, isInitialization, &data->clients[clientId].memoryTable);
     cleanDynamicStringDataType(&data->clients[clientId].fileToRetr, isInitialization, &data->clients[clientId].memoryTable);
     cleanDynamicStringDataType(&data->clients[clientId].listPath, isInitialization, &data->clients[clientId].memoryTable);
-    cleanDynamicStringDataType(&data->clients[clientId].nlistPath, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].listPath, isInitialization, &data->clients[clientId].memoryTable);
     cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandArgs, isInitialization, &data->clients[clientId].memoryTable);
     cleanDynamicStringDataType(&data->clients[clientId].ftpCommand.commandOps, isInitialization, &data->clients[clientId].memoryTable);
 

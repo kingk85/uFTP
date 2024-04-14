@@ -671,7 +671,24 @@ int parseCommandList(ftpDataType *data, int socketId)
     if (isSafePath == 0)
     {
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);       
+    }
+
+    if(FILE_IsDirectory(data->clients[socketId].listPath.text) == 0 && FILE_IsFile(data->clients[socketId].listPath.text) == 0)
+    {
+        my_printf("\nLIST path not file or directoy: %s ", data->clients[socketId].listPath.text);
+        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        returnCode = socketPrintf(data, socketId, "s", "550 wrong path\r\n");
+        return FTP_COMMAND_PROCESSED;
+    }
+
+    if ((checkUserFilePermissions(data->clients[socketId].listPath.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
+    {
+        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        returnCode = socketPrintf(data, socketId, "s", "550 no permissions.\r\n");
+        return FTP_COMMAND_PROCESSED;
     }
 
     pthread_mutex_lock(&data->clients[socketId].conditionMutex);
@@ -686,8 +703,6 @@ int parseCommandList(ftpDataType *data, int socketId)
 
 int parseCommandNlst(ftpDataType *data, int socketId)
 {
-
-
     int isSafePath = 0;
     char *theNameToNlist;
     int returnCode;
@@ -700,7 +715,7 @@ int parseCommandNlst(ftpDataType *data, int socketId)
     }
 
     theNameToNlist = getFtpCommandArg("NLIST", data->clients[socketId].theCommandReceived, 1);
-    cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0, &data->clients[socketId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
 
     // my_printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
     // my_printf("\nNLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
@@ -708,26 +723,30 @@ int parseCommandNlst(ftpDataType *data, int socketId)
 
     if (strlen(theNameToNlist) > 0)
     {
-        isSafePath = getSafePath(&data->clients[socketId].nlistPath, theNameToNlist, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
+        isSafePath = getSafePath(&data->clients[socketId].listPath, theNameToNlist, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
     }
 
     if (isSafePath == 0)
     {
-        cleanDynamicStringDataType(&data->clients[socketId].nlistPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].nlistPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
+        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
     }
 
-/*
-    To be fixed
-    if ((checkUserFilePermissions(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
-        {
-            returnCode = socketPrintf(&ftpData, theSocketId, "s", "550 No permissions\r\n");
-            if (returnCode <= 0)
-            {
+    if(FILE_IsDirectory(data->clients[socketId].listPath.text) == 0 && FILE_IsFile(data->clients[socketId].listPath.text) == 0)
+    {
+        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        returnCode = socketPrintf(data, socketId, "s", "550 wrong path.\r\n");
+        return FTP_COMMAND_PROCESSED;
+    }
 
-            }
-        }
-*/
+    if ((checkUserFilePermissions(data->clients[socketId].listPath.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
+    {
+        cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        returnCode = socketPrintf(data, socketId, "s", "550 no permissions.\r\n");
+        return FTP_COMMAND_PROCESSED;
+    }
 
     pthread_mutex_lock(&data->clients[socketId].conditionMutex);
 
