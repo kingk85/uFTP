@@ -822,8 +822,10 @@ static int processCommand(int processingElement)
         //my_printf("\nCCC COMMAND RECEIVED");
         toReturn = parseCommandCcc(&ftpData, processingElement);
     }
-    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PWD", strlen("PWD")) == 1)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PWD", strlen("PWD")) == 1 ||
+            compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "XPWD", strlen("XPWD")) == 1)
     {
+        // XPWD
         //my_printf("\nPWD COMMAND RECEIVED");
         toReturn = parseCommandPwd(&ftpData, processingElement);
     }
@@ -878,6 +880,7 @@ static int processCommand(int processingElement)
         toReturn = parseCommandList(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CDUP", strlen("CDUP")) == 1 ||
+            compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "XCUP", strlen("XCUP")) == 1 ||
             compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CWD ..", strlen("CWD ..")) == 1)
     {
         //my_printf("\nCDUP COMMAND RECEIVED");
@@ -903,7 +906,8 @@ static int processCommand(int processingElement)
         //my_printf("\nSTOR COMMAND RECEIVED");
         toReturn = parseCommandStor(&ftpData, processingElement);
     }
-    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "MKD", strlen("MKD")) == 1)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "MKD", strlen("MKD")) == 1 ||
+            compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "XMKD", strlen("XMKD")) == 1)
     {
         //my_printf("\nMKD command received");
         toReturn = parseCommandMkd(&ftpData, processingElement);
@@ -938,8 +942,10 @@ static int processCommand(int processingElement)
         //my_printf("\nQUIT command received");
         toReturn = parseCommandQuit(&ftpData, processingElement);
     }
-    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "RMD", strlen("RMD")) == 1)
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "RMD", strlen("RMD")) == 1 ||
+            compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "XRMD", strlen("XRMD")) == 1)
     {
+        // XRMD
        // my_printf("\nRMD command received");
         toReturn = parseCommandRmd(&ftpData, processingElement);
     }

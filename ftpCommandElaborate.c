@@ -1023,7 +1023,10 @@ int parseCommandMkd(ftpDataType *data, int socketId)
     char *theDirectoryFilename;
     dynamicStringDataType mkdFileName;
 
-    theDirectoryFilename = getFtpCommandArg("MKD", data->clients[socketId].theCommandReceived, 0);
+    if (compareStringCaseInsensitive(data->clients[socketId].theCommandReceived, "MKD", strlen("MKD")) == 1)
+        theDirectoryFilename = getFtpCommandArg("MKD", data->clients[socketId].theCommandReceived, 0);
+    else if (compareStringCaseInsensitive(data->clients[socketId].theCommandReceived, "XMKD", strlen("XMKD")) == 1)
+        theDirectoryFilename = getFtpCommandArg("XMKD", data->clients[socketId].theCommandReceived, 0);
 
     cleanDynamicStringDataType(&mkdFileName, 1, &data->clients[socketId].memoryTable);
     isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
@@ -1270,7 +1273,12 @@ int parseCommandRmd(ftpDataType *data, int socketId)
     char *theDirectoryFilename;
     dynamicStringDataType rmdFileName;
 
-    theDirectoryFilename = getFtpCommandArg("RMD", data->clients[socketId].theCommandReceived, 0);
+    if(compareStringCaseInsensitive(data->clients[socketId].theCommandReceived, "RMD", strlen("RMD")) == 1)
+        theDirectoryFilename = getFtpCommandArg("RMD", data->clients[socketId].theCommandReceived, 0);
+    else if(compareStringCaseInsensitive(data->clients[socketId].theCommandReceived, "XRMD", strlen("XRMD")) == 1)
+        theDirectoryFilename = getFtpCommandArg("XRMD", data->clients[socketId].theCommandReceived, 0);
+
+
     cleanDynamicStringDataType(&rmdFileName, 1, &data->clients[socketId].memoryTable);
     isSafePath = getSafePath(&rmdFileName, theDirectoryFilename, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
 
