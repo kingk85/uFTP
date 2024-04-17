@@ -52,8 +52,6 @@
 #include "debugHelper.h"
 
 ftpDataType ftpData;
-
-
 pthread_t watchDogThread;
 
 static int processCommand(int processingElement);
@@ -157,9 +155,22 @@ void *connectionWorkerHandle(void * socketId)
     if (ftpData.clients[theSocketId].workerData.socketIsConnected == 0)
     {
         if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1 && ftpData.clients[theSocketId].workerData.extendedPassiveModeOn == 0)
-    	    returnCode = socketPrintf(&ftpData, theSocketId, "sdsdsdsdsdsds", "227 Entering Passive Mode (", ftpData.clients[theSocketId].serverIpAddressInteger[0], ",", ftpData.clients[theSocketId].serverIpAddressInteger[1], ",", ftpData.clients[theSocketId].serverIpAddressInteger[2], ",", ftpData.clients[theSocketId].serverIpAddressInteger[3], ",", (ftpData.clients[theSocketId].workerData.connectionPort / 256), ",", (ftpData.clients[theSocketId].workerData.connectionPort % 256), ")\r\n");
+        {
+            if(strnlen(ftpData.ftpParameters.natIpAddress, STRING_SZ_SMALL) > 0) 
+            {
+                my_printf("\n Using nat ip: %s", ftpData.ftpParameters.natIpAddress);
+    	        returnCode = socketPrintf(&ftpData, theSocketId, "sssdsds", "227 Entering Passive Mode (", ftpData.ftpParameters.natIpAddress, ",", (ftpData.clients[theSocketId].workerData.connectionPort / 256), ",", (ftpData.clients[theSocketId].workerData.connectionPort % 256), ")\r\n");
+            }
+            else
+            {
+                my_printf("\n Using server ip: %s", ftpData.ftpParameters.natIpAddress);
+                returnCode = socketPrintf(&ftpData, theSocketId, "sdsdsdsdsdsds", "227 Entering Passive Mode (", ftpData.clients[theSocketId].serverIpAddressInteger[0], ",", ftpData.clients[theSocketId].serverIpAddressInteger[1], ",", ftpData.clients[theSocketId].serverIpAddressInteger[2], ",", ftpData.clients[theSocketId].serverIpAddressInteger[3], ",", (ftpData.clients[theSocketId].workerData.connectionPort / 256), ",", (ftpData.clients[theSocketId].workerData.connectionPort % 256), ")\r\n");
+            }
+        }
         else if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1 && ftpData.clients[theSocketId].workerData.extendedPassiveModeOn == 1)
+        {
     	    returnCode = socketPrintf(&ftpData, theSocketId, "sds", "229 Entering Extended Passive Mode (|||", ftpData.clients[theSocketId].workerData.connectionPort, "|)\r\n");
+        }
         else
         {
             returnCode = -1;
@@ -994,21 +1005,21 @@ void deallocateMemory(void)
 //	my_printf("\nElement nextElement: %ld",(long int) ftpData.generalDynamicMemoryTable->nextElement);
 //	my_printf("\nElement previousElement: %ld",(long int) ftpData.generalDynamicMemoryTable->previousElement);
 
-	for (i = 0; i < ftpData.ftpParameters.maxClients; i++)
-	{
-		DYNMEM_freeAll(&ftpData.clients[i].memoryTable);
-		DYNMEM_freeAll(&ftpData.clients[i].workerData.memoryTable);
-	}
+    for (i = 0; i < ftpData.ftpParameters.maxClients; i++)
+    {
+        DYNMEM_freeAll(&ftpData.clients[i].memoryTable);
+        DYNMEM_freeAll(&ftpData.clients[i].workerData.memoryTable);
+    }
 
-	DYNMEM_freeAll(&ftpData.loginFailsVector.memoryTable);
-	DYNMEM_freeAll(&ftpData.ftpParameters.usersVector.memoryTable);
+    DYNMEM_freeAll(&ftpData.loginFailsVector.memoryTable);
+    DYNMEM_freeAll(&ftpData.ftpParameters.usersVector.memoryTable);
     DYNMEM_freeAll(&ftpData.generalDynamicMemoryTable);
 
     //my_printf("\n\nUsed memory at end: %lld", DYNMEM_GetTotalMemory());
 
     //my_printf("\n ftpData.generalDynamicMemoryTable = %ld", ftpData.generalDynamicMemoryTable);
-	#ifdef OPENSSL_ENABLED
+    #ifdef OPENSSL_ENABLED
     SSL_CTX_free(ftpData.serverCtx);
     cleanupOpenssl();
-	#endif
+    #endif
 }

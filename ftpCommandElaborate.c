@@ -313,56 +313,20 @@ int parseCommandSyst(ftpDataType *data, int socketId)
 int parseCommandFeat(ftpDataType *data, int socketId)
 {
     /*
-    211-Extensions supported:
-     EPRT
-     IDLE
-     MDTM
-     SIZE
-     MFMT
-     REST STREAM
-     MLST type*;size*;sizd*;modify*;UNIX.mode*;UNIX.uid*;UNIX.gid*;unique*;
-     MLSD
-     AUTH TLS
-     PBSZ
-     PROT
-     UTF8
-     TVFS
-     ESTA
-     PASV
-     EPSV
-     SPSV
-     ESTP
-    211 End.
-
-
-211-Extensions supported:
- EPRT
- IDLE
- MDTM
- SIZE
- MFMT
- REST STREAM
- MLST type*;size*;sizd*;modify*;UNIX.mode*;UNIX.uid*;UNIX.gid*;unique*;
- MLSD
- AUTH TLS
- PBSZ
- PROT
- UTF8
- TVFS
- ESTA
- PASV
- EPSV
- SPSV
- ESTP
-211 End.
+        FEAT
+        211-Features:
+        EPRT --> to be implemented
+        REST
+        TVFS
+        211 End
      */
 
     int returnCode;
 #ifdef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\nSIZE\r\nMDTM\r\nREST\r\n211 End.\r\n");
 #endif
 #ifndef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nUTF8\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nUTF8\r\nSIZE\r\nMDTM\r\nREST\r\n211 End.\r\n");
 #endif
     if (returnCode <= 0)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;

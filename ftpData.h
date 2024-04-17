@@ -40,6 +40,8 @@
 #include "library/dynamicMemory.h"
 
 
+#define STRING_SZ_SMALL                             100
+
 #define CLIENT_COMMAND_STRING_SIZE                  4096
 #define CLIENT_BUFFER_STRING_SIZE                   4096
 #define MAXIMUM_INODE_NAME							4096
@@ -100,6 +102,9 @@ struct ftpParameters
     /* If specified, use a port range for pasv connections */
     int connectionPortMin;
     int connectionPortMax;
+
+    char natIpAddress[STRING_SZ_SMALL];
+
 } typedef ftpParameters_DataType;
     
 struct dynamicStringData

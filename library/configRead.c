@@ -75,6 +75,7 @@ int searchUser(char *name, DYNV_VectorGenericDataType *usersVector)
     }
 
     return returnCode;
+
 }
 
 void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable_DataType **memoryTable)
@@ -82,6 +83,7 @@ void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable
     int returnCode = 0;
     DYNV_VectorGenericDataType configParameters;
     DYNV_VectorGeneric_Init(&configParameters);
+    memset(ftpParameters, 0, sizeof(ftpParameters_DataType));
 
     if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
     {
@@ -94,7 +96,7 @@ void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable
         returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters, memoryTable);
     }
 
-    if (returnCode == 1) 
+    if (returnCode == 1)
     {
         parseConfigurationFile(ftpParameters, &configParameters);
     }
@@ -402,7 +404,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
             userOwnerX[PARAMETER_SIZE_LIMIT], 
             groupOwnerX[PARAMETER_SIZE_LIMIT];
     
-    //my_printf("\nReading configuration settings..");
+    my_printf("\nReading configuration settings..");
     
     searchIndex = searchParameter("MAXIMUM_ALLOWED_FTP_CONNECTION", parametersVector);
     if (searchIndex != -1)
@@ -415,7 +417,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         ftpParameters->maxClients = 10;
         //my_printf("\nMAXIMUM_ALLOWED_FTP_CONNECTION parameter not found in the configuration file, using the default value: %d", ftpParameters->maxClients);
     }
-    
+
     searchIndex = searchParameter("MAX_CONNECTION_NUMBER_PER_IP", parametersVector);
     if (searchIndex != -1)
     {
@@ -505,6 +507,17 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     else
     {
         // my_printf("\FORCE_TLS parameter not found in the configuration file, using the default value: %d", ftpParameters->forceTLS);
+    }
+
+    searchIndex = searchParameter("SERVER_IP", parametersVector);
+    if (searchIndex != -1)
+    {
+        strncpy(&ftpParameters->natIpAddress, ((parameter_DataType *) parametersVector->Data[searchIndex])->value, STRING_SZ_SMALL);
+        my_printf("\n SERVER_IP parameter:%s", ftpParameters->natIpAddress);
+    }
+    else
+    {
+        my_printf("\n SERVER_IP parameter not found in the configuration file, using the server IP.");
     }
 
 
