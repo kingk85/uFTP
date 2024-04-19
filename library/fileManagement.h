@@ -60,7 +60,7 @@
     long long int FILE_GetFileSizeFromPath(char *TheFileName);
     int  FILE_IsFile(const char *theFileName);
     int  FILE_IsDirectory (char *directory_path);
-    void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * filesandfolders, int recursive, DYNMEM_MemoryTable_DataType ** memoryTable);
+    void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * filesandfolders, int recursive, char* commandOps, DYNMEM_MemoryTable_DataType ** memoryTable);
     int  FILE_GetDirectoryInodeCount(char * DirectoryInodeName);
     int  FILE_GetStringFromFile(char * filename, char **file_content, DYNMEM_MemoryTable_DataType ** memoryTable);
     void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *ParametersVector);

@@ -225,13 +225,17 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
 
 int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable)
 {
-
-
+    // a --> include . and ..
+    // A --> do not include . and ..
+    // nothing --> no hidden no . and no ..
     my_printf("\nFILE_GetDirectoryInodeList arg path: %s", ftpData->clients[clientId].listPath.text);
+    my_printf("\nftpData->clients[clientId].workerData.ftpCommand.commandArgs: %s", ftpData->clients[clientId].workerData.ftpCommand.commandArgs.text);
+    my_printf("\nftpData->clients[clientId].workerData.ftpCommand.commandOps: %s", ftpData->clients[clientId].workerData.ftpCommand.commandOps.text);
+
     int i, x, returnCode;
     int fileAndFoldersCount = 0;
     char **fileList = NULL;
-    FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0, memoryTable);
+    FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0, ftpData->clients[clientId].workerData.ftpCommand.commandOps.text, memoryTable);
     *filesNumber = fileAndFoldersCount;
 
     returnCode = socketWorkerPrintf(ftpData, clientId, "sds", "total ", fileAndFoldersCount ,"\r\n");
@@ -279,8 +283,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             //my_printf("\nNot a directory, not a file, broken link");
             continue;
         }
-        
-      
+
         //my_printf("\nFILE SIZE : %lld", data.fileSize);
 
         data.owner = FILE_GetOwner(fileList[i], memoryTable);
@@ -428,7 +431,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
     int i;
     int fileAndFoldersCount = 0;
     ftpListDataType data;
-    FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0, memoryTable);
+    FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0, "Z", memoryTable);
     
     //my_printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
     //fflush(0);
@@ -533,7 +536,6 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
 
 void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
 {
-
     int i;
     for (i = 0; i < theVector->Size; i++)
     {
@@ -576,7 +578,6 @@ void cancelWorker(ftpDataType *data, int clientId)
 
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 {
-
 	  my_printf("\nReset of worker id: %d", clientId);
       data->clients[clientId].workerData.connectionPort = 0;
       data->clients[clientId].workerData.passiveModeOn = 0;

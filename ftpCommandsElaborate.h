@@ -88,6 +88,8 @@ int parseCommandMdtm(ftpDataType * data, int socketId);
 int parseCommandOpts(ftpDataType * data, int socketId);
 int parseCommandRnfr(ftpDataType * data, int socketId);
 int parseCommandRnto(ftpDataType * data, int socketId);
+int parseCommandAcct(ftpDataType * data, int socketId);
+
 
 long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int startFrom, FILE *retrFP);
 char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs);

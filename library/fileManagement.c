@@ -202,41 +202,42 @@ int FILE_IsFile(const char *TheFileName)
     return 0;
 }
 
-void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive, DYNMEM_MemoryTable_DataType ** memoryTable)
+void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive, char * commandOps, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     int FileAndFolderIndex = *FilesandFolders;
     my_printf("\nLIST DETAILS OF: %s", DirectoryInodeName);
+    my_printf("\ncommandOps: %s", commandOps);
 
     //Allocate the array for the 1st time
     if (*InodeList == NULL)
     {
         (*InodeList) = (char **) DYNMEM_malloc(sizeof(char *), memoryTable, "InodeList");
     }
-
     
     if (FILE_IsDirectory(DirectoryInodeName))
     {
-        
-        
         DIR *TheDirectory;
         struct dirent *dir;
         TheDirectory = opendir(DirectoryInodeName);
         if (TheDirectory)
         {
-            
-            
             while ((dir = readdir(TheDirectory)) != NULL)
             {
-                if ( dir->d_name[0] == '.' && strlen(dir->d_name) == 1)
+
+                if ( dir->d_name[0] == '.' && strnlen(dir->d_name, 2) == 1)
                     continue;
 
-                if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strlen(dir->d_name) == 2)
+                if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strnlen(dir->d_name, 3) == 2)
                     continue;                                
+
+                //Skips all files and dir starting with .
+                if ((dir->d_name[0] == '.' && commandOps == NULL) || (dir->d_name[0] == '.' && commandOps[0] != 'a'  && commandOps[0] != 'A'))
+                    continue;
 
                 //Set the row to needed size
                 int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
                 (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, memoryTable);
-                size_t nsize = strlen(dir->d_name) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
+                size_t nsize = strnlen(dir->d_name, 256) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
                 //Allocate the path string size
                 (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize , memoryTable, "InodeList");
                 strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
@@ -248,7 +249,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
                 if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
                 {
-                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive, memoryTable);
+                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive, "Z", memoryTable);
                     FileAndFolderIndex = (*FilesandFolders);
                 }
 
@@ -291,10 +292,10 @@ int FILE_GetDirectoryInodeCount(char * DirectoryInodeName)
     {
         while ((dir = readdir(TheDirectory)) != NULL)
         {
-            if ( dir->d_name[0] == '.' && strlen(dir->d_name) == 1)
+            if ( dir->d_name[0] == '.' && strnlen(dir->d_name, 2) == 1)
                 continue;
 
-            if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strlen(dir->d_name) == 2)
+            if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strnlen(dir->d_name, 3) == 2)
                 continue;                                
 
             FileAndFolderIndex++;

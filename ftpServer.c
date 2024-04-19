@@ -289,38 +289,17 @@ void *connectionWorkerHandle(void * socketId)
     	my_printf("\nWorker %d is waiting for commands!", theSocketId);
         //Conditional lock on tconditionVariablehread actions
         pthread_mutex_lock(&ftpData.clients[theSocketId].conditionMutex);
-    	//int sleepTime = 1000;
         while (ftpData.clients[theSocketId].workerData.commandReceived == 0)
         {
-        	//usleep(sleepTime);
-        	//if (sleepTime < 200000)
-        	//{
-        		//sleepTime+= 1000;
-        	//}
             pthread_cond_wait(&ftpData.clients[theSocketId].conditionVariable, &ftpData.clients[theSocketId].conditionMutex);
         }
         pthread_mutex_unlock(&ftpData.clients[theSocketId].conditionMutex);
 
-        //my_printf("\nWorker %d unlocked", theSocketId);
 
         if (ftpData.clients[theSocketId].workerData.commandReceived == 1 &&
             (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "STOR", strlen("STOR")) == 1 || compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "APPE", strlen("APPE")) == 1) &&
             ftpData.clients[theSocketId].fileToStor.textLen > 0)
         {
-
-        	if ((checkParentDirectoryPermissions(ftpData.clients[theSocketId].fileToStor.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_W) != FILE_PERMISSION_W)
-        	{
-            	returnCode = socketPrintf(&ftpData, theSocketId, "s", "550 No permissions to write the file\r\n");
-
-                if (returnCode <= 0)
-                {
-                    ftpData.clients[theSocketId].closeTheClient = 1;
-                    my_printf("\n Closing the client 6");
-                    pthread_exit(NULL);
-                }
-
-                break;
-        	}
 
         	if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "APPE", strlen("APPE")) == 1)
         	{
@@ -438,18 +417,6 @@ void *connectionWorkerHandle(void * socketId)
           else if (compareStringCaseInsensitive(ftpData.clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1)
               theCommandType = COMMAND_TYPE_NLST;
 
-      	if ((checkUserFilePermissions(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
-          {
-              returnCode = socketPrintf(&ftpData, theSocketId, "s", "550 No permissions\r\n");
-              if (returnCode <= 0)
-              {
-                  ftpData.clients[theSocketId].closeTheClient = 1;
-                  my_printf("\n Closing the client 8");
-                  pthread_exit(NULL);
-              }
-              break;
-          }
-
           returnCode = socketPrintf(&ftpData, theSocketId, "s", "150 Accepted data connection\r\n");
           if (returnCode <= 0)
           {
@@ -458,7 +425,6 @@ void *connectionWorkerHandle(void * socketId)
               pthread_exit(NULL);
           }
 
-          //returnCode = writeListDataInfoToSocket(ftpData.clients[theSocketId].listPath.text, ftpData.clients[theSocketId].workerData.socketConnection, &theFiles, theCommandType);
           returnCode = writeListDataInfoToSocket(&ftpData, theSocketId, &theFiles, theCommandType, &ftpData.clients[theSocketId].workerData.memoryTable);
           if (returnCode <= 0)
           {
@@ -487,19 +453,6 @@ void *connectionWorkerHandle(void * socketId)
                 ftpData.clients[theSocketId].closeTheClient = 1;
                 my_printf("\n Closing the client 11");
                 pthread_exit(NULL);
-            }
-
-        	if ((checkUserFilePermissions(ftpData.clients[theSocketId].fileToRetr.text, ftpData.clients[theSocketId].login.ownerShip.uid, ftpData.clients[theSocketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
-            {
-                writeReturn = socketPrintf(&ftpData, theSocketId, "s", "550 no reading permission on the file\r\n");
-                if (writeReturn <= 0)
-                {
-                  ftpData.clients[theSocketId].closeTheClient = 1;
-                  my_printf("\n Closing the client 12");
-                  pthread_exit(NULL);
-                }
-
-                break;
             }
 
             writenSize = writeRetrFile(&ftpData, theSocketId, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
@@ -984,6 +937,11 @@ static int processCommand(int processingElement)
     {
         //my_printf("\nNOOP command received");
         toReturn = parseCommandNoop(&ftpData, processingElement);
+    }
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "ACCT", strlen("ACCT")) == 1)
+    {
+        //my_printf("\nNOOP command received");
+        toReturn = parseCommandAcct(&ftpData, processingElement);
     }
     else
     {

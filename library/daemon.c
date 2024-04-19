@@ -73,7 +73,7 @@ int isProcessAlreadyRunning(void)
     //my_printf("\nFILE_LockFile returnCode = %d", returnCode);    
     ftruncate(fd, 0);
     returnCode = snprintf(buf, 100, "%ld", (long)getpid());
-    returnCode = write(fd, buf, strlen(buf)+1);
+    returnCode = write(fd, buf, strnlen(buf, 100)+1);
     return 0;
 }
 
