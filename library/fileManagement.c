@@ -223,11 +223,12 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
         {
             while ((dir = readdir(TheDirectory)) != NULL)
             {
-
-                if ( dir->d_name[0] == '.' && strnlen(dir->d_name, 2) == 1)
+                //
+                if ((dir->d_name[0] == '.' && strnlen(dir->d_name, 2) == 1) && (commandOps == NULL || commandOps[0] != 'a'))
                     continue;
 
-                if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strnlen(dir->d_name, 3) == 2)
+                // 
+                if ((dir->d_name[0] == '.' && dir->d_name[1] == '.' && strnlen(dir->d_name, 3) == 2) && (commandOps == NULL || commandOps[0] != 'a'))
                     continue;                                
 
                 //Skips all files and dir starting with .

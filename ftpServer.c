@@ -843,6 +843,11 @@ static int processCommand(int processingElement)
         //my_printf("\nLIST COMMAND RECEIVED");
         toReturn = parseCommandList(&ftpData, processingElement);
     }
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "STAT", strlen("STAT")) == 1)
+    {
+        //my_printf("\nSTAT COMMAND RECEIVED");
+        toReturn = parseCommandStat(&ftpData, processingElement);
+    }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CDUP", strlen("CDUP")) == 1 ||
             compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "XCUP", strlen("XCUP")) == 1 ||
             compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CWD ..", strlen("CWD ..")) == 1)
