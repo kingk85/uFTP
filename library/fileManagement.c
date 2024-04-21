@@ -71,7 +71,6 @@ time_t convertToUTC(time_t inputTime)
     return utc_time;
 }
 
-
 int FILE_fdIsValid(int fd)
 {
     return fcntl(fd, F_GETFD);
@@ -89,7 +88,7 @@ int FILE_IsDirectory(char *DirectoryPath)
     {
         return 0;
     }
-    
+
     return 0;
 }
 
@@ -600,7 +599,6 @@ int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
 	return checkUserFilePermissions(theFileName, uid, gid);
 }
 
-
 int checkUserFilePermissions(char *fileName, int uid, int gid)
 {
 
@@ -689,7 +687,6 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
     
     return toReturn;
 }
-
 
 time_t FILE_GetLastModifiedData(char *path)
 {
@@ -848,7 +845,6 @@ void FILE_checkAllOpenedFD(void)
 			{
 				//my_printf("\n fd %d is dir", i);
 			}
-
 
 			openedFd++;
 		}

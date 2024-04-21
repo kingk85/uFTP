@@ -94,9 +94,10 @@ SSL_CTX *createClientContext(void)
     if (ctx == NULL)
     {
     	perror("Unable to create server SSL context");
-        ERR_print_errors_fp(stderr);
-        abort();
-        exit(0);
+      my_printfError("Unable to create server SSL context");
+      ERR_print_errors_fp(stderr);
+      abort();
+      exit(0);
     }
     return ctx;
 }

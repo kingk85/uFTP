@@ -363,13 +363,20 @@ int createSocket(ftpDataType * ftpData)
     int reuse = 1;
     
 #ifdef SO_REUSEADDR
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0) 
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+	}
+
 #endif
 
 #ifdef SO_REUSEPORT
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-        perror("setsockopt(SO_REUSEPORT) failed");
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+	}
 #endif
   //Bind socket
   errorCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
@@ -416,12 +423,18 @@ int createPassiveSocket(int port)
 
 #ifdef SO_REUSEADDR
    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+	}
 #endif
 
 #ifdef SO_REUSEPORT
    if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-       perror("setsockopt(SO_REUSEPORT) failed");
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+	}
 #endif
 
   //Bind socket
@@ -483,12 +496,18 @@ int createActiveSocket(int port, char *ipAddress)
   int reuse = 1;
 #ifdef SO_REUSEADDR
    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-        perror("setsockopt(SO_REUSEADDR) failed");
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+	}
 #endif
 
 #ifdef SO_REUSEPORT
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-       perror("setsockopt(SO_REUSEPORT) failed");
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+	}
 #endif
   
 

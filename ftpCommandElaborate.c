@@ -387,7 +387,7 @@ int parseCommandCcc(ftpDataType *data, int socketId)
 #endif
 
 #ifndef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "500 command not supported\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "502 command not supported\r\n");
 
     if (returnCode <= 0)
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
@@ -480,7 +480,7 @@ int parseCommandPasv(ftpDataType *data, int socketId)
 
     if (returnCode != 0)
     {
-        my_printf("\nError in pthread_create %d", returnCode);
+        my_printfError("\nError in pthread_create %d", returnCode);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -514,7 +514,7 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
 
     if (returnCode != 0)
     {
-        // my_printf("\nError in pthread_create %d", returnCode);
+        my_printfError("\nError in pthread_create %d", returnCode);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -552,7 +552,7 @@ int parseCommandPort(ftpDataType *data, int socketId)
 
     if (returnCode != 0)
     {
-        // my_printf("\nError in pthread_create %d", returnCode);
+        my_printfError("\nError in pthread_create %d", returnCode);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -679,38 +679,43 @@ int parseCommandList(ftpDataType *data, int socketId)
 int parseCommandStat(ftpDataType *data, int socketId)
 {
 
-    return FTP_COMMAND_NOT_RECONIZED;
-    /*
-      -A List all files except "." and ".."
-      -a List all files including those whose names start with "."
-      
-     */
-
     int isSafePath = 0;
     int returnCode = 0;
-    char *theNameToList;
+    char *theNameToList = NULL;
+    int theFiles;
 
-    if(!data->clients[socketId].workerData.socketIsReadyForConnection)
+    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0, &data->clients[socketId].workerData.memoryTable);
+    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0, &data->clients[socketId].workerData.memoryTable);
+
+    theNameToList = getFtpCommandArg("STAT", data->clients[socketId].theCommandReceived, 1);
+    getFtpCommandArgWithOptions("STAT", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand, &data->clients[socketId].workerData.memoryTable);
+
+    if (strnlen(theNameToList, 1) == 0)
     {
-        returnCode = socketPrintf(data, socketId, "s", "425 Use PORT or PASV first.\r\n");
-        
+        my_printf("\nNo stat argument");
+        returnCode = socketPrintf(data, socketId, "sssssdsss",
+                                    "211-FTP server status:\r\n",
+                                    "     Logged in as ", 
+                                    data->clients[socketId].login.name.text,
+                                    "\r\n",
+                                    "     Session timeout in seconds is ",
+                                    data->ftpParameters.maximumIdleInactivity,
+                                    "\r\n",
+                                    "     uFTP "UFTP_SERVER_VERSION"\r\n",
+                                    "211 End of status\r\n"
+        );
+
         if (returnCode <= 0)
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
 
         return FTP_COMMAND_PROCESSED;
     }
 
-    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandArgs, 0, &data->clients[socketId].workerData.memoryTable);
-    cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0, &data->clients[socketId].workerData.memoryTable);
-
-    theNameToList = getFtpCommandArg("LIST", data->clients[socketId].theCommandReceived, 1);
-    getFtpCommandArgWithOptions("LIST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand, &data->clients[socketId].workerData.memoryTable);
-
 
     if (data->clients[socketId].workerData.ftpCommand.commandArgs.text != NULL)
-	    my_printf("\nLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
+	    my_printf("\nSTAT COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
     if (data->clients[socketId].workerData.ftpCommand.commandOps.text != NULL)
-        my_printf("\nLIST COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
+        my_printf("\nSTAT COMMAND OPS: %s", data->clients[socketId].workerData.ftpCommand.commandOps.text);
 
 
     cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
@@ -723,12 +728,15 @@ int parseCommandStat(ftpDataType *data, int socketId)
     if (isSafePath == 0)
     {
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);       
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
+        returnCode = socketPrintf(data, socketId, "s", "550 wrong path\r\n");
+        if (returnCode <= 0)
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
     if(FILE_IsDirectory(data->clients[socketId].listPath.text) == 0 && FILE_IsFile(data->clients[socketId].listPath.text) == 0)
     {
-        my_printf("\nLIST path not file or directoy: %s ", data->clients[socketId].listPath.text);
+        my_printf("\nSTAT path not file or directoy: %s ", data->clients[socketId].listPath.text);
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
         returnCode = socketPrintf(data, socketId, "s", "550 wrong path\r\n");
@@ -751,12 +759,23 @@ int parseCommandStat(ftpDataType *data, int socketId)
         return FTP_COMMAND_PROCESSED;
     }
 
-    pthread_mutex_lock(&data->clients[socketId].conditionMutex);
-    memset(data->clients[socketId].workerData.theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
-    strncpy(data->clients[socketId].workerData.theCommandReceived, data->clients[socketId].theCommandReceived, CLIENT_COMMAND_STRING_SIZE);
-    data->clients[socketId].workerData.commandReceived = 1;
-    pthread_cond_signal(&data->clients[socketId].conditionVariable);
-    pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+    returnCode = socketPrintf(data, socketId, "s", "213-Status follow:\r\n");
+    if (returnCode <= 0)
+    {
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    returnCode = writeListDataInfoToSocket(data, socketId, &theFiles, COMMAND_TYPE_STAT, &data->clients[socketId].workerData.memoryTable);
+    if (returnCode <= 0)
+    {
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    returnCode = socketPrintf(data, socketId, "sds", "213 End of status ", theFiles, " matches total\r\n");
+    if (returnCode <= 0)
+    {
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
 
     return FTP_COMMAND_PROCESSED;
 }
@@ -1078,7 +1097,7 @@ int parseCommandCwd(ftpDataType *data, int socketId)
             }
             else
             {
-                returnCode = socketPrintf(data, socketId, "sss", "530 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": no permissions\r\n");
+                returnCode = socketPrintf(data, socketId, "sss", "550 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": no permissions\r\n");
 
                 if (returnCode <= 0)
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;        
@@ -1089,7 +1108,7 @@ int parseCommandCwd(ftpDataType *data, int socketId)
         }
         else
         {
-            returnCode = socketPrintf(data, socketId, "sss", "530 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": No such file or directory\r\n");
+            returnCode = socketPrintf(data, socketId, "sss", "550 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": No such file or directory\r\n");
 
             if (returnCode <= 0)
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;         
@@ -1177,8 +1196,11 @@ int parseCommandMkd(ftpDataType *data, int socketId)
     else if (compareStringCaseInsensitive(data->clients[socketId].theCommandReceived, "XMKD", strlen("XMKD")) == 1)
         theDirectoryFilename = getFtpCommandArg("XMKD", data->clients[socketId].theCommandReceived, 0);
 
+    my_printf("\ntheDirectoryFilename mkd: %s", theDirectoryFilename);
+
     cleanDynamicStringDataType(&mkdFileName, 1, &data->clients[socketId].memoryTable);
     isSafePath = getSafePath(&mkdFileName, theDirectoryFilename, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
+    my_printf("\nmkdFileName.text: %s", mkdFileName.text);
 
     if (isSafePath == 1)
     {

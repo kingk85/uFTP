@@ -31,6 +31,7 @@
 #include <pthread.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
@@ -41,6 +42,59 @@
 #include "library/dynamicMemory.h"
 
 #include "debugHelper.h"
+
+static int is_prefix(const char *str, const char *prefix);
+static char *my_realpath(const char *path, char *resolved_path);
+
+static char *my_realpath(const char *path, char *resolved_path) 
+{
+    char temp[PATH_MAX];
+    char *token;
+    char *rest = NULL;
+
+    // Check if the path is absolute or relative
+    if (path[0] == '/') 
+    {
+        strcpy(temp, path);
+    } 
+    else 
+    {
+        my_printfError("getcwd");
+        return NULL;
+    }
+
+    // Process tokens separated by '/'
+    token = strtok_r(temp, "/", &rest);
+    while (token != NULL) 
+    {
+        if (strcmp(token, "..") == 0) 
+        {
+            // Remove the last directory if it's not the root directory
+            char *last_slash = strrchr(resolved_path, '/');
+            if (last_slash != NULL) {
+                *last_slash = '\0';
+            }
+        }
+        else if (strcmp(token, ".") != 0) 
+        {
+            // Add valid token to the resolved path
+            strcat(resolved_path, "/");
+            strcat(resolved_path, token);
+        }
+        token = strtok_r(NULL, "/", &rest);
+    }
+
+    return resolved_path;
+}
+
+static int is_prefix(const char *str, const char *prefix) {
+  int i = 0;
+  while (prefix[i] && str[i] && prefix[i] == str[i]) {
+    i++;
+  }
+  // Check if prefix ended and characters in str matched till then
+  return prefix[i] == '\0';
+}
 
 void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init, DYNMEM_MemoryTable_DataType **memoryTable)
 {
@@ -96,90 +150,89 @@ void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theStr
 
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *loginData, DYNMEM_MemoryTable_DataType **memoryTable)
 {
-	#define STRING_SIZE		4096
-    size_t theLen, i;
+    size_t theLen;
     char * theDirectoryNamePointer;
     theDirectoryNamePointer = theDirectoryName;
-    
+    char theDirectoryToCheck[PATH_MAX];
+    int theDirectoryToCheckIndex = 0;
+    char resolved_path[PATH_MAX];
+    char resolved_path_abs[PATH_MAX];
+
+    memset(theDirectoryToCheck, 0, PATH_MAX);    
+    memset(resolved_path, 0, PATH_MAX);
+    memset(resolved_path_abs, 0, PATH_MAX);
+
+    //No name provided return false
     if (theDirectoryName == NULL)
         return 0;
     
-    theLen = strlen(theDirectoryName);
-    
+    theLen = strnlen(theDirectoryName, PATH_MAX);
+
+    //Not a string
     if (theLen <= 0)
         return 0;
-    
-    if (theLen == 2 &&
-        theDirectoryName[0] == '.' &&
-        theDirectoryName[1] == '.')
-        {
-        return 0;
-        }
-    
-    if (theLen == 3 &&
-        ((theDirectoryName[0] == '.' &&
-          theDirectoryName[1] == '.' &&
-          theDirectoryName[2] == '/') ||
-         (theDirectoryName[0] == '/' &&
-          theDirectoryName[1] == '.' &&
-          theDirectoryName[2] == '.')
-         )
-        )
-        {
-        return 0;
-        }
 
-    //Check for /../
-    char theDirectoryToCheck[STRING_SIZE];
-    int theDirectoryToCheckIndex = 0;
-    memset(theDirectoryToCheck, 0, STRING_SIZE);
-    
-    for (i = 0; i< theLen; i++)
-    {
-        if (theDirectoryName[i] == '/')
-        {
-        if (theDirectoryToCheckIndex == 2 &&
-            theDirectoryToCheck[0] == '.' &&
-            theDirectoryToCheck[1] == '.')
-            {
-            return 0;
-            }
-
-        theDirectoryToCheckIndex = 0;
-        memset(theDirectoryToCheck, 0, STRING_SIZE);
-        continue;
-        }
-        
-        if (theDirectoryToCheckIndex<STRING_SIZE)
-            {
-            theDirectoryToCheck[theDirectoryToCheckIndex++] = theDirectoryName[i];
-            }
-        else
-            return 0; /* Directory size too long */
-    }
-    
+    my_printf("\ninput: %s", theDirectoryName);
+    //Absolute path set in the request, start from home directory
     if (theDirectoryName[0] == '/')
     {
         while (theDirectoryNamePointer[0] == '/')
             theDirectoryNamePointer++;
 
-        //my_printf("\nMemory data address 2nd call : %lld", memoryTable);
-        setDynamicStringDataType(safePath, loginData->homePath.text, loginData->homePath.textLen, memoryTable);
-        //my_printf("\nMemory data address 3rd call : %lld", memoryTable);
-        appendToDynamicStringDataType(safePath, theDirectoryNamePointer, strlen(theDirectoryNamePointer), memoryTable);
+        //Absolute requests must start from home path
+        strncpy(theDirectoryToCheck, loginData->homePath.text, PATH_MAX);
+        strncat(theDirectoryToCheck, theDirectoryNamePointer, PATH_MAX);
+        my_printf("\nAbsolute string: %s", theDirectoryToCheck);
     }
     else
     {
-        setDynamicStringDataType(safePath, loginData->absolutePath.text, loginData->absolutePath.textLen, memoryTable);
+        //Relative directory, start from the current path
+        strncpy(theDirectoryToCheck, loginData->absolutePath.text, PATH_MAX);
 
         if (loginData->absolutePath.text[loginData->absolutePath.textLen-1] != '/')
         {
-            appendToDynamicStringDataType(safePath, "/", 1, memoryTable);
+            strncat(theDirectoryToCheck, "/", PATH_MAX);
         }
-        
-        appendToDynamicStringDataType(safePath, theDirectoryName, strlen(theDirectoryName), memoryTable);
+
+        strncat(theDirectoryToCheck, theDirectoryNamePointer, PATH_MAX);
+        my_printf("\nRelative string: %s", theDirectoryToCheck);
     }
-    
+
+    my_printf("\nrealpath input: %s", theDirectoryToCheck);
+    if (strnlen(theDirectoryToCheck, 2) == 1 && theDirectoryToCheck[0] == '/')
+    {
+        setDynamicStringDataType(safePath, theDirectoryToCheck, strnlen(theDirectoryToCheck, PATH_MAX), memoryTable);
+        return 1;
+    }
+
+    char* real_path = my_realpath(theDirectoryToCheck, resolved_path);
+    if (real_path)
+    {
+        my_printf("\nResolved path: %s\n", real_path);
+        my_printf("\nCheck if home path: %s\n", loginData->homePath.text);
+        my_printf("\nIs in resolved path: %s\n", real_path);
+
+        char* real_path_abs = my_realpath(loginData->homePath.text, resolved_path_abs);
+
+        //Check if the home path is still set
+        if (is_prefix(real_path, real_path_abs))
+        {
+            my_printf("\nCheck ok");
+            setDynamicStringDataType(safePath, real_path, strnlen(real_path, PATH_MAX), memoryTable);
+        }
+        else
+        {
+            my_printfError("\nPath check error: %s check if is in: %s",loginData->homePath.text, real_path);
+            return 0;
+        }
+    }
+    else 
+    {
+        my_printfError("\nRealpath error input %s", theDirectoryName);
+        my_printfError("\ntheDirectoryToCheck error input %s", theDirectoryToCheck);
+        return 0;
+    }
+
     return 1;
 }
 
@@ -238,10 +291,13 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
     FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0, ftpData->clients[clientId].workerData.ftpCommand.commandOps.text, memoryTable);
     *filesNumber = fileAndFoldersCount;
 
-    returnCode = socketWorkerPrintf(ftpData, clientId, "sds", "total ", fileAndFoldersCount ,"\r\n");
-    if (returnCode <= 0)
+    if (commandType != COMMAND_TYPE_STAT)
     {
-        return -1;
+        returnCode = socketWorkerPrintf(ftpData, clientId, "sds", "total ", fileAndFoldersCount ,"\r\n");
+        if (returnCode <= 0)
+        {
+            return -1;
+        }
     }
     
     for (i = 0; i < fileAndFoldersCount; i++)
@@ -359,6 +415,35 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             }
             break;
 
+            case COMMAND_TYPE_STAT:
+            {
+            			returnCode = socketPrintf(ftpData, clientId, "ssdssssslsssss",
+                        data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
+                        ," "
+                        ,data.numberOfSubDirectories
+                        ," "
+                        ,data.owner == NULL? "Unknown" : data.owner
+						," "
+                        ,data.groupOwner == NULL? "Unknown" : data.groupOwner
+						," "
+                        ,data.fileSize
+                        ," "
+                        ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
+						," "
+                        ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath
+						,"\r\n");
+            		/*
+                returnCode = dprintf(theSocket, "%s %d %s %s %lld %s %s\r\n", 
+                data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
+                ,data.numberOfSubDirectories
+                ,data.owner == NULL? "Unknown" : data.owner
+                ,data.groupOwner == NULL? "Unknown" : data.groupOwner
+                ,data.fileSize
+                ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
+                ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath);
+                */
+            }
+            break;
             
             default:
             {
@@ -775,6 +860,9 @@ int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLe
             return 0;
         }
     }
+
+    if (stringIn[i] != '\0' &&stringIn[i] != ' ')
+        return 0;
 
     return 1;
 }

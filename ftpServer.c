@@ -174,7 +174,7 @@ void *connectionWorkerHandle(void * socketId)
         else
         {
             returnCode = -1;
-            my_printf("\nUnknown passive state, should be PASV or EPSV");
+            my_printfError("\nUnknown passive state, should be PASV or EPSV");
             perror("Unknown passive state, should be PASV or EPSV");
         }
 
@@ -653,7 +653,7 @@ void runFtpServer(void)
             if (ftpData.clients[processingSock].bufferIndex < 0)
             {
                 //ftpData.clients[processingSock].closeTheClient = 1;
-                my_printf("\n1 Errno = %d", errno);
+                my_printfError("\n1 Errno = %d", errno);
                 perror("1 Error: ");
                 continue;
             }
@@ -845,7 +845,7 @@ static int processCommand(int processingElement)
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "STAT", strlen("STAT")) == 1)
     {
-        //my_printf("\nSTAT COMMAND RECEIVED");
+        my_printf("\nSTAT COMMAND RECEIVED");
         toReturn = parseCommandStat(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "CDUP", strlen("CDUP")) == 1 ||

@@ -50,6 +50,7 @@
 
 #define COMMAND_TYPE_LIST                           0
 #define COMMAND_TYPE_NLST                           1
+#define COMMAND_TYPE_STAT                           2
 #define WRONG_PASSWORD_ALLOWED_RETRY_TIME           60
 
 #ifdef __cplusplus
