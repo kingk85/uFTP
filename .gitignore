@@ -3,3 +3,5 @@
 
 #Ignore binary 
 build/uFTP
+test
+test.c

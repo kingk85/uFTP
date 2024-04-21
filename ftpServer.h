@@ -27,7 +27,7 @@
 #define FTPSERVER_H
 
 #define MAX_FTP_CLIENTS                 10
-#define UFTP_SERVER_VERSION             "v2.3.0 RC2"
+#define UFTP_SERVER_VERSION             "v2.4.0 RC3"
 
 
 void runFtpServer(void);
