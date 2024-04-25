@@ -2,6 +2,7 @@ About uFTP
 
 uFTP is a light FTP server designed for servers and embedded arm devices, is provided under MIT license terms.
 Visit the official project website to obtain more information: http://www.uftpserver.com/
+Read the detailed wiki https://www.uftpserver.com/wiki/ 
 
 This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org)
 
