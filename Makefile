@@ -13,7 +13,7 @@ SOURCE_MODULES_PATH=./library/
 
 ENDFLAG=
 #uncomment next line to compile static no libc required, 
-ENDFLAG=-static
+#ENDFLAG=-static
 
 #FOR RELEASE
 CFLAGSTEMP=-c -Wall -I.
