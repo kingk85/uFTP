@@ -711,5 +711,31 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         ftpParameters->usersVector.PushBack(&ftpParameters->usersVector, &userData, sizeof(usersParameters_DataType));
     }
 
+    // parse the blocked user list
+    userIndex = 0;
+    memset(userX, 0, PARAMETER_SIZE_LIMIT);
+    DYNV_VectorString_Init(&ftpParameters->blockedUsersVector);
+    while(1)
+    {
+        int searchUserIndex, returnCode;
+        returnCode = snprintf(userX, PARAMETER_SIZE_LIMIT, "BLOCK_USER_%d", userIndex);
+        userIndex++;
+
+        searchUserIndex = searchParameter(userX, parametersVector);
+
+        if (searchUserIndex == -1)
+        {
+            break;
+        }
+
+        my_printf("\nAdd blocked user = %s", ((parameter_DataType *) parametersVector->Data[searchUserIndex])->value);
+        ftpParameters->blockedUsersVector.PushBack(&ftpParameters->blockedUsersVector, ((parameter_DataType *) parametersVector->Data[searchUserIndex])->value, strnlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value, PARAMETER_SIZE_LIMIT));
+    }
+
+    for (int i = 0; i < ftpParameters->blockedUsersVector.Size; i++) 
+    {
+        my_printf("\n User %s is blocked", ftpParameters->blockedUsersVector.Data[i]);
+    }
+
     return 1;
 }

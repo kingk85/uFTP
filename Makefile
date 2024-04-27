@@ -3,6 +3,7 @@ CC=gcc
 
 #uncomment next line to compile with musl, suitable for statical compile
 #CC=musl-gcc
+#CC=/opt/cross/bin/arm-linux-musleabihf-gcc
 
 OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
@@ -12,7 +13,7 @@ SOURCE_MODULES_PATH=./library/
 
 ENDFLAG=
 #uncomment next line to compile static no libc required, 
-#ENDFLAG=-static
+ENDFLAG=-static
 
 #FOR RELEASE
 CFLAGSTEMP=-c -Wall -I.

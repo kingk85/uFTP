@@ -63,8 +63,28 @@ int parseCommandUser(ftpDataType * data, int socketId)
 	{
 		if (strnlen(theUserName, 1) >= 1)
 		{
-			setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName), &data->clients[socketId].memoryTable);
-			returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
+            int userIsBlocked = 0;
+
+            // check if the user is blocked
+            for(int i = 0; i < data->ftpParameters.blockedUsersVector.Size; i++)
+            {
+                if(strncmp(theUserName, data->ftpParameters.blockedUsersVector.Data[i], CLIENT_COMMAND_STRING_SIZE-6) == 0)
+                {
+                    userIsBlocked = 1;
+                    break;
+                }
+            }
+
+            if (userIsBlocked == 0)
+            {
+                setDynamicStringDataType(&data->clients[socketId].login.name, theUserName, strlen(theUserName), &data->clients[socketId].memoryTable);
+                returnCode = socketPrintf(data, socketId, "s", "331 User ok, Waiting for the password.\r\n");
+            }
+            else
+            {
+                returnCode = socketPrintf(data, socketId, "s", "430 User is blocked.\r\n");
+            }
+
 		}
 		else
 		{

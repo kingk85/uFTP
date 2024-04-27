@@ -92,6 +92,7 @@ struct ftpParameters
     int daemonModeOn;
     int singleInstanceModeOn;
     DYNV_VectorGenericDataType usersVector;
+    DYNV_VectorString_DataType blockedUsersVector;
     int maximumIdleInactivity;
     int maximumConnectionsPerIp;
     int maximumUserAndPassowrdLoginTries;
