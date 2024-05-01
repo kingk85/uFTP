@@ -1,18 +1,18 @@
 /*
  * The MIT License
- *
+ * 
  * Copyright 2018 Ugo Cirmignani.
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * 
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,7 +21,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 
 #include <string.h>
 #include <stdio.h>
@@ -36,6 +35,7 @@
 #include "ftpServer.h"
 #include "ftpCommandsElaborate.h"
 #include "ftpData.h"
+
 #include "library/configRead.h"
 #include "library/fileManagement.h"
 #include "library/connection.h"
@@ -60,6 +60,7 @@ static char *my_realpath(const char *path, char *resolved_path)
     else 
     {
         my_printfError("getcwd");
+        addLog("getcwd error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
         return NULL;
     }
 
@@ -223,11 +224,13 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
         else
         {
             my_printfError("\nPath check error: %s check if is in: %s",loginData->homePath.text, real_path);
+            addLog("Path check error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
             return 0;
         }
     }
     else 
     {
+        addLog("Realpath error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
         my_printfError("\nRealpath error input %s", theDirectoryName);
         my_printfError("\ntheDirectoryToCheck error input %s", theDirectoryToCheck);
         return 0;
@@ -288,7 +291,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
     int i, x, returnCode;
     int fileAndFoldersCount = 0;
     char **fileList = NULL;
-    FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0, ftpData->clients[clientId].workerData.ftpCommand.commandOps.text, memoryTable);
+    FILE_GetDirectoryInodeList(ftpData->clients[clientId].listPath.text, &fileList, &fileAndFoldersCount, 0, ftpData->clients[clientId].workerData.ftpCommand.commandOps.text, 0, memoryTable);
     *filesNumber = fileAndFoldersCount;
 
     if (commandType != COMMAND_TYPE_STAT)
@@ -299,7 +302,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             return -1;
         }
     }
-    
+
     for (i = 0; i < fileAndFoldersCount; i++)
     {
         ftpListDataType data;
@@ -312,35 +315,37 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         data.isFile = 0;
         data.isDirectory = 0;
 
-        //my_printf("\nPROCESSING: %s", fileList[i]);
-        
-        if (FILE_IsDirectory(fileList[i]) == 1)
+        if (FILE_IsDirectory(fileList[i], 0) == 1)
         {
-            //my_printf("\nis directory");
-            //fflush(0);
             data.isDirectory = 1;
             data.isFile = 0;
             data.isLink = 0;
             data.fileSize = 4096;
             data.numberOfSubDirectories = FILE_GetDirectoryInodeCount(fileList[i]);
         }
-        else if (FILE_IsFile(fileList[i]) == 1)
+        else if (FILE_IsFile(fileList[i], 0) == 1)
         {
-            //my_printf("\nis file");
-            //fflush(0);
             data.isDirectory = 0;
             data.isFile = 1;
             data.isLink = 0;
             data.numberOfSubDirectories = 1; /* to Do*/
             data.fileSize = FILE_GetFileSizeFromPath(fileList[i]);
         }
-        if (data.isDirectory == 0 && data.isFile == 0)
+        else if (FILE_IsLink(fileList[i]) == 1)
         {
-            //my_printf("\nNot a directory, not a file, broken link");
-            continue;
+            //List broken links
+            data.isLink = 1;
+            my_printf("\n%s **************************** neither a file or dir is link", fileList[i]);
+        }
+        else
+        {
+            my_printf("\n%s **************************************** inode not recognized", fileList[i]);
         }
 
-        //my_printf("\nFILE SIZE : %lld", data.fileSize);
+        if (data.isDirectory == 0 && data.isFile == 0 && data.isLink == 0)
+        {
+            continue;
+        }
 
         data.owner = FILE_GetOwner(fileList[i], memoryTable);
         data.groupOwner = FILE_GetGroupOwner(fileList[i], memoryTable);
@@ -354,8 +359,17 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, memoryTable, "dataFinalPath");
             strcpy(data.finalStringPath, data.fileNameNoPath);
         }
-        
-        if (data.inodePermissionString != NULL &&
+
+        if (data.isLink == 1)
+        {
+            if(data.inodePermissionString != NULL)
+                my_printf("\n ************************** data.inodePermissionString = %s", data.inodePermissionString);
+            else
+                my_printf("\n ********************** void inode permission string");
+        }
+
+        if (data.isLink = 1 &&
+            data.inodePermissionString != NULL &&
             strlen(data.inodePermissionString) > 0 &&
             data.inodePermissionString[0] == 'l')
             {
@@ -381,21 +395,21 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         {
             case COMMAND_TYPE_LIST:
             {
-            			returnCode = socketWorkerPrintf(ftpData, clientId, "ssdssssslsssss",
-                        data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
-                        ," "
-                        ,data.numberOfSubDirectories
-                        ," "
-                        ,data.owner == NULL? "Unknown" : data.owner
-						," "
-                        ,data.groupOwner == NULL? "Unknown" : data.groupOwner
-						," "
-                        ,data.fileSize
-                        ," "
-                        ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
-						," "
-                        ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath
-						,"\r\n");
+                returnCode = socketWorkerPrintf(ftpData, clientId, "ssdssssslsssss",
+                data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
+                ," "
+                ,data.numberOfSubDirectories
+                ," "
+                ,data.owner == NULL? "Unknown" : data.owner
+                ," "
+                ,data.groupOwner == NULL? "Unknown" : data.groupOwner
+                ," "
+                ,data.fileSize
+                ," "
+                ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
+                ," "
+                ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath
+                ,"\r\n");
             		/*
                 returnCode = dprintf(theSocket, "%s %d %s %s %lld %s %s\r\n", 
                 data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
@@ -417,21 +431,21 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
 
             case COMMAND_TYPE_STAT:
             {
-            			returnCode = socketPrintf(ftpData, clientId, "ssdssssslsssss",
-                        data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
-                        ," "
-                        ,data.numberOfSubDirectories
-                        ," "
-                        ,data.owner == NULL? "Unknown" : data.owner
-						," "
-                        ,data.groupOwner == NULL? "Unknown" : data.groupOwner
-						," "
-                        ,data.fileSize
-                        ," "
-                        ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
-						," "
-                        ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath
-						,"\r\n");
+                returnCode = socketPrintf(ftpData, clientId, "ssdssssslsssss",
+                data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
+                ," "
+                ,data.numberOfSubDirectories
+                ," "
+                ,data.owner == NULL? "Unknown" : data.owner
+                ," "
+                ,data.groupOwner == NULL? "Unknown" : data.groupOwner
+                ," "
+                ,data.fileSize
+                ," "
+                ,data.lastModifiedDataString == NULL? "Unknown" : data.lastModifiedDataString
+                ," "
+                ,data.finalStringPath == NULL? "Unknown" : data.finalStringPath
+                ,"\r\n");
             		/*
                 returnCode = dprintf(theSocket, "%s %d %s %s %lld %s %s\r\n", 
                 data.inodePermissionString == NULL? "Unknown" : data.inodePermissionString
@@ -516,7 +530,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
     int i;
     int fileAndFoldersCount = 0;
     ftpListDataType data;
-    FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0, "Z", memoryTable);
+    FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0, "Z", 0, memoryTable);
     
     //my_printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
     //fflush(0);
@@ -538,7 +552,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
         //my_printf("\nPROCESSING: %s", data.fileList[i]);
         //fflush(0);
         
-        if (FILE_IsDirectory(data.fileList[i]) == 1)
+        if (FILE_IsDirectory(data.fileList[i], 0) == 1)
         {
             //my_printf("\nis file");
             //fflush(0);
@@ -547,7 +561,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
             data.isLink = 0;
             data.fileSize = 4096;
         }
-        else if (FILE_IsFile(data.fileList[i]) == 1)
+        else if (FILE_IsFile(data.fileList[i], 0) == 1)
         {
             //my_printf("\nis file");
             //fflush(0);
@@ -791,7 +805,6 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].closeTheClient = 0;
     data->clients[clientId].sockaddr_in_size = sizeof(struct sockaddr_in);
     data->clients[clientId].sockaddr_in_server_size = sizeof(struct sockaddr_in);
-    
     data->clients[clientId].serverIpAddressInteger[0] = 0;
     data->clients[clientId].serverIpAddressInteger[1] = 0;
     data->clients[clientId].serverIpAddressInteger[2] = 0;

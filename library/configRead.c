@@ -85,12 +85,12 @@ void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable
     DYNV_VectorGeneric_Init(&configParameters);
     memset(ftpParameters, 0, sizeof(ftpParameters_DataType));
 
-    if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME) == 1)
+    if (FILE_IsFile(LOCAL_CONFIGURATION_FILENAME, 1) == 1)
     {
         my_printf("\nReading configuration from \n -> %s \n", LOCAL_CONFIGURATION_FILENAME);
         returnCode = readConfigurationFile(LOCAL_CONFIGURATION_FILENAME, &configParameters, memoryTable);
     }
-    else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME) == 1)
+    else if (FILE_IsFile(DEFAULT_CONFIGURATION_FILENAME, 1) == 1)
     {
         my_printf("\nReading configuration from \n -> %s\n", DEFAULT_CONFIGURATION_FILENAME);
         returnCode = readConfigurationFile(DEFAULT_CONFIGURATION_FILENAME, &configParameters, memoryTable);
@@ -441,9 +441,25 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         ftpParameters->maximumUserAndPassowrdLoginTries = 3;
         //my_printf("\nMAX_CONNECTION_TRY_PER_IP parameter not found in the configuration file, using the default value: %d", ftpParameters->maximumUserAndPassowrdLoginTries);
     }
-    
 
-    
+    searchIndex = searchParameter("MAXIMUM_LOG_FILES", parametersVector);
+    if (searchIndex != -1)
+    {
+        ftpParameters->maximumLogFileCount = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        my_printf("\n ftpParameters->maximumLogFileCount %d", ftpParameters->maximumLogFileCount);
+    }
+    else
+    {
+        ftpParameters->maximumLogFileCount = 30;
+    }
+
+    searchIndex = searchParameter("LOG_FOLDER", parametersVector);
+    if (searchIndex != -1)
+    {
+        strcpy(ftpParameters->logFolder, ((parameter_DataType *)parametersVector->Data[searchIndex])->value);
+        my_printf("\n ftpParameters->logFolder %s", ftpParameters->logFolder);
+    }
+
     searchIndex = searchParameter("FTP_PORT", parametersVector);
     if (searchIndex != -1)
     {

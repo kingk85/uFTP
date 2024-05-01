@@ -56,6 +56,7 @@ static void ignore_sigpipe(void)
     {
         perror("Could not ignore the SIGPIPE signal");
         my_printfError("Could not ignore the SIGPIPE signal");
+        addLog("Could not ignore the SIGPIPE signal", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
         exit(0);
     }
 }

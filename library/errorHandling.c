@@ -19,7 +19,7 @@ void report_error(const char *msg, const char *file, int line_no, int use_perror
 	if(use_perror != 0)
 	{
 		perror(msg);
-		my_printfError("perror");		
+		my_printfError("perror");
 	}
 	else
 	{

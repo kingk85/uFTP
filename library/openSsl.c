@@ -95,6 +95,7 @@ SSL_CTX *createClientContext(void)
     {
     	perror("Unable to create server SSL context");
       my_printfError("Unable to create server SSL context");
+      addLog("Unable to create server SSL context", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
       ERR_print_errors_fp(stderr);
       abort();
       exit(0);
@@ -131,13 +132,13 @@ void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCe
 
 void configureContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath)
 {
-	if (FILE_IsFile(certificatePath) != 1)
+	if (FILE_IsFile(certificatePath, 1) != 1)
 	{
 		my_printf("\ncertificate file: %s not found!", certificatePath);
 		exit(0);
 	}
 
-	if (FILE_IsFile(privateCertificatePath) != 1)
+	if (FILE_IsFile(privateCertificatePath, 1) != 1)
 	{
 		my_printf("\ncertificate file: %s not found!", privateCertificatePath);
 		exit(0);

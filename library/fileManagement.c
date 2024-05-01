@@ -76,9 +76,23 @@ int FILE_fdIsValid(int fd)
     return fcntl(fd, F_GETFD);
 }
 
-/* Check if inode is a directory */
-int FILE_IsDirectory(char *DirectoryPath)
+int FILE_CheckIfLinkExist(char * filename)
 {
+
+  if (access(filename, F_OK) == 0) 
+  {
+    return 1;
+  }
+
+    return 0;
+}
+
+/* Check if inode is a directory */
+int FILE_IsDirectory(char *DirectoryPath, int checkExist)
+{
+    if(checkExist && FILE_CheckIfLinkExist(DirectoryPath) == 0)
+        return 0;
+
     struct stat sb;
     if (stat(DirectoryPath, &sb) == 0 && S_ISDIR(sb.st_mode))
     {
@@ -136,7 +150,7 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
 
 #ifdef LARGE_FILE_SUPPORT_ENABLED
 	//#warning LARGE FILE SUPPORT IS ENABLED!
-  if (FILE_IsFile(TheFileName) == 1)
+  if (FILE_IsFile(TheFileName, 1) == 1)
   {
       FILE *TheFilePointer;
       TheFilePointer = fopen64(TheFileName, "rb");
@@ -156,7 +170,7 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
 
 #ifndef LARGE_FILE_SUPPORT_ENABLED
 #warning LARGE FILE SUPPORT IS NOT ENABLED!
-  if (FILE_IsFile(TheFileName) == 1)
+  if (FILE_IsFile(TheFileName, 1) == 1)
   {
       FILE *TheFilePointer;
       TheFilePointer = fopen(TheFileName, "rb");
@@ -177,10 +191,24 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
 
 }
 
+
+int FILE_IsLink( char* path) 
+{
+  struct stat statbuf;
+  if (lstat(path, &statbuf) == -1) {
+    perror("lstat");
+    return -1; // Error
+  }
+  return S_ISLNK(statbuf.st_mode);
+}
+
 /* Check if a file is valid */
-int FILE_IsFile(const char *TheFileName)
+int FILE_IsFile(const char *TheFileName, int checkExist)
 {
     FILE *TheFile;
+
+    if(checkExist && FILE_CheckIfLinkExist(TheFileName) == 0)
+        return 0;
 
     #ifdef LARGE_FILE_SUPPORT_ENABLED
 	//#warning LARGE FILE SUPPORT IS ENABLED!
@@ -201,7 +229,7 @@ int FILE_IsFile(const char *TheFileName)
     return 0;
 }
 
-void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive, char * commandOps, DYNMEM_MemoryTable_DataType ** memoryTable)
+void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * FilesandFolders, int Recursive, char * commandOps, int checkIfInodeExist, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
     int FileAndFolderIndex = *FilesandFolders;
     my_printf("\nLIST DETAILS OF: %s", DirectoryInodeName);
@@ -213,7 +241,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
         (*InodeList) = (char **) DYNMEM_malloc(sizeof(char *), memoryTable, "InodeList");
     }
     
-    if (FILE_IsDirectory(DirectoryInodeName))
+    if (FILE_IsDirectory(DirectoryInodeName, 0))
     {
         DIR *TheDirectory;
         struct dirent *dir;
@@ -234,10 +262,25 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
                 if ((dir->d_name[0] == '.' && commandOps == NULL) || (dir->d_name[0] == '.' && commandOps[0] != 'a'  && commandOps[0] != 'A'))
                     continue;
 
+                char *thePathToCheck[PATH_MAX];
+                memset(thePathToCheck, 0, PATH_MAX);
+
+                strcpy(thePathToCheck, DirectoryInodeName);
+                strcat(thePathToCheck, "/");
+                strcat(thePathToCheck, dir->d_name);
+
+                printf("\n ************* thePathToCheck = %s", thePathToCheck);
+                if (checkIfInodeExist == 1 && FILE_CheckIfLinkExist(thePathToCheck) == 0)
+                {
+                    printf("--> Not valid!");
+                    continue;
+                }
+
                 //Set the row to needed size
                 int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
                 (*InodeList) = (char ** ) DYNMEM_realloc((*InodeList), ReallocSize, memoryTable);
                 size_t nsize = strnlen(dir->d_name, 256) * sizeof(char) + strlen(DirectoryInodeName) * sizeof(char) + 2;
+
                 //Allocate the path string size
                 (*InodeList)[FileAndFolderIndex]  = (char *) DYNMEM_malloc (nsize , memoryTable, "InodeList");
                 strcpy((*InodeList)[FileAndFolderIndex], DirectoryInodeName );
@@ -247,9 +290,10 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
                 (*FilesandFolders)++;
                 FileAndFolderIndex++;
 
-                if ( Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1]) == 1  )
+
+                if (Recursive == 1 && FILE_IsDirectory((*InodeList)[*FilesandFolders-1], 0) == 1)
                 {
-                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive, "Z", memoryTable);
+                    FILE_GetDirectoryInodeList ( (*InodeList)[FileAndFolderIndex-1], InodeList, FilesandFolders, Recursive, "Z", 0, memoryTable);
                     FileAndFolderIndex = (*FilesandFolders);
                 }
 
@@ -259,7 +303,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
         qsort ((*InodeList), *FilesandFolders, sizeof (const char *), FILE_CompareString);
     }
-    else if (FILE_IsFile(DirectoryInodeName))
+    else if (FILE_IsFile(DirectoryInodeName, 0))
     {
         //my_printf("\nAdding single file to inode list: %s", DirectoryInodeName);
         int ReallocSize = sizeof(char *) * (FileAndFolderIndex+1)+1;
@@ -313,7 +357,7 @@ int FILE_GetStringFromFile(char * filename, char **file_content, DYNMEM_MemoryTa
     long long int file_size = 0;
     int c, count;
 
-    if (FILE_IsFile(filename) == 0)
+    if (FILE_IsFile(filename, 1) == 0)
     {
         return 0;
     }
@@ -563,12 +607,28 @@ char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** 
         {
                 modeval[0] = 'l'; // is a link
         }
-           
     }
-    else {
-        return NULL;
+    else 
+    {
+        modeval[0] = '-';
+        modeval[1] = 'r';
+        modeval[2] = 'w';
+        modeval[3] = 'x';
+        modeval[4] = 'r';
+        modeval[5] = 'w';
+        modeval[6] = 'x';
+        modeval[7] = 'r';
+        modeval[8] = 'w';
+        modeval[9] = 'x';
+        modeval[10] = '\0';
+
+        if(lstat(file, &stl) == 0 &&
+          S_ISLNK(stl.st_mode))
+        {
+            modeval[0] = 'l'; // is a link
+        }
     }
-    
+
     return modeval;
 }
 
@@ -686,6 +746,19 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
     strcpy(toReturn, grp.gr_name);
     
     return toReturn;
+}
+
+
+char * FILE_AppendStringToFile(char *fileName, char *theString)
+{
+    FILE *fp = fopen(fileName, "a");
+    if (fp == NULL)
+    {
+        my_printfError("\nError while opening file %s.", fileName);
+    }
+
+    fprintf(fp, "\n%s", theString);    
+    fclose(fp);
 }
 
 time_t FILE_GetLastModifiedData(char *path)

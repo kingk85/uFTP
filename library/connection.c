@@ -228,13 +228,13 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 		}
 		++__fmt;
 
-		//my_printf("\nThe string: %s", theBuffer);
 
 		for (i = 0; i <theStringSize; i++)
 		{
 			//Write the buffer
 			if (theStringToWriteSize >= COMMAND_BUFFER)
 			{
+				my_printf("\nwriting:\n%s", writeBuffer);
 
 				ssize_t theReturnCode = 0;
 				if (ftpData->clients[clientId].dataChannelIsTls != 1)
@@ -284,6 +284,8 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 	//Write the buffer
 	if (theStringToWriteSize > 0)
 	{
+
+		my_printf("\nwriting:\n%s", writeBuffer);
 		//my_printf("\nwriting data size %d", theStringToWriteSize);
 		int theReturnCode = 0;
 
@@ -367,6 +369,7 @@ int createSocket(ftpDataType * ftpData)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("socketopt failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 	}
 
 #endif
@@ -376,6 +379,7 @@ int createSocket(ftpDataType * ftpData)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("setsocket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 	}
 #endif
   //Bind socket
@@ -426,6 +430,7 @@ int createPassiveSocket(int port)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 	}
 #endif
 
@@ -434,6 +439,7 @@ int createPassiveSocket(int port)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("set socket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 	}
 #endif
 
@@ -499,6 +505,7 @@ int createActiveSocket(int port, char *ipAddress)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("set socket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 	}
 #endif
 
@@ -507,6 +514,7 @@ int createActiveSocket(int port, char *ipAddress)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("setsockopt error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 	}
 #endif
   
@@ -646,6 +654,7 @@ void checkClientConnectionTimeout(ftpDataType * ftpData)
             (int)time(NULL) - ftpData->clients[processingSock].lastActivityTimeStamp > ftpData->ftpParameters.maximumIdleInactivity)
             {
                 ftpData->clients[processingSock].closeTheClient = 1;
+				addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
             }
     }
 }
@@ -762,6 +771,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 {
                 	int theReturnCode = socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
                     ftpData->clients[availableSocketIndex].closeTheClient = 1;
+					addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
                 }
                 else
                 {
@@ -769,6 +779,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 	if (returnCode <= 0)
                 	{
                 		ftpData->clients[availableSocketIndex].closeTheClient = 1;
+						addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
                 	}
                 }
                 
@@ -778,7 +789,8 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             {
                 //Errors while accepting, socket will be closed
                 ftpData->clients[availableSocketIndex].closeTheClient = 1;
-                my_printf("\n2 Errno = %d", errno);
+				//addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                //my_printf("\n2 Errno = %d", errno);
                 return 1;
             }
         }

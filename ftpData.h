@@ -98,6 +98,8 @@ struct ftpParameters
     int maximumUserAndPassowrdLoginTries;
     char certificatePath[MAXIMUM_INODE_NAME];
     char privateCertificatePath[MAXIMUM_INODE_NAME];
+    char logFolder[MAXIMUM_INODE_NAME];
+    int maximumLogFileCount;
     int pamAuthEnabled;
     int forceTLS;
 
