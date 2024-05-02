@@ -4,15 +4,20 @@
 #include <time.h>
 #include <semaphore.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <ctype.h>
+#include <dirent.h>
+
 
 #include "log.h"
 #include "../debugHelper.h"
 #include "dynamicVectors.h"
 #include "fileManagement.h"
 
-
-
-#define LOG_LINE_SIZE 1024 + PATH_MAX
+#define LOG_LINE_SIZE           1024 + PATH_MAX
+#define LOG_FILENAME_PREFIX     "uftpLog_"
 
 static void logThread(void * arg);
 
@@ -23,7 +28,136 @@ static sem_t logsem; // Semaphore for controlling log to write
 static pthread_t pLogThread;
 static pthread_mutex_t mutex;
 
-static char logFolder[PATH_MAX]; // Semaphore for controlling log to write
+static int logFilesNumber;
+
+static char logFolder[PATH_MAX];
+
+#define MAX_FILENAME_LENGTH 256
+
+
+static long long is_date_format(const char* str);
+static int delete_old_logs(const char* folder_path, int days_to_keep);
+
+static long long is_date_format(const char* str) 
+{
+  char year[5];
+  char month[3];
+  char day[3];
+
+  memset(year, 0, 5);
+  memset(month, 0, 3);
+  memset(day, 0, 3);
+
+  if (strlen(str) != 10 || str[4] != '-' || str[7] != '-') 
+  {
+    return 0;
+  }
+
+  // Check for valid digits in year, month, and day components
+  for (int i = 0; i < 4; i++) 
+  {
+    if (!isdigit(str[i])) {
+      return 0;
+    }
+    year[i] = str[i];
+  }
+
+  for (int i = 5; i < 7; i++) {
+    if (!isdigit(str[i])) {
+      return 0;
+    }
+  }
+  for (int i = 8; i < 10; i++) {
+    if (!isdigit(str[i])) {
+      return 0;
+    }
+  }
+
+    month[0] = str[5];
+    month[1] = str[6];
+
+    day[0] = str[8];
+    day[1] = str[9];
+
+    return atoll(year)*365 + atoll(month)*31 + atoll(day); 
+}
+
+static int delete_old_logs(const char* folder_path, int days_to_keep) 
+{
+  unsigned long long n_of_day_file;
+  unsigned long long n_of_day_today;
+
+  struct stat statbuf;
+  DIR* dir;
+  struct dirent* entry;
+  char full_path[PATH_MAX];
+
+  dir = opendir(folder_path);
+  if (dir == NULL) 
+  {
+    perror("opendir");
+    return 1;
+  }
+
+  time_t now = time(NULL);
+  struct tm *info = localtime(&now);
+  char timeToday[11]; 
+  if (strftime(timeToday, sizeof(timeToday), "%Y-%m-%d", info) == 0) 
+  {
+    my_printfError("strftime error");
+    return;
+  }
+
+  n_of_day_today = is_date_format(timeToday);
+
+  while ((entry = readdir(dir)) != NULL) 
+  {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue; // Skip . and .. entries
+    }
+
+    snprintf(full_path, sizeof(full_path), "%s%s", folder_path, entry->d_name);
+
+    if (stat(full_path, &statbuf) == -1) 
+    {
+      perror("stat");
+      continue;
+    }
+
+    if (!S_ISREG(statbuf.st_mode)) 
+    {
+      continue; // Not a regular file
+    }
+
+    if (strncmp(entry->d_name, LOG_FILENAME_PREFIX, strlen(LOG_FILENAME_PREFIX)) != 0) 
+    {
+      continue; // Not a log file
+    }
+
+    n_of_day_file = is_date_format(entry->d_name + strlen(LOG_FILENAME_PREFIX));
+
+    if (!n_of_day_file)
+    {
+      continue; // Invalid date format
+    }
+
+    if (n_of_day_file+days_to_keep < n_of_day_today) 
+    {
+      my_printf("\nRemoving old log file: %s", full_path);
+      
+      // File is older than specified days
+      if (remove(full_path) == -1) 
+      {
+        perror("remove");
+        continue;
+      }
+    }
+  }
+
+  closedir(dir);
+  return 0;
+}
+
 
 // STATIC SECTION
 static void logThread(void * arg)
@@ -41,7 +175,7 @@ static void logThread(void * arg)
             
             memset(theLogFilename, 0, PATH_MAX);
 
-            if (strftime(logName, sizeof(logName), "uftpLog_%Y-%m-%d", info) == 0) 
+            if (strftime(logName, sizeof(logName), LOG_FILENAME_PREFIX"%Y-%m-%d", info) == 0) 
             {
                 my_printfError("strftime error");
                 return;
@@ -81,10 +215,17 @@ static void logThread(void * arg)
     }
 }
 
-int logInit(char * folder)
+int logInit(char * folder, int numberOfLogFiles)
 {
     int returnCode;
     my_printf("\n Init logging system..");
+
+    logFilesNumber = numberOfLogFiles;
+
+    delete_old_logs(folder, numberOfLogFiles);
+
+    if (logFilesNumber <= 0)
+        return;
 
     DYNV_VectorString_Init(&logQueue);
     DYNV_VectorString_Init(&workerQueue);
@@ -97,7 +238,8 @@ int logInit(char * folder)
     returnCode = pthread_create(&pLogThread, NULL, &logThread, NULL);
     if (returnCode != 0)
     {
-        my_printfError("Error while creating log thread.");
+        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        exit(0);    
         return 0;
     }
 
@@ -113,6 +255,9 @@ int logInit(char * folder)
 
 void addLog(char* logString, char * currFile, int currLine, char * currFunction)
 {
+
+    if (logFilesNumber <= 0)
+        return;
 
     char theLogString[LOG_LINE_SIZE];
     char debugInfo[LOG_LINE_SIZE];

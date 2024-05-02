@@ -122,6 +122,8 @@ void workerCleanup(void *socketId)
 void *connectionWorkerHandle(void * socketId)
 {
   int theSocketId = *(int *)socketId;
+  // Enable cancellation for this thread
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
   pthread_cleanup_push(workerCleanup,  (void *) &theSocketId);
   ftpData.clients[theSocketId].workerData.threadIsAlive = 1;
   ftpData.clients[theSocketId].workerData.threadHasBeenCreated = 1;
@@ -538,7 +540,7 @@ void runFtpServer(void)
     respawnProcess();
 
     //Init log
-    logInit(ftpData.ftpParameters.logFolder);
+    logInit(ftpData.ftpParameters.logFolder, ftpData.ftpParameters.maximumLogFileCount);
 
     //Socket main creator
     ftpData.connectionData.theMainSocket = createSocket(&ftpData);
@@ -549,14 +551,14 @@ void runFtpServer(void)
 
     /* the maximum socket fd is now the main socket descriptor */
     ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
-
     returnCode = pthread_create(&watchDogThread, NULL, watchDog, NULL);
 
 	if(returnCode != 0)
-		{
+	{
 		my_printf("pthread_create WatchDog Error %d", returnCode);
-		exit(0);
-		}
+        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        exit(0);
+	}
 
   //Endless loop ftp process
     while (1)
@@ -564,7 +566,6 @@ void runFtpServer(void)
 
     //Update watchdog timer
    	updateWatchDogTime((int)time(NULL));
-
 
 	/*
 	my_printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());

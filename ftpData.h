@@ -41,6 +41,7 @@
 
 
 #define STRING_SZ_SMALL                             100
+#define STRING_SZ_LARGE                             4096
 
 #define CLIENT_COMMAND_STRING_SIZE                  4096
 #define CLIENT_BUFFER_STRING_SIZE                   4096

@@ -670,8 +670,14 @@ void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
 void cancelWorker(ftpDataType *data, int clientId)
 {
 	void *pReturn;
+    addLog("Cancelling thread because is busy", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 	int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
+    if (returnCode != 0)
+    {
+        addLog("Cancelling thread ERROR", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    }
 	returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
+    
 	data->clients[clientId].workerData.threadHasBeenCreated = 0;
 }
 

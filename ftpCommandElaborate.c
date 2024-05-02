@@ -178,6 +178,12 @@ int parseCommandPass(ftpDataType *data, int socketId)
                 // my_printf("\n TOO MANY LOGIN FAILS! \n");
                 data->clients[socketId].closeTheClient = 1;
                 returnCode = socketPrintf(data, socketId, "s", "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
+
+                char *theLogString[STRING_SZ_LARGE];
+                memset(theLogString, 0, STRING_SZ_LARGE);
+                snprintf(theLogString, STRING_SZ_LARGE, "An ip %s has been blacklisted due too many password errors. ", element.ipAddress, data->clients[socketId].clientIpAddress);
+                addLog(theLogString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+
                 if (returnCode <= 0) 
                 {
                     addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
@@ -561,7 +567,8 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        addLog("Pthead Create error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -596,7 +603,8 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        addLog("Pthead Create error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -635,7 +643,8 @@ int parseCommandPort(ftpDataType *data, int socketId)
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        addLog("Pthead Create error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 

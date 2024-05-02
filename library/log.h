@@ -25,7 +25,7 @@
 #ifndef LOG_H
 #define LOG_H
 
-int logInit(char * folder);
+int logInit(char * folder, int numberOfLogFiles);
 void addLog(char* logString, char * currFile, int currLine, char * currFunction);
 
 #endif
