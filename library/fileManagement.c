@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/resource.h>
+#include <limits.h>
 
 #include "fileManagement.h"
 #include "dynamicVectors.h"
