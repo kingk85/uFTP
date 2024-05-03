@@ -181,7 +181,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
 
                 char *theLogString[STRING_SZ_LARGE];
                 memset(theLogString, 0, STRING_SZ_LARGE);
-                snprintf(theLogString, STRING_SZ_LARGE, "An ip %s has been blacklisted due too many password errors. ", element.ipAddress, data->clients[socketId].clientIpAddress);
+                snprintf(theLogString, STRING_SZ_LARGE, "An ip %s has been blacklisted due too many password errors. Trying to login as user: %s ", element.ipAddress, data->clients[socketId].clientIpAddress, data->clients[socketId].login.name.text);
                 addLog(theLogString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
 
                 if (returnCode <= 0) 

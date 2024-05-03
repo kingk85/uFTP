@@ -79,7 +79,7 @@ static long long is_date_format(const char* str)
     day[0] = str[8];
     day[1] = str[9];
 
-    return atoll(year)*365 + atoll(month)*31 + atoll(day); 
+    return atoll(year)*365+(atoll(month)-1)*31+atoll(day);
 }
 
 static int delete_old_logs(const char* folder_path, int days_to_keep) 
@@ -222,10 +222,10 @@ int logInit(char * folder, int numberOfLogFiles)
 
     logFilesNumber = numberOfLogFiles;
 
-    delete_old_logs(folder, numberOfLogFiles);
-
     if (logFilesNumber <= 0)
         return;
+  
+    delete_old_logs(folder, numberOfLogFiles);
 
     DYNV_VectorString_Init(&logQueue);
     DYNV_VectorString_Init(&workerQueue);
