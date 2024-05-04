@@ -1,0 +1,2 @@
+Show process with number of threads
+ps -eLf | grep uFTP
