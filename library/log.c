@@ -29,7 +29,6 @@ static pthread_t pLogThread;
 static pthread_mutex_t mutex;
 
 static int logFilesNumber;
-
 static char logFolder[PATH_MAX];
 
 #define MAX_FILENAME_LENGTH 256
@@ -158,61 +157,79 @@ static int delete_old_logs(const char* folder_path, int days_to_keep)
   return 0;
 }
 
-
 // STATIC SECTION
 static void logThread(void * arg)
 {
-    while(1)
+
+  int lastDay;
+
+  while(1)
+  {
+    if (sem_wait(&logsem) == 0) 
     {
-        if (sem_wait(&logsem) == 0) 
+        char theLogFilename[PATH_MAX];    
+        int day = 0;
+        
+        // write the logs to the file
+        time_t now = time(NULL);
+        struct tm *info = localtime(&now);
+        char logName[50]; 
+        char dayString[50]; 
+
+        memset(theLogFilename, 0, PATH_MAX);
+
+        if (strftime(dayString, sizeof(dayString), "%d", info) == 0) 
         {
-            char theLogFilename[PATH_MAX];    
-            
-            // write the logs to the file
-            time_t now = time(NULL);
-            struct tm *info = localtime(&now);
-            char logName[50]; 
-            
-            memset(theLogFilename, 0, PATH_MAX);
+          my_printfError("strftime error");
+          return;
+        }
 
-            if (strftime(logName, sizeof(logName), LOG_FILENAME_PREFIX"%Y-%m-%d", info) == 0) 
-            {
-                my_printfError("strftime error");
-                return;
-            }
+        day = atoi(dayString);
 
-            strncpy(theLogFilename, logFolder, PATH_MAX);
-            strncat(theLogFilename, logName, PATH_MAX);
+        if (day != lastDay)
+        {
+          delete_old_logs(logFolder, logFilesNumber);
+          lastDay = day;
+        }
 
-            // Fill the worker queue
-            pthread_mutex_lock(&mutex);
-            for(int i = 0; i <logQueue.Size; i++)
-            {
-                workerQueue.PushBack(&workerQueue, logQueue.Data[i], strnlen(logQueue.Data[i], LOG_LINE_SIZE));
-            }
+        if (strftime(logName, sizeof(logName), LOG_FILENAME_PREFIX"%Y-%m-%d", info) == 0) 
+        {
+          my_printfError("strftime error");
+          return;
+        }
 
-            // empty the log vector
-            while (logQueue.Size > 0)
-            {
-                logQueue.PopBack(&logQueue);
-            }
-            // Release the mutex to let the log queue be available
-            pthread_mutex_unlock(&mutex);
+        strncpy(theLogFilename, logFolder, PATH_MAX);
+        strncat(theLogFilename, logName, PATH_MAX);
 
+        // Fill the worker queue
+        pthread_mutex_lock(&mutex);
+        for(int i = 0; i <logQueue.Size; i++)
+        {
+          workerQueue.PushBack(&workerQueue, logQueue.Data[i], strnlen(logQueue.Data[i], LOG_LINE_SIZE));
+        }
 
-            for(int i = 0; i <workerQueue.Size; i++)
-            {
-                FILE_AppendStringToFile(theLogFilename, workerQueue.Data[i]);
-                my_printf("\n Log at %d : %s", i, workerQueue.Data[i]);
-            }
+        // empty the log vector
+        while (logQueue.Size > 0)
+        {
+          logQueue.PopBack(&logQueue);
+        }
 
-            // empty the log vector
-            while (workerQueue.Size > 0)
-            {
-                workerQueue.PopBack(&workerQueue);
-            }
+        // Release the mutex to let the log queue be available
+        pthread_mutex_unlock(&mutex);
+
+        for(int i = 0; i <workerQueue.Size; i++)
+        {
+          FILE_AppendStringToFile(theLogFilename, workerQueue.Data[i]);
+          my_printf("\n Log at %d : %s", i, workerQueue.Data[i]);
+        }
+
+        // empty the log vector
+        while (workerQueue.Size > 0)
+        {
+            workerQueue.PopBack(&workerQueue);
         }
     }
+  }
 }
 
 int logInit(char * folder, int numberOfLogFiles)
