@@ -861,6 +861,7 @@ int getAvailableClientSocketIndex(ftpDataType * ftpData)
 
 
 #ifdef IPV6_ENABLED
+#warning IPV6 IS ENABLED
 int evaluateClientSocketConnection(ftpDataType * ftpData)
 {
 	char str[INET6_ADDRSTRLEN];
