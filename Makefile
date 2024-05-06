@@ -35,6 +35,7 @@ LIBS=-lpthread -lssl -lcrypto
 
 
 ENABLE_IPV6_SUPPORT=
+#TO ENABLE IPV6 support uncomment next line
 ENABLE_IPV6_SUPPORT=-D IPV6_ENABLED
 
 ENABLE_PAM_SUPPORT=

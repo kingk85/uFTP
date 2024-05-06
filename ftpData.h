@@ -218,8 +218,13 @@ struct clientData
     workerDataType workerData;
     
     socklen_t sockaddr_in_size, sockaddr_in_server_size;
+
+    #ifdef IPV6_ENABLED
     struct sockaddr_in6 client_sockaddr_in, server_sockaddr_in;
-    
+    #else
+    struct sockaddr_in client_sockaddr_in, server_sockaddr_in;
+    #endif
+
     int clientPort;
     char clientIpAddress[INET6_ADDRSTRLEN];
 
