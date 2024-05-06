@@ -150,6 +150,7 @@ struct workerData
     int threadIsAlive;
     int threadHasBeenCreated;
     int connectionPort;
+    int addressType;    
     int passiveModeOn;
     int extendedPassiveModeOn;
     int activeModeOn;

@@ -36,6 +36,7 @@ int getMaximumSocketFd(int mainSocket, ftpDataType * data);
 int createSocket(ftpDataType * ftpData);
 int createPassiveSocket(int port);
 int createActiveSocket(int port, char *ipAddress);
+int createActiveSocketV6(int port, char *ipAddress);
 void fdInit(ftpDataType * ftpData);
 void fdAdd(ftpDataType * ftpData, int index);
 void fdRemove(ftpDataType * ftpData, int index);

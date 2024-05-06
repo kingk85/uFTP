@@ -632,18 +632,77 @@ int createPassiveSocket(int port)
 
 #endif
 
+
+int createActiveSocketV6(int port, char *ipAddress)
+{
+	int sockfd;
+	struct sockaddr_in6 serv_addr6;
+	struct sockaddr *serv_addr_any;
+
+    // Creating socket
+    if ((sockfd = socket(AF_INET6, SOCK_STREAM, 0)) < 0) 
+	{
+		my_printfError("Socket creation failed");
+		addLog("Socket creation failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return -1;
+    }
+
+  int reuse = 1;
+#ifdef SO_REUSEADDR
+   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("set socket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+	}
+#endif
+
+#ifdef SO_REUSEPORT
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("setsockopt error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+	}
+#endif
+
+    // Prepare the sockaddr structure
+    if (inet_pton(AF_INET6, ipAddress, &serv_addr6.sin6_addr) == 1) 
+	{
+        serv_addr6.sin6_family = AF_INET6;
+        serv_addr6.sin6_port = htons(port);
+        serv_addr_any = (struct sockaddr *)&serv_addr6;
+    } 
+	else 
+	{
+		my_printfError("Invalid ip address");
+		addLog("Invalid ip address", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return -1;
+    }
+
+    // Connect to server
+    if (connect(sockfd, serv_addr_any, sizeof(serv_addr6)) < 0) 
+	{
+		my_printfError("Connection failed");
+		addLog("Connection failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		return -1;
+    }
+
+  return sockfd;
+}
+
 int createActiveSocket(int port, char *ipAddress)
 {
   int sockfd;
   struct sockaddr_in serv_addr;
 
-  //my_printf("\n Connection socket is going to start ip: %s:%d \n", ipAddress, port);
+  my_printf("\n Connection socket is going to start ip: %s:%d \n", ipAddress, port);
   memset(&serv_addr, 0, sizeof(struct sockaddr_in)); 
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port); 
   if(inet_pton(AF_INET, ipAddress, &serv_addr.sin_addr)<=0)
   {
-      my_printf("\n inet_pton error occured\n");
+      my_printf("\n inet_pton error occured at address: %s:%d\n", ipAddress, port);
       return -1;
   } 
 
@@ -694,6 +753,7 @@ int createActiveSocket(int port, char *ipAddress)
 
   return sockfd;
 }
+
 
 void fdInit(ftpDataType * ftpData)
 {
@@ -872,9 +932,9 @@ int getAvailableClientSocketIndex(ftpDataType * ftpData)
     return -1;
 }
 
-#define IPV6_ENABLED
 
 #ifdef IPV6_ENABLED
+
 #warning IPV6 IS ENABLED
 int evaluateClientSocketConnection(ftpDataType * ftpData)
 {

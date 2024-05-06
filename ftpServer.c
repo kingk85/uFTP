@@ -129,7 +129,7 @@ void *connectionWorkerHandle(void * socketId)
   ftpData.clients[theSocketId].workerData.threadHasBeenCreated = 1;
   int returnCode;
 
-  my_printf("\nWORKER CREATED!");
+  my_printf("\n -----------------  WORKER CREATED --------------!");
 
   //Passive data connection mode
   if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1)
@@ -237,8 +237,12 @@ void *connectionWorkerHandle(void * socketId)
   }
   else if (ftpData.clients[theSocketId].workerData.activeModeOn == 1)
   {
-    ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);
-
+    my_printf("\n -----------------  CREATING ACTIVE SOCKET --------------!");
+    if (ftpData.clients[theSocketId].workerData.addressType == 1)
+        ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);
+    else if (ftpData.clients[theSocketId].workerData.addressType == 2)
+        ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocketV6(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);    
+        
 	#ifdef OPENSSL_ENABLED
 	if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
 	{
@@ -859,8 +863,13 @@ static int processCommand(int processingElement)
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "PORT", strlen("PORT")) == 1)
     {
-        //my_printf("\nPORT COMMAND RECEIVED");
+        my_printf("\nPORT COMMAND RECEIVED");
         toReturn = parseCommandPort(&ftpData, processingElement);
+    }
+    else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "EPRT", strlen("EPRT")) == 1)
+    {
+        my_printf("\nEPRT COMMAND RECEIVED");
+        toReturn = parseCommandEprt(&ftpData, processingElement);
     }
     else if(compareStringCaseInsensitive(ftpData.clients[processingElement].theCommandReceived, "LIST", strlen("LIST")) == 1)
     {

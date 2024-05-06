@@ -50,6 +50,8 @@
 #include "debugHelper.h"
 #include "library/log.h"
 
+static int parse_eprt(const char *eprt_str, int *address_type, char *address, int *port);
+
 /* Elaborate the User login command */
 int parseCommandUser(ftpDataType * data, int socketId)
 {
@@ -632,6 +634,9 @@ int parseCommandPort(ftpDataType *data, int socketId)
     int ipAddressBytes[4];
     int portBytes[2];
     theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived, 0);
+
+    printf("\n theIpAndPort = %s", theIpAndPort);
+
     sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
     data->clients[socketId].workerData.connectionPort = (portBytes[0] * 256) + portBytes[1];
     returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0], ipAddressBytes[1], ipAddressBytes[2], ipAddressBytes[3]);
@@ -2501,4 +2506,87 @@ int setPermissions(char *permissionsCommand, char *basePath, ownerShip_DataType 
     }
 
     return FTP_CHMODE_COMMAND_RETURN_CODE_OK;
+}
+
+
+int parseCommandEprt(ftpDataType *data, int socketId)
+{
+    int returnCode;
+
+    returnCode = parse_eprt(data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.addressType, data->clients[socketId].workerData.activeIpAddress, &data->clients[socketId].workerData.connectionPort);
+
+    if (returnCode < 0)
+    {
+        addLog("Error parsing EPRT", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        returnCode = socketPrintf(data, socketId, "s", "501 command syntax error\r\n");
+
+        if (returnCode <= 0) 
+        {
+            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        else
+        {
+            return FTP_COMMAND_PROCESSED;
+        }
+    }
+
+    void *pReturn;
+    if (data->clients[socketId].workerData.threadIsAlive == 1)
+    {
+        cancelWorker(data, socketId);
+    }
+
+    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
+    {
+        returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        my_printf("\nPORT JOIN RETURN STATUS %d", returnCode);
+    }
+
+    data->clients[socketId].workerData.passiveModeOn = 0;
+    data->clients[socketId].workerData.extendedPassiveModeOn = 0;
+    data->clients[socketId].workerData.activeModeOn = 1;
+    
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
+
+    if (returnCode != 0)
+    {
+        my_printfError("\nError in pthread_create %d", returnCode);
+        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        exit(0);
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    return FTP_COMMAND_PROCESSED;
+}
+
+
+static int parse_eprt(const char *eprt_str, int *address_type, char *address, int *port)
+{
+  if (eprt_str == NULL || address_type == NULL || address == NULL || port == NULL) 
+  {
+    return -1; // Error: null pointer provided
+  }
+
+  // Check for valid EPRT format: "EPRT |<address-type>| <address> | <port>"
+  int scanned_items = sscanf(eprt_str, "EPRT |%d|%[^|]|%d", address_type, address, port);
+  if (scanned_items != 3) 
+  {
+    return -2; // Error: invalid EPRT format
+  }
+
+  // Check for valid address type (1 or 2)
+  if (*address_type != 1 && *address_type != 2) 
+  {
+    return -3; // Error: invalid address type
+  }
+
+  // Check for valid port number (positive integer)
+  if (*port <= 0) 
+  {
+    return -4; // Error: invalid port number
+  }
+
+
+  return 0; // Success
 }
