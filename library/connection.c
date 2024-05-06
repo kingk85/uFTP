@@ -42,6 +42,8 @@
 #include "connection.h"
 #include "log.h"
 
+#define IPV6_ENABLED
+
 static int is_ipv4_mapped_ipv6(const char *ip);
 
 int is_ipv4_mapped_ipv6(const char *ip) {
@@ -389,15 +391,15 @@ int createSocket(ftpDataType * ftpData)
 	}
 #endif
 
-//reuse = 1;
-//#ifdef SO_REUSEPORT
-//    if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-//	{
-//		perror("setsockopt(SO_REUSEADDR) failed");
-//		my_printfError("setsockopt(SO_REUSEADDR) failed");
-//		addLog("setsocket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-//	}
-//#endif
+reuse = 1;
+#ifdef SO_REUSEPORT
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
+	{
+		perror("setsockopt(SO_REUSEADDR) failed");
+		my_printfError("setsockopt(SO_REUSEADDR) failed");
+		addLog("setsocket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+	}
+#endif
 
 
 	memset(&serveraddr, 0, sizeof(serveraddr));
