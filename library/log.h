@@ -26,6 +26,6 @@
 #define LOG_H
 
 int logInit(char * folder, int numberOfLogFiles);
-void addLog(char* logString, char * currFile, int currLine, char * currFunction);
+void addLog(char* logString, char * currFile, int currLine, const char * currFunction);
 
 #endif

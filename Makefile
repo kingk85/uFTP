@@ -30,8 +30,8 @@ ENABLE_LARGE_FILE_SUPPORT=-D LARGE_FILE_SUPPORT_ENABLED -D _LARGEFILE64_SOURCE
 
 ENABLE_OPENSSL_SUPPORT=
 #TO ENABLE OPENSSL SUPPORT UNCOMMENT NEXT 2 LINES
-#ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
-#LIBS=-lpthread -lssl -lcrypto
+ENABLE_OPENSSL_SUPPORT=-D OPENSSL_ENABLED
+LIBS=-lpthread -lssl -lcrypto
 
 ENABLE_PAM_SUPPORT=
 PAM_AUTH_LIB=
@@ -83,7 +83,7 @@ fileManagement.o:
 signals.o:
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)signals.c -o $(LIBPATH)signals.o
 
-connection.o:
+connection.o: log.o
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)connection.c -o $(LIBPATH)connection.o
 
 log.o:

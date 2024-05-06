@@ -48,6 +48,7 @@
 #include "ftpCommandsElaborate.h"
 
 #include "debugHelper.h"
+#include "library/log.h"
 
 /* Elaborate the User login command */
 int parseCommandUser(ftpDataType * data, int socketId)
@@ -179,7 +180,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
                 data->clients[socketId].closeTheClient = 1;
                 returnCode = socketPrintf(data, socketId, "s", "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
 
-                char *theLogString[STRING_SZ_LARGE];
+                char theLogString[STRING_SZ_LARGE];
                 memset(theLogString, 0, STRING_SZ_LARGE);
                 snprintf(theLogString, STRING_SZ_LARGE, "An ip %s has been blacklisted due too many password errors. Trying to login as user: %s ", data->clients[socketId].clientIpAddress, data->clients[socketId].login.name.text);
                 addLog(theLogString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
@@ -1023,7 +1024,7 @@ int parseCommandRetr(ftpDataType *data, int socketId)
 {
     int isSafePath = 0;
     char *theNameToRetr;
-    int returnCode;
+    int returnCode = 0;
 
     if(!data->clients[socketId].workerData.socketIsReadyForConnection)
     {

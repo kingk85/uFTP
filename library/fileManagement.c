@@ -263,7 +263,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
                 if ((dir->d_name[0] == '.' && commandOps == NULL) || (dir->d_name[0] == '.' && commandOps[0] != 'a'  && commandOps[0] != 'A'))
                     continue;
 
-                char *thePathToCheck[PATH_MAX];
+                char thePathToCheck[PATH_MAX];
                 memset(thePathToCheck, 0, PATH_MAX);
 
                 strcpy(thePathToCheck, DirectoryInodeName);

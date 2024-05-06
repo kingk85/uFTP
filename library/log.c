@@ -19,7 +19,7 @@
 #define LOG_LINE_SIZE           1024 + PATH_MAX
 #define LOG_FILENAME_PREFIX     "uftpLog_"
 
-static void logThread(void * arg);
+static void *logThread(void * arg);
 
 static DYNV_VectorString_DataType logQueue;
 static DYNV_VectorString_DataType workerQueue;
@@ -104,7 +104,7 @@ static int delete_old_logs(const char* folder_path, int days_to_keep)
   if (strftime(timeToday, sizeof(timeToday), "%Y-%m-%d", info) == 0) 
   {
     my_printfError("strftime error");
-    return;
+    return -1;
   }
 
   n_of_day_today = is_date_format(timeToday);
@@ -158,7 +158,7 @@ static int delete_old_logs(const char* folder_path, int days_to_keep)
 }
 
 // STATIC SECTION
-static void logThread(void * arg)
+static void *logThread(void * arg)
 {
 
   int lastDay;
@@ -181,7 +181,7 @@ static void logThread(void * arg)
         if (strftime(dayString, sizeof(dayString), "%d", info) == 0) 
         {
           my_printfError("strftime error");
-          return;
+          return -1;
         }
 
         day = atoi(dayString);
@@ -195,7 +195,7 @@ static void logThread(void * arg)
         if (strftime(logName, sizeof(logName), LOG_FILENAME_PREFIX"%Y-%m-%d", info) == 0) 
         {
           my_printfError("strftime error");
-          return;
+          return -1;
         }
 
         strncpy(theLogFilename, logFolder, PATH_MAX);
@@ -240,7 +240,7 @@ int logInit(char * folder, int numberOfLogFiles)
     logFilesNumber = numberOfLogFiles;
 
     if (logFilesNumber <= 0)
-        return;
+        return -1;
   
     delete_old_logs(folder, numberOfLogFiles);
 
@@ -252,7 +252,7 @@ int logInit(char * folder, int numberOfLogFiles)
     // Initialize the mutex
     pthread_mutex_init(&mutex, NULL);
 
-    returnCode = pthread_create(&pLogThread, NULL, &logThread, NULL);
+    returnCode = pthread_create(&pLogThread, NULL, logThread, NULL);
     if (returnCode != 0)
     {
         addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
@@ -270,7 +270,7 @@ int logInit(char * folder, int numberOfLogFiles)
     return 1;
 }
 
-void addLog(char* logString, char * currFile, int currLine, char * currFunction)
+void addLog(char* logString, char * currFile, int currLine, const char * currFunction)
 {
 
     if (logFilesNumber <= 0)

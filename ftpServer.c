@@ -567,7 +567,7 @@ void runFtpServer(void)
     //Update watchdog timer
    	updateWatchDogTime((int)time(NULL));
 
-	/*
+	
 	my_printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());
 	int memCount = 0;
 	for (memCount = 0; memCount < ftpData.ftpParameters.maxClients; memCount++)
@@ -586,166 +586,162 @@ void runFtpServer(void)
 			my_printf("\nftpData.clients[%d].workerData.directoryInfo.memoryTable = %s", memCount, ftpData.clients[memCount].workerData.directoryInfo.memoryTable->theName);
 		}
 	}
-	*/
 
-        /* waits for socket activity, if no activity then checks for client socket timeouts */
-        if (selectWait(&ftpData) == 0)
+    /* waits for socket activity, if no activity then checks for client socket timeouts */
+    if (selectWait(&ftpData) == 0)
+    {
+        checkClientConnectionTimeout(&ftpData);
+        flushLoginWrongTriesData(&ftpData);
+    }
+
+    /*Main loop handle client commands */
+    for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
+    {
+        /* close the connection if quit flag has been set */
+        if (ftpData.clients[processingSock].closeTheClient == 1)
         {
-            checkClientConnectionTimeout(&ftpData);
-            flushLoginWrongTriesData(&ftpData);
+            closeClient(&ftpData, processingSock);
+            continue;
         }
 
-
-
-        /*Main loop handle client commands */
-        for (processingSock = 0; processingSock < ftpData.ftpParameters.maxClients; processingSock++)
+        /* Check if there are client pending connections, accept the connection if possible otherwise reject */  
+        if ((returnCode = evaluateClientSocketConnection(&ftpData)) == 1)
         {
-            /* close the connection if quit flag has been set */
-            if (ftpData.clients[processingSock].closeTheClient == 1)
-            {
-                closeClient(&ftpData, processingSock);
-                continue;
-            }
-
-            /* Check if there are client pending connections, accept the connection if possible otherwise reject */  
-            if ((returnCode = evaluateClientSocketConnection(&ftpData)) == 1)
-            {
-                break;
-            }
-
-            /* no data to check client is not connected, continue to check other clients */
-          if (isClientConnected(&ftpData, processingSock) == 0) 
-          {
-              /* socket is not conneted */
-              continue;
-          }
-
-          if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rset) || 
-              FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset))
-          {
-
-			#ifdef OPENSSL_ENABLED
-				if (ftpData.clients[processingSock].tlsIsNegotiating == 1)
-				{
-					returnCode = SSL_accept(ftpData.clients[processingSock].ssl);
-
-					if (returnCode <= 0)
-					{
-						//my_printf("\nSSL NOT YET ACCEPTED: %d", returnCode);
-						ftpData.clients[processingSock].tlsIsEnabled = 0;
-						ftpData.clients[processingSock].tlsIsNegotiating = 1;
-
-						if ( ((int)time(NULL) - ftpData.clients[processingSock].tlsNegotiatingTimeStart) > TLS_NEGOTIATING_TIMEOUT )
-						{
-							ftpData.clients[processingSock].closeTheClient = 1;
-                            addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-							//my_printf("\nTLS timeout closing the client time:%lld, start time: %lld..", (int)time(NULL), ftpData.clients[processingSock].tlsNegotiatingTimeStart);
-						}
-
-					}
-					else
-					{
-						//my_printf("\nSSL ACCEPTED");
-						ftpData.clients[processingSock].tlsIsEnabled = 1;
-						ftpData.clients[processingSock].tlsIsNegotiating = 0;
-					}
-
-
-					continue;
-				}
-			#endif
-
-        	  if (ftpData.clients[processingSock].tlsIsEnabled == 1)
-        	  {
-				  #ifdef OPENSSL_ENABLED
-        		  ftpData.clients[processingSock].bufferIndex = SSL_read(ftpData.clients[processingSock].ssl, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE);
-				  #endif
-        	  }
-        	  else
-        	  {
-        		  ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE);
-        	  }
-
-            //The client is not connected anymore
-            if ((ftpData.clients[processingSock].bufferIndex) == 0)
-            {
-              //addLog("Client not connected anymore", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-              closeClient(&ftpData, processingSock);
-            }
-
-            //Debug print errors
-            if (ftpData.clients[processingSock].bufferIndex < 0)
-            {
-                //ftpData.clients[processingSock].closeTheClient = 1;
-                //addLog("Socket write error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-                //my_printfError("\n1 Errno = %d", errno);
-                continue;
-            }
-
-            //Some commands has been received
-            if (ftpData.clients[processingSock].bufferIndex > 0)
-            {
-              int i = 0;
-              int commandProcessStatus = 0;
-              for (i = 0; i < ftpData.clients[processingSock].bufferIndex; i++)
-              {
-                  if (ftpData.clients[processingSock].commandIndex < CLIENT_COMMAND_STRING_SIZE)
-                  {
-                      if (ftpData.clients[processingSock].buffer[i] != '\r' && ftpData.clients[processingSock].buffer[i] != '\n')
-                      {
-                          ftpData.clients[processingSock].theCommandReceived[ftpData.clients[processingSock].commandIndex++] = ftpData.clients[processingSock].buffer[i];
-                      }
-
-                      if (ftpData.clients[processingSock].buffer[i] == '\n') 
-                          {
-                              ftpData.clients[processingSock].socketCommandReceived = 1;
-                              //my_printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
-                              commandProcessStatus = processCommand(processingSock);
-                              //Echo unrecognized commands
-                              if (commandProcessStatus == FTP_COMMAND_NOT_RECONIZED) 
-                              {
-                                  int returnCode = 0;
-                                  returnCode = socketPrintf(&ftpData, processingSock, "s", "500 Unknown command\r\n");
-                                  if (returnCode < 0)
-                                  {
-                                	  ftpData.clients[processingSock].closeTheClient = 1;
-                                      addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-                                  }
-                                  my_printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
-                              }
-                              else if (commandProcessStatus == FTP_COMMAND_PROCESSED)
-                              {
-                                  ftpData.clients[processingSock].lastActivityTimeStamp = (int)time(NULL);
-                              }
-                              else if (commandProcessStatus == FTP_COMMAND_PROCESSED_WRITE_ERROR)
-                              {
-                                  ftpData.clients[processingSock].closeTheClient = 1;
-                                  addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-                                  my_printf("\n Write error WARNING!");
-                              }
-                          }
-                  }
-                  else
-                  {
-                      //Command overflow can't be processed
-                      int returnCode;
-                      ftpData.clients[processingSock].commandIndex = 0;
-                      memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
-                      returnCode = socketPrintf(&ftpData, processingSock, "s", "500 Unknown command\r\n");
-                      if (returnCode <= 0) 
-                      {
-                          ftpData.clients[processingSock].closeTheClient = 1;
-                          addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-                      }
-                      my_printf("\n Command too long closing the client.");
-                      break;
-                  }
-              }
-              usleep(100);
-              memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
-            }
+            break;
         }
-      }
+
+        /* no data to check client is not connected, continue to check other clients */
+        if (isClientConnected(&ftpData, processingSock) == 0) 
+        {
+            /* socket is not conneted */
+            continue;
+        }
+
+        if (FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.rset) || 
+            FD_ISSET(ftpData.clients[processingSock].socketDescriptor, &ftpData.connectionData.eset))
+        {
+
+        #ifdef OPENSSL_ENABLED
+            if (ftpData.clients[processingSock].tlsIsNegotiating == 1)
+            {
+                returnCode = SSL_accept(ftpData.clients[processingSock].ssl);
+
+                if (returnCode <= 0)
+                {
+                    //my_printf("\nSSL NOT YET ACCEPTED: %d", returnCode);
+                    ftpData.clients[processingSock].tlsIsEnabled = 0;
+                    ftpData.clients[processingSock].tlsIsNegotiating = 1;
+
+                    if ( ((int)time(NULL) - ftpData.clients[processingSock].tlsNegotiatingTimeStart) > TLS_NEGOTIATING_TIMEOUT )
+                    {
+                        ftpData.clients[processingSock].closeTheClient = 1;
+                        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                        //my_printf("\nTLS timeout closing the client time:%lld, start time: %lld..", (int)time(NULL), ftpData.clients[processingSock].tlsNegotiatingTimeStart);
+                    }
+
+                }
+                else
+                {
+                    //my_printf("\nSSL ACCEPTED");
+                    ftpData.clients[processingSock].tlsIsEnabled = 1;
+                    ftpData.clients[processingSock].tlsIsNegotiating = 0;
+                }
+
+                continue;
+            }
+        #endif
+
+            if (ftpData.clients[processingSock].tlsIsEnabled == 1)
+            {
+                #ifdef OPENSSL_ENABLED
+                ftpData.clients[processingSock].bufferIndex = SSL_read(ftpData.clients[processingSock].ssl, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE);
+                #endif
+            }
+            else
+            {
+                ftpData.clients[processingSock].bufferIndex = read(ftpData.clients[processingSock].socketDescriptor, ftpData.clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE);
+            }
+
+        //The client is not connected anymore
+        if ((ftpData.clients[processingSock].bufferIndex) == 0)
+        {
+            //addLog("Client not connected anymore", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            closeClient(&ftpData, processingSock);
+        }
+
+        //Debug print errors
+        if (ftpData.clients[processingSock].bufferIndex < 0)
+        {
+            //ftpData.clients[processingSock].closeTheClient = 1;
+            //addLog("Socket write error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            //my_printfError("\n1 Errno = %d", errno);
+            continue;
+        }
+
+        //Some commands has been received
+        if (ftpData.clients[processingSock].bufferIndex > 0)
+        {
+            int i = 0;
+            int commandProcessStatus = 0;
+            for (i = 0; i < ftpData.clients[processingSock].bufferIndex; i++)
+            {
+                if (ftpData.clients[processingSock].commandIndex < CLIENT_COMMAND_STRING_SIZE)
+                {
+                    if (ftpData.clients[processingSock].buffer[i] != '\r' && ftpData.clients[processingSock].buffer[i] != '\n')
+                    {
+                        ftpData.clients[processingSock].theCommandReceived[ftpData.clients[processingSock].commandIndex++] = ftpData.clients[processingSock].buffer[i];
+                    }
+
+                    if (ftpData.clients[processingSock].buffer[i] == '\n') 
+                        {
+                            ftpData.clients[processingSock].socketCommandReceived = 1;
+                            //my_printf("\n Processing the command: %s", ftpData.clients[processingSock].theCommandReceived);
+                            commandProcessStatus = processCommand(processingSock);
+                            //Echo unrecognized commands
+                            if (commandProcessStatus == FTP_COMMAND_NOT_RECONIZED) 
+                            {
+                                int returnCode = 0;
+                                returnCode = socketPrintf(&ftpData, processingSock, "s", "500 Unknown command\r\n");
+                                if (returnCode < 0)
+                                {
+                                    ftpData.clients[processingSock].closeTheClient = 1;
+                                    addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                                }
+                                my_printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData.clients[processingSock].buffer);
+                            }
+                            else if (commandProcessStatus == FTP_COMMAND_PROCESSED)
+                            {
+                                ftpData.clients[processingSock].lastActivityTimeStamp = (int)time(NULL);
+                            }
+                            else if (commandProcessStatus == FTP_COMMAND_PROCESSED_WRITE_ERROR)
+                            {
+                                ftpData.clients[processingSock].closeTheClient = 1;
+                                addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                                my_printf("\n Write error WARNING!");
+                            }
+                        }
+                }
+                else
+                {
+                    //Command overflow can't be processed
+                    int returnCode;
+                    ftpData.clients[processingSock].commandIndex = 0;
+                    memset(ftpData.clients[processingSock].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
+                    returnCode = socketPrintf(&ftpData, processingSock, "s", "500 Unknown command\r\n");
+                    if (returnCode <= 0) 
+                    {
+                        ftpData.clients[processingSock].closeTheClient = 1;
+                        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                    }
+                    my_printf("\n Command too long closing the client.");
+                    break;
+                }
+            }
+            usleep(100);
+            memset(ftpData.clients[processingSock].buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
+        }
+    }
+    }
   }
 
   //Server Close
