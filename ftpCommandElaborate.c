@@ -2530,6 +2530,24 @@ int parseCommandEprt(ftpDataType *data, int socketId)
         }
     }
 
+    #ifndef IPV6_ENABLED
+    if(data->clients[socketId].workerData.addressType == 2)
+    {
+        addLog("Error parsing EPRT", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        returnCode = socketPrintf(data, socketId, "s", "501 command syntax error no ipv6 supported in this version.\r\n");
+
+        if (returnCode <= 0) 
+        {
+            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        else
+        {
+            return FTP_COMMAND_PROCESSED;
+        }
+    }   
+    #endif
+    
     void *pReturn;
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {

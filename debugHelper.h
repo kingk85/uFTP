@@ -1,8 +1,8 @@
 #ifndef ENABLE_PRINTF_MODULE
 
     // Uncomment next line to enable debug printf
-    #define ENABLE_PRINTF
-    #define ENABLE_PRINTF_ERROR
+    // #define ENABLE_PRINTF
+    // #define ENABLE_PRINTF_ERROR
 
     #define CURRENT_FILE __FILE__
     #define CURRENT_LINE __LINE__

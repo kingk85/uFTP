@@ -632,7 +632,7 @@ int createPassiveSocket(int port)
 
 #endif
 
-
+#ifdef IPV6_ENABLED
 int createActiveSocketV6(int port, char *ipAddress)
 {
 	int sockfd;
@@ -690,6 +690,7 @@ int createActiveSocketV6(int port, char *ipAddress)
 
   return sockfd;
 }
+#endif
 
 int createActiveSocket(int port, char *ipAddress)
 {
@@ -753,7 +754,6 @@ int createActiveSocket(int port, char *ipAddress)
 
   return sockfd;
 }
-
 
 void fdInit(ftpDataType * ftpData)
 {

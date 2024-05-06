@@ -240,9 +240,11 @@ void *connectionWorkerHandle(void * socketId)
     my_printf("\n -----------------  CREATING ACTIVE SOCKET --------------!");
     if (ftpData.clients[theSocketId].workerData.addressType == 1)
         ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);
+#ifdef IPV6_ENABLED
     else if (ftpData.clients[theSocketId].workerData.addressType == 2)
         ftpData.clients[theSocketId].workerData.socketConnection = createActiveSocketV6(ftpData.clients[theSocketId].workerData.connectionPort, ftpData.clients[theSocketId].workerData.activeIpAddress);    
-        
+#endif
+
 	#ifdef OPENSSL_ENABLED
 	if (ftpData.clients[theSocketId].dataChannelIsTls == 1)
 	{
