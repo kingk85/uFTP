@@ -88,8 +88,6 @@ struct usersParameters
 struct ftpParameters
 {
     int ftpIpAddressV4[4];
-    int serverIsIpV6;
-    int serverIpSet;
     int port;
     int maxClients;
     int daemonModeOn;
