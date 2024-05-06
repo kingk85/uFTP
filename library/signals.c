@@ -30,6 +30,7 @@
 
 #include "../ftpServer.h"
 #include "../debugHelper.h"
+#include "log.h"
 
 static void ignore_sigpipe(void);
 

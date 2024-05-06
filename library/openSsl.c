@@ -33,7 +33,7 @@
 #include "openSsl.h"
 #include "fileManagement.h"
 #include "../debugHelper.h"
-
+#include "log.h"
 
 
 #define MUTEX_TYPE       pthread_mutex_t

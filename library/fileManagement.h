@@ -58,7 +58,7 @@
     long long int  FILE_GetFileSize(FILE *theFilePointer);
     long int FILE_GetAvailableSpace(const char* ThePath);
     long long int FILE_GetFileSizeFromPath(char *TheFileName);
-    int  FILE_IsFile(const char *theFileName, int checkExist);
+    int  FILE_IsFile(char *theFileName, int checkExist);
     int  FILE_IsDirectory (char *directory_path, int checkExist);
     int  FILE_IsLink (char *directory_path);
     void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * filesandfolders, int recursive, char* commandOps, int checkIfInodeExist, DYNMEM_MemoryTable_DataType ** memoryTable);
@@ -71,7 +71,7 @@
     char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** memoryTable);
     char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType ** memoryTable);
     char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType ** memoryTable);
-    char * FILE_AppendStringToFile(char *fileName, char *theString);
+    void FILE_AppendStringToFile(char *fileName, char *theString);
     time_t FILE_GetLastModifiedData(char *path);
     void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTable_DataType ** memoryTable);
     void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable);

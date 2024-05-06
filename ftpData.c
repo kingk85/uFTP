@@ -42,6 +42,8 @@
 #include "library/dynamicMemory.h"
 
 #include "debugHelper.h"
+#include "library/log.h"
+
 
 static int is_prefix(const char *str, const char *prefix);
 static char *my_realpath(const char *path, char *resolved_path);
@@ -368,7 +370,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
                 my_printf("\n ********************** void inode permission string");
         }
 
-        if (data.isLink = 1 &&
+        if (data.isLink == 1 &&
             data.inodePermissionString != NULL &&
             strlen(data.inodePermissionString) > 0 &&
             data.inodePermissionString[0] == 'l')
@@ -382,6 +384,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
                     FILE_AppendToString(&data.finalStringPath, " -> ", memoryTable);
                     FILE_AppendToString(&data.finalStringPath, data.linkPath, memoryTable);
                 }
+                
             }
 
         memset(data.lastModifiedDataString, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);       
@@ -811,10 +814,6 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].closeTheClient = 0;
     data->clients[clientId].sockaddr_in_size = sizeof(struct sockaddr_in);
     data->clients[clientId].sockaddr_in_server_size = sizeof(struct sockaddr_in);
-    data->clients[clientId].serverIpAddressInteger[0] = 0;
-    data->clients[clientId].serverIpAddressInteger[1] = 0;
-    data->clients[clientId].serverIpAddressInteger[2] = 0;
-    data->clients[clientId].serverIpAddressInteger[3] = 0;
     
     
     memset(&data->clients[clientId].client_sockaddr_in, 0, data->clients[clientId].sockaddr_in_size);

@@ -181,7 +181,7 @@ static void *logThread(void * arg)
         if (strftime(dayString, sizeof(dayString), "%d", info) == 0) 
         {
           my_printfError("strftime error");
-          return -1;
+          return NULL;
         }
 
         day = atoi(dayString);
@@ -195,7 +195,7 @@ static void *logThread(void * arg)
         if (strftime(logName, sizeof(logName), LOG_FILENAME_PREFIX"%Y-%m-%d", info) == 0) 
         {
           my_printfError("strftime error");
-          return -1;
+          return NULL;
         }
 
         strncpy(theLogFilename, logFolder, PATH_MAX);

@@ -528,7 +528,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     searchIndex = searchParameter("SERVER_IP", parametersVector);
     if (searchIndex != -1)
     {
-        strncpy(&ftpParameters->natIpAddress, ((parameter_DataType *) parametersVector->Data[searchIndex])->value, STRING_SZ_SMALL);
+        strncpy(ftpParameters->natIpAddress, ((parameter_DataType *) parametersVector->Data[searchIndex])->value, STRING_SZ_SMALL);
         my_printf("\n SERVER_IP parameter:%s", ftpParameters->natIpAddress);
     }
     else
@@ -552,10 +552,10 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     searchIndex = searchParameter("FTP_SERVER_IP", parametersVector);
     if (searchIndex != -1)
     {
-        sscanf (((parameter_DataType *) parametersVector->Data[searchIndex])->value,"%d.%d.%d.%d",  &ftpParameters->ftpIpAddress[0],
-                                                                                                    &ftpParameters->ftpIpAddress[1],
-                                                                                                    &ftpParameters->ftpIpAddress[2],
-                                                                                                    &ftpParameters->ftpIpAddress[3]);
+        sscanf (((parameter_DataType *) parametersVector->Data[searchIndex])->value,"%d.%d.%d.%d",  &ftpParameters->ftpIpAddressV4[0],
+                                                                                                    &ftpParameters->ftpIpAddressV4[1],
+                                                                                                    &ftpParameters->ftpIpAddressV4[2],
+                                                                                                    &ftpParameters->ftpIpAddressV4[3]);
         //my_printf("\nFTP_SERVER_IP value: %d.%d.%d.%d",    ftpParameters->ftpIpAddress[0],
         //                                                ftpParameters->ftpIpAddress[1],
         //                                                ftpParameters->ftpIpAddress[2],
@@ -563,10 +563,10 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     }
     else
     {
-        ftpParameters->ftpIpAddress[0] = 127;
-        ftpParameters->ftpIpAddress[1] = 0;
-        ftpParameters->ftpIpAddress[2] = 0;
-        ftpParameters->ftpIpAddress[3] = 1;       
+        ftpParameters->ftpIpAddressV4[0] = 127;
+        ftpParameters->ftpIpAddressV4[1] = 0;
+        ftpParameters->ftpIpAddressV4[2] = 0;
+        ftpParameters->ftpIpAddressV4[3] = 1;       
         //my_printf("\nFTP_SERVER_IP parameter not found in the configuration file, listening on all available networks");
     }    
     

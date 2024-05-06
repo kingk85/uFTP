@@ -87,7 +87,9 @@ struct usersParameters
 
 struct ftpParameters
 {
-    int ftpIpAddress[4];
+    int ftpIpAddressV4[4];
+    int serverIsIpV6;
+    int serverIpSet;
     int port;
     int maxClients;
     int daemonModeOn;
@@ -184,6 +186,7 @@ struct clientData
     SSL *ssl;
 	#endif
 
+    int isIpV6;
     int tlsIsEnabled;
     int tlsIsNegotiating;
     unsigned long long int tlsNegotiatingTimeStart;
@@ -214,7 +217,7 @@ struct clientData
     loginDataType login;
     workerDataType workerData;
     
-    int sockaddr_in_size, sockaddr_in_server_size;
+    socklen_t sockaddr_in_size, sockaddr_in_server_size;
     struct sockaddr_in6 client_sockaddr_in, server_sockaddr_in;
     
     int clientPort;
@@ -222,7 +225,7 @@ struct clientData
 
     int serverPort;
     char serverIpAddress[INET6_ADDRSTRLEN];
-    int serverIpAddressInteger[4];
+    int serverIpV4AddressInteger[4];
     ftpCommandDataType    ftpCommand;
     int closeTheClient;
 

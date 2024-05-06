@@ -167,7 +167,7 @@ void *connectionWorkerHandle(void * socketId)
             else
             {
                 my_printf("\n Using server ip: %s", ftpData.ftpParameters.natIpAddress);
-                returnCode = socketPrintf(&ftpData, theSocketId, "sdsdsdsdsdsds", "227 Entering Passive Mode (", ftpData.clients[theSocketId].serverIpAddressInteger[0], ",", ftpData.clients[theSocketId].serverIpAddressInteger[1], ",", ftpData.clients[theSocketId].serverIpAddressInteger[2], ",", ftpData.clients[theSocketId].serverIpAddressInteger[3], ",", (ftpData.clients[theSocketId].workerData.connectionPort / 256), ",", (ftpData.clients[theSocketId].workerData.connectionPort % 256), ")\r\n");
+                returnCode = socketPrintf(&ftpData, theSocketId, "sdsdsdsdsdsds", "227 Entering Passive Mode (", ftpData.clients[theSocketId].serverIpV4AddressInteger[0], ",", ftpData.clients[theSocketId].serverIpV4AddressInteger[1], ",", ftpData.clients[theSocketId].serverIpV4AddressInteger[2], ",", ftpData.clients[theSocketId].serverIpV4AddressInteger[3], ",", (ftpData.clients[theSocketId].workerData.connectionPort / 256), ",", (ftpData.clients[theSocketId].workerData.connectionPort % 256), ")\r\n");
             }
         }
         else if (ftpData.clients[theSocketId].workerData.passiveModeOn == 1 && ftpData.clients[theSocketId].workerData.extendedPassiveModeOn == 1)

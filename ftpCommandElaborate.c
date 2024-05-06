@@ -546,8 +546,19 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     void *pReturn;
     int returnCode;
     // my_printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
-
     // my_printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
+
+    if(data->ftpParameters.serverIsIpV6 == 1)
+    {
+		returnCode = socketPrintf(data, socketId, "s", "500 Server use IPV6, use EPSV instead.\r\n");
+
+        if (returnCode <= 0) 
+        {
+            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+    }
+
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
         cancelWorker(data, socketId);

@@ -204,7 +204,7 @@ int FILE_IsLink( char* path)
 }
 
 /* Check if a file is valid */
-int FILE_IsFile(const char *TheFileName, int checkExist)
+int FILE_IsFile(char *TheFileName, int checkExist)
 {
     FILE *TheFile;
 
@@ -750,7 +750,7 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
 }
 
 
-char * FILE_AppendStringToFile(char *fileName, char *theString)
+void FILE_AppendStringToFile(char *fileName, char *theString)
 {
     FILE *fp = fopen(fileName, "a");
     if (fp == NULL)
