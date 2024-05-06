@@ -557,6 +557,8 @@ int parseCommandPasv(ftpDataType *data, int socketId)
             addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
+
+        return FTP_COMMAND_PROCESSED;
     }
 
     if (data->clients[socketId].workerData.threadIsAlive == 1)
