@@ -635,7 +635,6 @@ int parseCommandPort(ftpDataType *data, int socketId)
     int portBytes[2];
     theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived, 0);
 
-    printf("\n theIpAndPort = %s", theIpAndPort);
 
     sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
     data->clients[socketId].workerData.connectionPort = (portBytes[0] * 256) + portBytes[1];

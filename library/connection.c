@@ -964,40 +964,35 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
 				if(inet_ntop(AF_INET6, &ftpData->clients[availableSocketIndex].client_sockaddr_in.sin6_addr, ftpData->clients[availableSocketIndex].clientIpAddress, sizeof(ftpData->clients[availableSocketIndex].clientIpAddress))) 
 				{
 					ftpData->clients[availableSocketIndex].clientPort = (int) ntohs(ftpData->clients[availableSocketIndex].client_sockaddr_in.sin6_port);
-					printf("\n--> Client address is %s\n", ftpData->clients[availableSocketIndex].clientIpAddress);
-					printf("\n--> Client port is %d\n", ftpData->clients[availableSocketIndex].clientPort);
 				}
 
 
 				getsockname(ftpData->clients[availableSocketIndex].socketDescriptor, (struct sockaddr *)&ftpData->clients[availableSocketIndex].server_sockaddr_in, &ftpData->clients[availableSocketIndex].sockaddr_in_server_size);
 				if(inet_ntop(AF_INET6, &ftpData->clients[availableSocketIndex].server_sockaddr_in.sin6_addr, ftpData->clients[availableSocketIndex].serverIpAddress, sizeof(ftpData->clients[availableSocketIndex].serverIpAddress))) 
 				{
-					printf("\n--> Server ip address is %s\n", ftpData->clients[availableSocketIndex].serverIpAddress);
+					;
 				}
 
 				if (is_ipv4_mapped_ipv6(ftpData->clients[availableSocketIndex].clientIpAddress))
 				{
-					printf("\nServer is IPv4-mapped IPv6 address");
+
 					sscanf (ftpData->clients[availableSocketIndex].serverIpAddress,"::ffff:%d.%d.%d.%d", &ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[0],
 																									&ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[1],
 																									&ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[2],
 																									&ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[3]);
-					printf("\nServer ip saved: %d.%d.%d.%d", ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[0], ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[1], ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[2], ftpData->clients[availableSocketIndex].serverIpV4AddressInteger[3]);
 				}
 				else
 				{
-					printf("\nServer is ipv6");
+					;
 				}
 
 				// Check if it's an IPv4-mapped address
 				if (is_ipv4_mapped_ipv6(ftpData->clients[availableSocketIndex].clientIpAddress))
 				{
-					printf("\nClient connected from IPv4-mapped IPv6 address: ");
 					ftpData->clients[availableSocketIndex].isIpV6 = 0;
 				}
 				else 
 				{
-					printf("\nClient connected from ipv6");
 					ftpData->clients[availableSocketIndex].isIpV6 = 1;
 				}
 

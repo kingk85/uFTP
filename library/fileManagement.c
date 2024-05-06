@@ -270,10 +270,10 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
                 strcat(thePathToCheck, "/");
                 strcat(thePathToCheck, dir->d_name);
 
-                printf("\n ************* thePathToCheck = %s", thePathToCheck);
+
                 if (checkIfInodeExist == 1 && FILE_CheckIfLinkExist(thePathToCheck) == 0)
                 {
-                    printf("--> Not valid!");
+
                     continue;
                 }
 
