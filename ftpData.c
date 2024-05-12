@@ -301,6 +301,11 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         returnCode = socketWorkerPrintf(ftpData, clientId, "sds", "total ", fileAndFoldersCount ,"\r\n");
         if (returnCode <= 0)
         {
+
+            for (x = 0; x < fileAndFoldersCount; x++)
+            	DYNMEM_free (fileList[x], memoryTable);
+
+            DYNMEM_free (fileList, memoryTable);
             return -1;
         }
     }
@@ -346,6 +351,7 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
 
         if (data.isDirectory == 0 && data.isFile == 0 && data.isLink == 0)
         {
+            DYNMEM_free (fileList[i], memoryTable);
             continue;
         }
 
@@ -392,7 +398,6 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
         struct tm newtime;
         localtime_r(&data.lastModifiedData, &newtime);
         strftime(data.lastModifiedDataString, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE, "%b %d %Y", &newtime);
-        
         
         switch (commandType)
         {
@@ -495,7 +500,6 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumb
             DYNMEM_free (fileList, memoryTable);
             return -1;
         }
-        
         }
 
 		if (fileList != NULL)
