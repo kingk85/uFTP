@@ -42,8 +42,6 @@
 #include "connection.h"
 #include "log.h"
 
-#define IPV6_ENABLED
-
 static int is_ipv4_mapped_ipv6(const char *ip);
 
 int is_ipv4_mapped_ipv6(const char *ip) {
