@@ -635,6 +635,7 @@ int parseCommandPort(ftpDataType *data, int socketId)
     int portBytes[2];
     theIpAndPort = getFtpCommandArg("PORT", data->clients[socketId].theCommandReceived, 0);
 
+    data->clients[socketId].workerData.addressType = 1;
 
     sscanf(theIpAndPort, "%d,%d,%d,%d,%d,%d", &ipAddressBytes[0], &ipAddressBytes[1], &ipAddressBytes[2], &ipAddressBytes[3], &portBytes[0], &portBytes[1]);
     data->clients[socketId].workerData.connectionPort = (portBytes[0] * 256) + portBytes[1];
@@ -656,6 +657,8 @@ int parseCommandPort(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;
     
+    my_printf("\n Port command received port: %d", data->clients[socketId].workerData.connectionPort);
+
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
 
     if (returnCode != 0)
