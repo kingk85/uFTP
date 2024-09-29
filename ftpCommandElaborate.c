@@ -1338,11 +1338,8 @@ int parseCommandCwd(ftpDataType *data, int socketId)
         cleanDynamicStringDataType(&data->clients[socketId].login.absolutePath, 0, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&data->clients[socketId].login.absolutePath, theSafePath.text, theSafePath.textLen, &data->clients[socketId].memoryTable);
 
-        if (data->clients[socketId].login.absolutePath.textLen == data->clients[socketId].login.homePath.textLen)
-        {
-            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1, &data->clients[socketId].memoryTable);
-        }
-        else if (data->clients[socketId].login.absolutePath.textLen > data->clients[socketId].login.homePath.textLen)
+        
+        if (data->clients[socketId].login.absolutePath.textLen > data->clients[socketId].login.homePath.textLen)
         {
             char *theFtpPathPointer = data->clients[socketId].login.absolutePath.text;
             theFtpPathPointer += data->clients[socketId].login.homePath.textLen;
@@ -1355,6 +1352,10 @@ int parseCommandCwd(ftpDataType *data, int socketId)
             {
                 setDynamicStringDataType(&data->clients[socketId].login.ftpPath, theFtpPathPointer, strlen(theFtpPathPointer), &data->clients[socketId].memoryTable);
             }
+        }
+        else
+        {
+            setDynamicStringDataType(&data->clients[socketId].login.ftpPath, "/", 1, &data->clients[socketId].memoryTable);
         }
 
         //		my_printf("\ndata->clients[socketId].login.absolutePath = %s", data->clients[socketId].login.absolutePath.text);
