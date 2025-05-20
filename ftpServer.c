@@ -152,7 +152,7 @@ void *connectionWorkerHandle(void * socketId)
     {
         ftpData.clients[theSocketId].closeTheClient = 1;
         my_printf("\n Closing the client 1");
-        pthread_exit(NULL);
+        goto data_channel_exit;
     }
 
     if (ftpData.clients[theSocketId].workerData.socketIsConnected == 0)
@@ -188,7 +188,7 @@ void *connectionWorkerHandle(void * socketId)
             ftpData.clients[theSocketId].closeTheClient = 1;
             addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);            
             my_printf("\n Closing the client 2");
-            pthread_exit(NULL);
+            goto data_channel_exit;
         }
 
         //Wait for sockets
@@ -229,7 +229,7 @@ void *connectionWorkerHandle(void * socketId)
             ftpData.clients[theSocketId].closeTheClient = 1;
             addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
             my_printf("\n Closing the client 3");
-            pthread_exit(NULL);
+            goto data_channel_exit;
         }
     }
     else
@@ -275,7 +275,7 @@ void *connectionWorkerHandle(void * socketId)
         ftpData.clients[theSocketId].closeTheClient = 1;
         addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
         my_printf("\n Closing the client 4");
-        pthread_exit(NULL);
+        goto data_channel_exit;
     }
 
 
@@ -287,7 +287,7 @@ void *connectionWorkerHandle(void * socketId)
         ftpData.clients[theSocketId].closeTheClient = 1;
         addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
         my_printf("\n Closing the client 5");
-        pthread_exit(NULL);
+        goto data_channel_exit;
     }
 
     ftpData.clients[theSocketId].workerData.socketIsConnected = 1;
@@ -351,7 +351,7 @@ void *connectionWorkerHandle(void * socketId)
                     ftpData.clients[theSocketId].closeTheClient = 1;
                     addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
                     my_printf("\n Closing the client 6");
-                    pthread_exit(NULL);
+                    goto data_channel_exit;
                 }
 
                 break;
@@ -364,7 +364,7 @@ void *connectionWorkerHandle(void * socketId)
                 ftpData.clients[theSocketId].closeTheClient = 1;
                 addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
                 my_printf("\n Closing the client 7");
-                pthread_exit(NULL);
+                goto data_channel_exit;
             }
 
             while(1)
@@ -419,7 +419,7 @@ void *connectionWorkerHandle(void * socketId)
                 ftpData.clients[theSocketId].closeTheClient = 1;
                 addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
                 my_printf("\n Closing the client 8");
-                pthread_exit(NULL);
+                goto data_channel_exit;
             }
 
             break;
@@ -442,7 +442,7 @@ void *connectionWorkerHandle(void * socketId)
               ftpData.clients[theSocketId].closeTheClient = 1;
               addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
               my_printf("\n Closing the client 8");
-              pthread_exit(NULL);
+              goto data_channel_exit;
           }
 
           returnCode = writeListDataInfoToSocket(&ftpData, theSocketId, &theFiles, theCommandType, &ftpData.clients[theSocketId].workerData.memoryTable);
@@ -451,7 +451,7 @@ void *connectionWorkerHandle(void * socketId)
               ftpData.clients[theSocketId].closeTheClient = 1;
               addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
               my_printf("\n Closing the client 9");
-              pthread_exit(NULL);
+              goto data_channel_exit;
           }
 
           returnCode = socketPrintf(&ftpData, theSocketId, "sds", "226 ", theFiles, " matches total\r\n");
@@ -460,7 +460,7 @@ void *connectionWorkerHandle(void * socketId)
               ftpData.clients[theSocketId].closeTheClient = 1;
               addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
               my_printf("\n Closing the client 10");
-              pthread_exit(NULL);
+              goto data_channel_exit;
           }
 
           break;
@@ -475,7 +475,7 @@ void *connectionWorkerHandle(void * socketId)
                 ftpData.clients[theSocketId].closeTheClient = 1;
                 addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
                 my_printf("\n Closing the client 11");
-                pthread_exit(NULL);
+                goto data_channel_exit;
             }
 
             writenSize = writeRetrFile(&ftpData, theSocketId, ftpData.clients[theSocketId].workerData.retrRestartAtByte, ftpData.clients[theSocketId].workerData.theStorFile);
@@ -490,7 +490,7 @@ void *connectionWorkerHandle(void * socketId)
                 ftpData.clients[theSocketId].closeTheClient = 1;
                 addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
                 my_printf("\n Closing the client 12");
-                pthread_exit(NULL);
+                goto data_channel_exit;
               }
               break;
             }
@@ -502,7 +502,7 @@ void *connectionWorkerHandle(void * socketId)
               ftpData.clients[theSocketId].closeTheClient = 1;
               addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
               my_printf("\n Closing the client 13");
-              pthread_exit(NULL);
+              goto data_channel_exit;
             }
             break;
         }
@@ -515,10 +515,9 @@ void *connectionWorkerHandle(void * socketId)
 
   }
 
+  data_channel_exit:
+  pthread_cleanup_pop(1);
   pthread_exit((void *)1);
-  pthread_cleanup_pop(0);
-  pthread_exit((void *)2);
-  return NULL;
 }
 
 void runFtpServer(void)
