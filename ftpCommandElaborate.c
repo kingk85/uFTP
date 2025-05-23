@@ -101,8 +101,6 @@ int parseCommandUser(ftpDataType * data, int socketId)
         addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
-		
-
 	return FTP_COMMAND_PROCESSED;
 }
 
@@ -303,6 +301,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
 int parseCommandAuth(ftpDataType *data, int socketId)
 {
     int returnCode, returnCodeTls;
+    my_printf("-- AUTH TLS --");
 
 #ifndef OPENSSL_ENABLED
     returnCode = socketPrintf(data, socketId, "s", "502 Security extensions not implemented.\r\n");
@@ -418,14 +417,14 @@ int parseCommandProt(ftpDataType *data, int socketId)
     if (theProtArg[0] == 'C' || theProtArg[0] == 'c')
     {
         // Clear
-        // my_printf("\nSet data channel to clear");
+        my_printf("\n---------------- Set data channel to clear");
         data->clients[socketId].dataChannelIsTls = 0;
         returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
     else if (theProtArg[0] == 'P' || theProtArg[0] == 'p')
     {
         // Private
-        // my_printf("\nSet data channel to private");
+        my_printf("\n---------------- Set data channel to private");
         data->clients[socketId].dataChannelIsTls = 1;
         returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
@@ -2608,6 +2607,6 @@ static int parse_eprt(const char *eprt_str, int *address_type, char *address, in
     return -4; // Error: invalid port number
   }
 
-
   return 0; // Success
+
 }

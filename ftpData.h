@@ -54,6 +54,10 @@
 #define COMMAND_TYPE_STAT                           2
 #define WRONG_PASSWORD_ALLOWED_RETRY_TIME           60
 
+
+#define IS_CMD(str, cmd) (compareStringCaseInsensitive(str, cmd, strlen(cmd)) == 1)
+#define IS_NOT_CMD(str, cmd) (compareStringCaseInsensitive(str, cmd, strlen(cmd)) != 1)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
