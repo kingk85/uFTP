@@ -2,7 +2,8 @@
 #OPENSSL TEST COMMANDS
 
 #Required packages to compile with TLS
-sudo apt-get install libssl-devù
+sudo apt-get install libssl-dev
+
 #Required packages to compile with PAM
 sudo apt-get install libpam0g-dev
 
@@ -11,8 +12,6 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
 openssl rsa -in key.pem -out newkey.pem
 handle SIGPIPE nostop noprint pass
 thread apply all where
-
-
 
 #Testing ssl
 openssl s_client -starttls ftp -connect 192.168.1.237:21

@@ -101,6 +101,8 @@ int parseCommandUser(ftpDataType * data, int socketId)
         addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
+		
+
 	return FTP_COMMAND_PROCESSED;
 }
 
@@ -2607,6 +2609,6 @@ static int parse_eprt(const char *eprt_str, int *address_type, char *address, in
     return -4; // Error: invalid port number
   }
 
-  return 0; // Success
 
+  return 0; // Success
 }

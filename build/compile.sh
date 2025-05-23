@@ -1,6 +1,6 @@
 cd ..
 make clean
-make
+make -j 8
 cd build
 sudo killall uFTP
 ./uFTP

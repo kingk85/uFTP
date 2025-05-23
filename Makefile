@@ -8,6 +8,11 @@ CC=gcc
 OUTPATH=./build/
 SOURCE_MODULES_PATH=./library/
 
+#uncommend next lines to enable printf
+ENABLE_PRINTF=
+#uncommend next lines to enable printf
+ENABLE_PRINTF=-D ENABLE_PRINTF -D ENABLE_PRINTF_ERROR
+
 #FOR DEBUG PURPOSE
 #CFLAGSTEMP=-c -Wall -I. -g -O0
 
@@ -43,7 +48,7 @@ PAM_AUTH_LIB=
 #ENABLE_PAM_SUPPORT= -D PAM_SUPPORT_ENABLED
 #PAM_AUTH_LIB= -lpam
 
-CFLAGS=$(CFLAGSTEMP) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) $(ENABLE_IPV6_SUPPORT) $(ENABLE_PAM_SUPPORT)
+CFLAGS=$(CFLAGSTEMP) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) $(ENABLE_IPV6_SUPPORT) $(ENABLE_PAM_SUPPORT) $(ENABLE_PRINTF)
 
 all: $(BUILDFILES)
 
@@ -57,8 +62,14 @@ start:
 end:
 	@echo Build process end
 
-uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o dynamicMemory.o errorHandling.o auth.o log.o controlChannel.o
-	@$(CC) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c $(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o $(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o $(LIBPATH)connection.o $(LIBPATH)openSsl.o $(LIBPATH)dynamicMemory.o $(LIBPATH)errorHandling.o $(LIBPATH)auth.o $(LIBPATH)log.o $(LIBPATH)controlChannel.o -o $(OUTPATH)uFTP $(LIBS) $(PAM_AUTH_LIB) $(ENDFLAG)
+uFTP: uFTP.c fileManagement.o configRead.o logFunctions.o ftpCommandElaborate.o \
+    ftpData.o ftpServer.o daemon.o signals.o connection.o openSsl.o \
+	dynamicMemory.o errorHandling.o auth.o log.o controlChannel.o
+	@$(CC) $(ENABLE_LARGE_FILE_SUPPORT) $(ENABLE_OPENSSL_SUPPORT) uFTP.c \
+	$(LIBPATH)dynamicVectors.o $(LIBPATH)fileManagement.o $(LIBPATH)configRead.o $(LIBPATH)logFunctions.o \
+	$(LIBPATH)ftpCommandElaborate.o $(LIBPATH)ftpData.o $(LIBPATH)ftpServer.o $(LIBPATH)daemon.o $(LIBPATH)signals.o \
+	$(LIBPATH)connection.o $(LIBPATH)openSsl.o $(LIBPATH)dynamicMemory.o $(LIBPATH)errorHandling.o $(LIBPATH)auth.o \
+	$(LIBPATH)log.o $(LIBPATH)controlChannel.o -o $(OUTPATH)uFTP $(LIBS) $(PAM_AUTH_LIB) $(ENDFLAG)
 
 daemon.o:
 	@$(CC) $(CFLAGS) $(SOURCE_MODULES_PATH)daemon.c -o $(LIBPATH)daemon.o

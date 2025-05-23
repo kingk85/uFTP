@@ -53,7 +53,9 @@
 #include "debugHelper.h"
 #include "controlChannel.h"
 
+/* Private function definition */
 static int processCommand(int processingElement, ftpDataType *ftpData);
+static void memoryDebug(ftpDataType *ftpData);
 
 void evaluateControlChannel(ftpDataType *ftpData)
 {
@@ -61,25 +63,9 @@ void evaluateControlChannel(ftpDataType *ftpData)
 
     //Update watchdog timer
    	updateWatchDogTime((int)time(NULL));
-	
-	my_printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());
-	int memCount = 0;
-	for (memCount = 0; memCount < ftpData->ftpParameters.maxClients; memCount++)
-	{
-		if (ftpData->clients[memCount].memoryTable != NULL)
-		{
-			my_printf("\nftpData->clients[%d].memoryTable = %s", memCount, ftpData->clients[memCount].memoryTable->theName);
-		}
-		if (ftpData->clients[memCount].workerData.memoryTable != NULL)
-		{
-			my_printf("\nftpData->clients[%d].workerData.memoryTable = %s", memCount, ftpData->clients[memCount].workerData.memoryTable->theName);
-		}
 
-		if (ftpData->clients[memCount].workerData.directoryInfo.memoryTable != NULL)
-		{
-			my_printf("\nftpData->clients[%d].workerData.directoryInfo.memoryTable = %s", memCount, ftpData->clients[memCount].workerData.directoryInfo.memoryTable->theName);
-		}
-	}
+    //debug memory usage
+    memoryDebug(ftpData);
 
     /* waits for socket activity, if no activity then checks for client socket timeouts */
     if (selectWait(ftpData) == 0)
@@ -237,6 +223,27 @@ void evaluateControlChannel(ftpDataType *ftpData)
 }
 
 /* Private static functions */
+
+static void memoryDebug(ftpDataType *ftpData)
+{
+	my_printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());
+	for (int memCount = 0; memCount < ftpData->ftpParameters.maxClients; memCount++)
+	{
+		if (ftpData->clients[memCount].memoryTable != NULL)
+		{
+			my_printf("\nftpData->clients[%d].memoryTable = %s", memCount, ftpData->clients[memCount].memoryTable->theName);
+		}
+		if (ftpData->clients[memCount].workerData.memoryTable != NULL)
+		{
+			my_printf("\nftpData->clients[%d].workerData.memoryTable = %s", memCount, ftpData->clients[memCount].workerData.memoryTable->theName);
+		}
+
+		if (ftpData->clients[memCount].workerData.directoryInfo.memoryTable != NULL)
+		{
+			my_printf("\nftpData->clients[%d].workerData.directoryInfo.memoryTable = %s", memCount, ftpData->clients[memCount].workerData.directoryInfo.memoryTable->theName);
+		}
+	}
+}
 
 static int processCommand(int processingElement, ftpDataType *ftpData)
 {

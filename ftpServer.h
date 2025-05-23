@@ -27,7 +27,7 @@
 #define FTPSERVER_H
 
 #define MAX_FTP_CLIENTS                 10
-#define UFTP_SERVER_VERSION             "v3.1.0 stable"
+#define UFTP_SERVER_VERSION             "v4.0.0 stable"
 
 void initFtpServer(void);
 void runFtpServer(void);
@@ -35,7 +35,6 @@ void *connectionWorkerHandle(void * socketId);
 void workerCleanup(void *socketId);
 void signal_callback_handler(int signum);
 void deallocateMemory(void);
-
 
 #endif /* FTPSERVER_H */
 

@@ -642,8 +642,7 @@ void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, 
 
 void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
 {
-    int i;
-    for (i = 0; i < theVector->Size; i++)
+    for (int i = 0; i < theVector->Size; i++)
     {
 		ftpListDataType *data = (ftpListDataType *)theVector->Data[i];
 
@@ -852,8 +851,8 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLenght)
 {
     int i = 0;
-    char * alfaLowerCase = "qwertyuiopasdfghjklzxcvbnm .";
-    char * alfaUpperCase = "QWERTYUIOPASDFGHJKLZXCVBNM .";
+    char *alfaLowerCase = "qwertyuiopasdfghjklzxcvbnm .";
+    char *alfaUpperCase = "QWERTYUIOPASDFGHJKLZXCVBNM .";
 
     int stringInIndex;
     int stringRefIndex;
@@ -891,8 +890,7 @@ int compareStringCaseInsensitive(char * stringIn, char * stringRef, int stringLe
 
 int isCharInString(char *theString, int stringLen, char theChar)
 {
-    int i;
-    for (i = 0; i < stringLen; i++)
+    for (int i = 0; i < stringLen; i++)
     {
         if (theString[i] == theChar)
         {
