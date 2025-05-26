@@ -11,7 +11,7 @@ SOURCE_MODULES_PATH=./library/
 #uncommend next lines to enable printf
 ENABLE_PRINTF=
 #uncommend next lines to enable printf
-ENABLE_PRINTF=-D ENABLE_PRINTF -D ENABLE_PRINTF_ERROR
+#ENABLE_PRINTF=-D ENABLE_PRINTF -D ENABLE_PRINTF_ERROR
 
 #FOR DEBUG PURPOSE
 #CFLAGSTEMP=-c -Wall -I. -g -O0

@@ -2320,6 +2320,7 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
         else
         {
             toReturn = toReturn + writtenSize;
+            data->clients[theSocketId].lastActivityTimeStamp = (int)time(NULL);
         }
     }
     fclose(retrFP);

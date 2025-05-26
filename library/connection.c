@@ -374,7 +374,6 @@ int createSocket(ftpDataType * ftpData)
 	return -1;
   }
 
-
   //No blocking socket
   errorCode = fcntl(sock, F_SETFL, O_NONBLOCK);
 
@@ -430,70 +429,88 @@ reuse = 1;
 
 int createPassiveSocket(int port)
 {
-  int sock, returnCode;
-  struct sockaddr_in6 serveraddr;
+    int sock, returnCode;
+    struct sockaddr_in6 serveraddr;
+    int max_retries = 12;       // number of bind retries
+    int retry_delay_sec = 1;   // delay between retries
 
-  //Socket creation IPV6
-  if ((sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
-  {
-	perror("socket() failed");
-	addLog("socket failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);	
-	return -1;
-  }
+    if ((sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+    {
+        perror("socket() failed");
+        addLog("socket failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return -1;
+    }
 
-   memset(&serveraddr, 0, sizeof(serveraddr));
-   serveraddr.sin6_family = AF_INET6;
-   serveraddr.sin6_port   = htons(port);
-   serveraddr.sin6_addr   = in6addr_any;
+    memset(&serveraddr, 0, sizeof(serveraddr));
+    serveraddr.sin6_family = AF_INET6;
+    serveraddr.sin6_port   = htons(port);
+    serveraddr.sin6_addr   = in6addr_any;
 
-   int reuse = 1;
-
+    int reuse = 1;
 #ifdef SO_REUSEADDR
-   if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-	{
-		perror("setsockopt(SO_REUSEADDR) failed");
-		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-	}
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
+    {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        my_printfError("setsockopt(SO_REUSEADDR) failed");
+        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    }
 #endif
-
-  reuse = 1;
 
 #ifdef SO_REUSEPORT
-   if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-	{
-		perror("setsockopt(SO_REUSEADDR) failed");
-		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("set socket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-	}
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0)
+    {
+        perror("setsockopt(SO_REUSEPORT) failed");
+        my_printfError("setsockopt(SO_REUSEPORT) failed");
+        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    }
 #endif
 
-	//Bind socket
-	if (bind(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
-	{
-		close(sock);
-		perror("bind() failed");
-		addLog("bind failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-		return -1;
-	}
+    // Retry bind if fails with EADDRINUSE
+    for (int i = 0; i < max_retries; i++)
+    {
+        returnCode = bind(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
+        if (returnCode == 0)
+		{
+			if(i > 0)
+				printf("\n Success After: %d attempts", i);
+			break;
+		}
 
-  //Number of client allowed
-  returnCode = listen(sock, 1);
+        if (errno == EADDRINUSE)
+        {
+            my_printf("Bind failed with EADDRINUSE on port: %d, retrying %d/%d...\n",port,  i + 1, max_retries);
+            sleep(retry_delay_sec); // wait before retrying
+        }
+        else
+        {
+            // Other bind errors: fail immediately
+            perror("bind() failed");
+            addLog("bind failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            close(sock);
+            return -1;
+        }
+    }
 
-  if (returnCode == -1)
-  {
-	addLog("bind failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-	my_printf("\n Could not listen %d errno = %d", sock, errno);
+    if (returnCode != 0)
+    {
+        my_printf("Bid failed after %d retries, errno=%d\n", max_retries, errno);
+		addLog("bind failed failed after all attempts!", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        close(sock);
+        return -1;
+    }
 
-	if (sock != -1)
-	{
-		close(sock);
-	}
+    // Listen
+    returnCode = listen(sock, 1);
+    if (returnCode == -1)
+    {
+        addLog("listen failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        my_printf("\nCould not listen %d errno = %d", sock, errno);
+        if (sock != -1)
+            close(sock);
+        return -1;
+    }
 
-      return returnCode;
-  }
-
-  return sock;
+    return sock;
 }
 
 #else
