@@ -37,7 +37,10 @@ void DYNMEM_Init(void)
 
 unsigned long long int DYNMEM_GetTotalMemory(void)
 {
-	return theTotalMemory;
+    pthread_mutex_lock(&memoryCountMutex);
+    unsigned long long int mem = theTotalMemory;
+    pthread_mutex_unlock(&memoryCountMutex);
+    return mem;
 }
 
 unsigned long long int DYNMEM_IncreaseMemoryCounter(unsigned long long int theSize)
@@ -79,7 +82,8 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead, 
 		newItem->size = bytes;
 		newItem->nextElement = NULL;
 		newItem->previousElement = NULL;
-		strncpy(newItem->theName, theName, 20);
+		strncpy(newItem->theName, theName, sizeof(newItem->theName) - 1);
+		newItem->theName[sizeof(newItem->theName) - 1] = '\0';
 
 		if( (*memoryListHead) != NULL)
 		{
@@ -140,7 +144,6 @@ void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_Da
 			//strcpy(theData, "NOOOOOOOOOOOOOOOO");
 
 			report_error_q("Unable to reallocate memory not previously allocated",__FILE__,__LINE__, 0);
-			free(newMemory);
 			// Report this as an error
 			return NULL;
 		}
@@ -237,4 +240,28 @@ void DYNMEM_freeAll(DYNMEM_MemoryTable_DataType **memoryListHead)
 		free((*memoryListHead));
 		(*memoryListHead) = temp;
 	}
+}
+
+void DYNMEM_dump(DYNMEM_MemoryTable_DataType *memoryListHead)
+{
+    int count = 0;
+    unsigned long long int total = 0;
+
+    my_printf("\n==== DYNMEM Memory Dump ====\n");
+
+    for (DYNMEM_MemoryTable_DataType *current = memoryListHead; current != NULL; current = current->nextElement)
+    {
+        my_printf("Block %d:\n", count + 1);
+        my_printf("  Address   : %p\n", current->address);
+        my_printf("  Size      : %zu bytes\n", current->size);
+        my_printf("  Label     : %s\n", current->theName);
+        my_printf("  Block MetaSize: %zu bytes\n", sizeof(DYNMEM_MemoryTable_DataType));
+        total += current->size + sizeof(DYNMEM_MemoryTable_DataType);
+        count++;
+    }
+
+    my_printf("\nTotal blocks      : %d\n", count);
+    my_printf("Total memory used : %llu bytes (including metadata)\n", total);
+    my_printf("Global counter    : %llu bytes\n", DYNMEM_GetTotalMemory());
+    my_printf("=============================\n");
 }

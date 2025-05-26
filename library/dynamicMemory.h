@@ -26,6 +26,6 @@ void *DYNMEM_malloc(size_t bytes, DYNMEM_MemoryTable_DataType ** memoryListHead,
 void *DYNMEM_realloc(void *theMemoryAddress, size_t bytes, DYNMEM_MemoryTable_DataType **memoryListHead);
 void  DYNMEM_free(void *f_address, DYNMEM_MemoryTable_DataType ** memoryListHead);
 void  DYNMEM_freeAll(DYNMEM_MemoryTable_DataType ** memoryListHead);
-
+void DYNMEM_dump(DYNMEM_MemoryTable_DataType *memoryListHead);
 
 #endif /* LIBRARY_DYNAMICMEMORY_H_ */

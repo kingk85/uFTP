@@ -223,7 +223,6 @@ void evaluateControlChannel(ftpDataType *ftpData)
 }
 
 /* Private static functions */
-
 static void memoryDebug(ftpDataType *ftpData)
 {
 	my_printf("\nUsed memory : %lld", DYNMEM_GetTotalMemory());

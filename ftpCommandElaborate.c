@@ -45,6 +45,7 @@
 #include "library/connection.h"
 #include "library/dynamicMemory.h"
 #include "library/auth.h"
+#include "dataChannel/dataChannel.h"
 #include "ftpCommandsElaborate.h"
 
 #include "debugHelper.h"
@@ -579,7 +580,18 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 0;
 
-    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
+
+    cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-1");
+
+    if (!workerArgs) {
+        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    workerArgs->ftpData = data;
+    workerArgs->socketId = socketId;
+
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, workerArgs);
 
     if (returnCode != 0)
     {
@@ -615,7 +627,17 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.extendedPassiveModeOn = 1;
     data->clients[socketId].workerData.activeModeOn = 0;
 
-    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
+    cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-2");
+
+    if (!workerArgs) {
+        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    workerArgs->ftpData = data;
+    workerArgs->socketId = socketId;
+
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, workerArgs);
 
     if (returnCode != 0)
     {
@@ -660,7 +682,17 @@ int parseCommandPort(ftpDataType *data, int socketId)
     
     my_printf("\n Port command received port: %d", data->clients[socketId].workerData.connectionPort);
 
-    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
+cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-3");
+
+    if (!workerArgs) {
+        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    workerArgs->ftpData = data;
+    workerArgs->socketId = socketId;
+
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, workerArgs);
 
     if (returnCode != 0)
     {
@@ -1868,15 +1900,19 @@ int parseCommandRmd(ftpDataType *data, int socketId)
         {
             if ((checkUserFilePermissions(rmdFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) == FILE_PERMISSION_W)
             {
+                char errorString[PATH_MAX];
+
                 returnStatus = rmdir(rmdFileName.text);
 
                 if (returnStatus == -1)
                 {
-                    char errorString[PATH_MAX];
-                    memset(errorString, 0, PATH_MAX);
-                    snprintf(errorString, PATH_MAX, "RMD some error occours: %s %d", rmdFileName.text, returnStatus);
-                    addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);                    
-                    returnCode = socketPrintf(data, socketId, "s", "550 Could not remove the directory, some errors occurred.\r\n");
+                    snprintf(errorString, PATH_MAX, 
+                            "RMD failed: %s - %s (errno=%d)", 
+                            rmdFileName.text, strerror(errno), errno);
+
+                    addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+
+                    returnCode = socketPrintf(data, socketId, "sss", "550 Could not remove the directory: ", strerror(errno)," \r\n");
                 }
                 else
                 {
@@ -2569,7 +2605,17 @@ int parseCommandEprt(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;
     
-    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, (void *)&data->clients[socketId].clientProgressiveNumber);
+cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-4");
+
+    if (!workerArgs) {
+        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    workerArgs->ftpData = data;
+    workerArgs->socketId = socketId;
+
+    returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, workerArgs);
 
     if (returnCode != 0)
     {
