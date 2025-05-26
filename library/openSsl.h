@@ -41,8 +41,7 @@ int thread_setup(void);
 void handle_error(const char *file, int lineno, const char *msg);
 SSL_CTX *createServerContext();
 SSL_CTX *createClientContext();
-void configureContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath);
-void configureClientContext(SSL_CTX *ctx, char *certificatePath, char* privateCertificatePath);
+void configureContext(SSL_CTX *ctx, const char *certificatePath, const char* privateCertificatePath);
 void ShowCerts(SSL* ssl);
 #ifdef __cplusplus
 }

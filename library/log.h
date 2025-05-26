@@ -25,7 +25,7 @@
 #ifndef LOG_H
 #define LOG_H
 
-int logInit(char * folder, int numberOfLogFiles);
-void addLog(char* logString, char * currFile, int currLine, const char * currFunction);
+int logInit(const char* folder, int numberOfLogFiles);
+void addLog(const char* message, const char* file, int line, const char* function);
 
 #endif

@@ -2245,7 +2245,6 @@ int parseCommandAcct(ftpDataType *data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
-
 long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int startFrom, FILE *retrFP)
 {
     long long int readen = 0;
@@ -2549,7 +2548,6 @@ int setPermissions(char *permissionsCommand, char *basePath, ownerShip_DataType 
     return FTP_CHMODE_COMMAND_RETURN_CODE_OK;
 }
 
-
 int parseCommandEprt(ftpDataType *data, int socketId)
 {
     int returnCode;
@@ -2628,7 +2626,6 @@ cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->
 
     return FTP_COMMAND_PROCESSED;
 }
-
 
 static int parse_eprt(const char *eprt_str, int *address_type, char *address, int *port)
 {
