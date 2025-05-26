@@ -123,6 +123,8 @@ void *connectionWorkerHandle(cleanUpWorkerArgs *args)
 
   // Enable cancellation for this thread
   pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+  pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+
   pthread_cleanup_push(workerCleanup,  args);
   ftpData->clients[theSocketId].workerData.threadIsAlive = 1;
   ftpData->clients[theSocketId].workerData.threadHasBeenCreated = 1;

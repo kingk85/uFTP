@@ -360,6 +360,38 @@ int getMaximumSocketFd(int mainSocket, ftpDataType * ftpData)
 
 #ifdef IPV6_ENABLED
 
+int isPortInUse(int port) {
+    int sockfd;
+    struct sockaddr_in6 addr;
+
+    sockfd = socket(AF_INET6, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("socket");
+        return 1; // Assume port is in use if we can't create a socket
+    }
+
+    int reuse = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(port);
+    addr.sin6_addr = in6addr_any;
+
+    int result = bind(sockfd, (struct sockaddr*)&addr, sizeof(addr));
+    close(sockfd);  // Always close after test
+
+    if (result == 0) {
+        return 0; // Port is free
+    } else if (errno == EADDRINUSE) {
+        return 1; // Port is in use
+    } else {
+        perror("bind");
+        return 1; // Other error, treat as in-use
+    }
+}
+
+
 int createSocket(ftpDataType * ftpData)
 {
   //my_printf("\nCreating main socket on port %d", ftpData->ftpParameters.port);
@@ -515,6 +547,37 @@ int createPassiveSocket(int port)
 
 #else
 
+int isPortInUse(int port) {
+    int sockfd;
+    struct sockaddr_in addr;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("socket");
+        return 1; // Assume port is in use if we can't create a socket
+    }
+
+    int reuse = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    int result = bind(sockfd, (struct sockaddr*)&addr, sizeof(addr));
+    close(sockfd);  // Always close after test
+
+    if (result == 0) {
+        return 0; // Port is free
+    } else if (errno == EADDRINUSE) {
+        return 1; // Port is in use
+    } else {
+        perror("bind");
+        return 1; // Other error, treat as in-use
+    }
+}
+
 int createSocket(ftpDataType * ftpData)
 {
   //my_printf("\nCreating main socket on port %d", ftpData->ftpParameters.port);
@@ -581,68 +644,86 @@ int createSocket(ftpDataType * ftpData)
 
 int createPassiveSocket(int port)
 {
-  int sock, returnCode;
-  struct sockaddr_in temp;
+    int sock, returnCode;
+    struct sockaddr_in serveraddr;
+    int max_retries = 12;       // number of bind retries
+    int retry_delay_sec = 1;    // delay between retries
 
-  //Socket creation
-  sock = socket(AF_INET, SOCK_STREAM, 0);
-  if (sock == -1)
-  {
-	  return -1;
-  }
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        perror("socket() failed");
+        addLog("socket failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return -1;
+    }
 
-  temp.sin_family = AF_INET;
-  temp.sin_addr.s_addr = INADDR_ANY;
-  temp.sin_port = htons(port);
+    memset(&serveraddr, 0, sizeof(serveraddr));
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_port = htons(port);
+    serveraddr.sin_addr.s_addr = INADDR_ANY;
 
-  int reuse = 1;
-
+    int reuse = 1;
 #ifdef SO_REUSEADDR
-   if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
-	{
-		perror("setsockopt(SO_REUSEADDR) failed");
-		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-	}
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0)
+    {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        my_printfError("setsockopt(SO_REUSEADDR) failed");
+        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    }
 #endif
 
 #ifdef SO_REUSEPORT
-   if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0) 
-	{
-		perror("setsockopt(SO_REUSEADDR) failed");
-		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("set socket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-	}
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse)) < 0)
+    {
+        perror("setsockopt(SO_REUSEPORT) failed");
+        my_printfError("setsockopt(SO_REUSEPORT) failed");
+        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    }
 #endif
 
-  //Bind socket
-  returnCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
+    // Retry bind if it fails with EADDRINUSE
+    for (int i = 0; i < max_retries; i++)
+    {
+        returnCode = bind(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
+        if (returnCode == 0)
+        {
+            if (i > 0)
+                printf("\n Success After: %d attempts", i);
+            break;
+        }
 
-  if (returnCode == -1)
-  {
-	  my_printf("\n Could not bind %d errno = %d", sock, errno);
+        if (errno == EADDRINUSE)
+        {
+            my_printf("Bind failed with EADDRINUSE on port: %d, retrying %d/%d...\n", port, i + 1, max_retries);
+            sleep(retry_delay_sec);
+        }
+        else
+        {
+            perror("bind() failed");
+            addLog("bind failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            close(sock);
+            return -1;
+        }
+    }
 
-	  if (sock != -1)
-	  {
-		  close(sock);
-	  }
-	return returnCode;
-  }
+    if (returnCode != 0)
+    {
+        my_printf("Bind failed after %d retries, errno=%d\n", max_retries, errno);
+        addLog("bind failed after all attempts!", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        close(sock);
+        return -1;
+    }
 
-  //Number of client allowed
-  returnCode = listen(sock, 1);
+    // Start listening
+    returnCode = listen(sock, 1);
+    if (returnCode == -1)
+    {
+        addLog("listen failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        my_printf("\nCould not listen %d errno = %d", sock, errno);
+        close(sock);
+        return -1;
+    }
 
-  if (returnCode == -1)
-  {
-	  my_printf("\n Could not listen %d errno = %d", sock, errno);
-	  if (sock != -1)
-	  {
-		  close(sock);
-	  }
-      return returnCode;
-  }
-
-  return sock;
+    return sock;
 }
 
 #endif

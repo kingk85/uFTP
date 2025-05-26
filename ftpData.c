@@ -257,28 +257,45 @@ void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *t
 
 void setRandomicPort(ftpDataType *data, int socketPosition)
 {
-    unsigned short int randomicPort = 5000;
-    int i = 0;
+    unsigned short int randomicPort;
+    int maxAttempts = data->ftpParameters.connectionPortMax - data->ftpParameters.connectionPortMin +1;
+    int attempt = 0;
+    int conflict;
 
-  randomicPort = data->ftpParameters.connectionPortMin + (rand()%(data->ftpParameters.connectionPortMax - data->ftpParameters.connectionPortMin)); 
+    while (attempt++ < maxAttempts)
+    {
+        // Generate a random port in range
+        randomicPort = data->ftpParameters.connectionPortMin + 
+                       (rand() % (data->ftpParameters.connectionPortMax - data->ftpParameters.connectionPortMin + 1));
 
-   while (i < data->ftpParameters.maxClients)
-   {
-       if (randomicPort == data->clients[i].workerData.connectionPort)
-       {
-        randomicPort = data->ftpParameters.connectionPortMin + (rand()%(data->ftpParameters.connectionPortMax - data->ftpParameters.connectionPortMin)); 
-        i = 0;
-       }
-       else 
-       {
-        i++;
-       }
-   }
+        // Check against other clients
+        conflict = 0;
+        for (int i = 0; i < data->ftpParameters.maxClients; ++i)
+        {
+            if (i != socketPosition && 
+                data->clients[i].workerData.connectionPort == randomicPort)
+            {
+                conflict = 1;
+                break;
+            }
+        }
 
-   data->clients[socketPosition].workerData.connectionPort = randomicPort;
+        if (conflict)
+            continue;
 
-   my_printf("\n  data->clients[%d].workerData.connectionPort = %d", socketPosition, data->clients[socketPosition].workerData.connectionPort);
+        // Check if port is in use on the system
+        if (!isPortInUse(randomicPort))
+        {
+            data->clients[socketPosition].workerData.connectionPort = randomicPort;
+            my_printf("\n data->clients[%d].workerData.connectionPort = %d", 
+                      socketPosition, randomicPort);
+            return;
+        }
+    }
 
+    // If we’re here, we failed to find a port
+    addLog("Failed to find available random port", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    data->clients[socketPosition].workerData.connectionPort = 0;
 }
 
 int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable)
@@ -675,16 +692,24 @@ void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
 
 void cancelWorker(ftpDataType *data, int clientId)
 {
-	void *pReturn;
-    addLog("Cancelling thread because is busy", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-	int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
-    if (returnCode != 0)
-    {
-        addLog("Cancelling thread ERROR", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    void *pReturn;
+
+    if (data->clients[clientId].workerData.threadHasBeenCreated) {
+        addLog("Cancelling thread because it is busy", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+
+        int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
+        if (returnCode != 0) {
+            addLog("Cancelling thread ERROR", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        }
+
+        returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
+        if (returnCode != 0) {
+            addLog("Joining thread ERROR", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        }
+
+        data->clients[clientId].workerData.threadHasBeenCreated = 0;
+        data->clients[clientId].workerData.workerThread = 0; // Reset thread ID
     }
-	returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
-    
-	data->clients[clientId].workerData.threadHasBeenCreated = 0;
 }
 
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
