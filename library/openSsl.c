@@ -21,8 +21,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+/*
+ * The MIT License
+ * Copyright 2018 Ugo Cirmignani.
+ * [license text unchanged...]
+ */
 
- #ifdef OPENSSL_ENABLED
+#ifdef OPENSSL_ENABLED
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -30,6 +35,8 @@
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/conf.h>
 
 #include "openSsl.h"
 #include "fileManagement.h"
@@ -54,15 +61,15 @@ static MUTEX_TYPE *mutex_buf = NULL;
 
 void initOpenssl()
 {
-    OpenSSL_add_all_algorithms();
-    SSL_load_error_strings();
-    ERR_load_BIO_strings();
-    ERR_load_crypto_strings();
-    SSL_library_init();
-
 #if NEED_OPENSSL_THREADING
     thread_setup();
 #endif
+    // No longer needed in OpenSSL >= 1.1.0
+    // OpenSSL_add_all_algorithms();
+    // SSL_load_error_strings();
+    // ERR_load_BIO_strings();
+    // ERR_load_crypto_strings();
+    // SSL_library_init();
 }
 
 void cleanupOpenssl()
@@ -70,7 +77,8 @@ void cleanupOpenssl()
 #if NEED_OPENSSL_THREADING
     thread_cleanup();
 #endif
-    EVP_cleanup();
+    // Deprecated in OpenSSL >= 1.1.0
+    // EVP_cleanup();
 }
 
 SSL_CTX *createServerContext()
@@ -85,7 +93,7 @@ SSL_CTX *createServerContext()
     return ctx;
 }
 
-SSL_CTX *createClientContext(void)
+SSL_CTX *createClientContext()
 {
     const SSL_METHOD *method = TLS_client_method();
     SSL_CTX *ctx = SSL_CTX_new(method);
@@ -110,7 +118,7 @@ void configureContext(SSL_CTX *ctx, const char *certPath, const char *keyPath)
         exit(EXIT_FAILURE);
     }
 
-    SSL_CTX_set_ecdh_auto(ctx, 1);
+    // Removed SSL_CTX_set_ecdh_auto (no-op since OpenSSL 1.1.0)
     SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
     SSL_CTX_set_cipher_list(ctx, "HIGH:!aNULL:!MD5");
 
@@ -125,16 +133,18 @@ void configureContext(SSL_CTX *ctx, const char *certPath, const char *keyPath)
     }
 }
 
-void ShowCerts(SSL* ssl)
+void ShowCerts(SSL *ssl)
 {
     X509 *cert = SSL_get_peer_certificate(ssl);
     if (cert) {
         char *line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
         my_printf("Subject: %s\n", line);
         free(line);
+
         line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
         my_printf("Issuer: %s\n", line);
         free(line);
+
         X509_free(cert);
     } else {
         my_printf("No certificates.\n");
