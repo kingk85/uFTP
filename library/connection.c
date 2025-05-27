@@ -1313,11 +1313,11 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
         unsigned int len;
         const unsigned char *id = SSL_SESSION_get_id(session, &len);
 
-        printf("Trying to reuse SSL Session ID: ");
+        my_printf("Trying to reuse SSL Session ID: ");
         for (unsigned int i = 0; i < len; i++) {
-            printf("%02X", id[i]);
+            my_printf("%02X", id[i]);
         }
-        printf("\n");
+        my_printf("\n");
 
         SSL_set_session(ssl, session);
     } else {
