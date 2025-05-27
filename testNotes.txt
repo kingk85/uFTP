@@ -25,4 +25,4 @@ LIST
 
 
 PASV EXAMPLE:
-openssl s_client -connect localhost:29587
+openssl s_client -connect localhost:10000

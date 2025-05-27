@@ -93,18 +93,6 @@ SSL_CTX *createServerContext()
     return ctx;
 }
 
-SSL_CTX *createClientContext()
-{
-    const SSL_METHOD *method = TLS_client_method();
-    SSL_CTX *ctx = SSL_CTX_new(method);
-    if (!ctx) {
-        perror("Unable to create client SSL context");
-        addLog("Unable to create client SSL context", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-        ERR_print_errors_fp(stderr);
-        exit(EXIT_FAILURE);
-    }
-    return ctx;
-}
 
 void configureContext(SSL_CTX *ctx, const char *certPath, const char *keyPath)
 {
@@ -131,6 +119,9 @@ void configureContext(SSL_CTX *ctx, const char *certPath, const char *keyPath)
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
+
+    // Enable session cache on server side
+    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
 }
 
 void ShowCerts(SSL *ssl)

@@ -1288,8 +1288,6 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
     }
     my_printf("\nSSL SSL_set_fd end");
 
-    SSL_set_accept_state(ssl);
-
     int flags = fcntl(sockfd, F_GETFL, 0);
     if (flags == -1)
     {
@@ -1306,6 +1304,29 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
     }
 
     my_printf("\nSSL accept start");
+
+    // Reuse the session from control connection
+    SSL_SESSION *session = SSL_get_session(ftpData->clients[theSocketId].ssl);
+
+    if (session != NULL) 
+    {
+        unsigned int len;
+        const unsigned char *id = SSL_SESSION_get_id(session, &len);
+
+        printf("Trying to reuse SSL Session ID: ");
+        for (unsigned int i = 0; i < len; i++) {
+            printf("%02X", id[i]);
+        }
+        printf("\n");
+
+        SSL_set_session(ssl, session);
+    } else {
+        my_printf("\nNo session available for reuse. Accepting fresh handshake.\n");
+    }
+
+
+
+    SSL_set_accept_state(ssl);
 
     int max_attempts = 500; // 500*10ms = 5 sec timeout
     while (max_attempts--)
@@ -1345,7 +1366,11 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
         return -1;
     }
 
-    ;
+    if (SSL_session_reused(ssl)) {
+        my_printf("\n**** FTPS data connection reused control TLS session.\n");
+    } else {
+        my_printf("\n**** FTPS data connection did NOT reuse TLS session.\n");
+    }
 
     if (fcntl(sockfd, F_SETFL, flags) == -1)
     {
