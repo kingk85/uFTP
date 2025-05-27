@@ -1133,6 +1133,14 @@ int parseCommandRetr(ftpDataType *data, int socketId)
         pthread_cond_signal(&data->clients[socketId].conditionVariable);
         pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
 
+        returnCode = socketPrintf(data, socketId, "s", "150 Accepted data connection\r\n");
+
+        if (returnCode <= 0)
+        {
+            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+
         return FTP_COMMAND_PROCESSED;
     }
     else
@@ -1161,7 +1169,6 @@ int parseCommandStor(ftpDataType *data, int socketId)
     int isSafePath = 0;
     char *theNameToStor;
     int returnCode;
-
 
     // if file exist check for overwrite permission
     if(!data->clients[socketId].workerData.socketIsReadyForConnection)
@@ -1226,6 +1233,15 @@ int parseCommandStor(ftpDataType *data, int socketId)
         data->clients[socketId].workerData.commandReceived = 1;
         pthread_cond_signal(&data->clients[socketId].conditionVariable);
         pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
+        returnCode = socketPrintf(data, socketId, "s", "150 Accepted data connection\r\n");
+
+        if (returnCode <= 0)
+        {
+                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+
     }
     else
     {
@@ -1320,6 +1336,14 @@ int parseCommandAppe(ftpDataType *data, int socketId)
         data->clients[socketId].workerData.commandReceived = 1;
         pthread_cond_signal(&data->clients[socketId].conditionVariable);
         pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
+        returnCode = socketPrintf(data, socketId, "s", "150 Accepted data connection\r\n");
+
+        if (returnCode <= 0)
+        {
+                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }        
     }
     else
     {

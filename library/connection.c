@@ -1315,7 +1315,7 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
 
         my_printf("Trying to reuse SSL Session ID: ");
         for (unsigned int i = 0; i < len; i++) {
-            my_printf("%02X", id[i]);
+            my_printf("\n%02X", id[i]);
         }
         my_printf("\n");
 
@@ -1377,7 +1377,7 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
         perror("fcntl set blocking");
         ftpData->clients[theSocketId].closeTheClient = 1;
         return -1;
-    }   
+    }
 
     return 1;
 }

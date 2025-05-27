@@ -167,16 +167,6 @@ static int processStorAppe(cleanUpWorkerArgs *args)
         return -1;
     }
 
-    returnCode = socketPrintf(ftpData, theSocketId, "s", "150 Accepted data connection\r\n");
-
-    if (returnCode <= 0)
-    {
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-        my_printf("\n Closing the client 7");
-        return -1;
-    }
-
     while(1)
     {
         if (ftpData->clients[theSocketId].dataChannelIsTls != 1)
@@ -392,14 +382,6 @@ static int processRetr(cleanUpWorkerArgs *args)
 	int theSocketId = args->socketId;
 	int returnCode = 0;
     long long int writenSize = 0, writeReturn = 0;
-    writeReturn = socketPrintf(ftpData, theSocketId, "s", "150 Accepted data connection\r\n");
-    if (writeReturn <= 0)
-    {
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-        my_printf("\n Closing the client 11");
-        return -1;
-    }
 
     writenSize = writeRetrFile(ftpData, theSocketId, ftpData->clients[theSocketId].workerData.retrRestartAtByte, ftpData->clients[theSocketId].workerData.theStorFile);
     ftpData->clients[theSocketId].workerData.retrRestartAtByte = 0;
