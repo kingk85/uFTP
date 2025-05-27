@@ -41,6 +41,10 @@ int createActiveSocket(int port, char *ipAddress);
 int createActiveSocketV6(int port, char *ipAddress);
 #endif
 
+#ifdef OPENSSL_ENABLED
+int acceptSSLConnection(int theSocketId, ftpDataType * ftpData);
+#endif
+
 void fdInit(ftpDataType * ftpData);
 void fdAdd(ftpDataType * ftpData, int index);
 void fdRemove(ftpDataType * ftpData, int index);
@@ -55,7 +59,6 @@ int getAvailableClientSocketIndex(ftpDataType * ftpData);
 int evaluateClientSocketConnection(ftpDataType * ftpData);
 int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...);
 int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...);
-
 
 #ifdef __cplusplus
 }

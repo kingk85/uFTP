@@ -749,7 +749,6 @@ char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTa
     return toReturn;
 }
 
-
 void FILE_AppendStringToFile(char *fileName, char *theString)
 {
     FILE *fp = fopen(fileName, "a");

@@ -263,7 +263,6 @@ struct ftpData
 {
 	#ifdef OPENSSL_ENABLED
 	SSL_CTX *serverCtx;
-	SSL_CTX *clientCtx;
 	#endif
 
     int connectedClients;

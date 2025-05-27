@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include <fcntl.h>
 #include <string.h>
@@ -482,6 +483,8 @@ int parseCommandPbsz(ftpDataType *data, int socketId)
     thePbszSize = getFtpCommandArg("PBSZ", data->clients[socketId].theCommandReceived, 0);
 
     returnCode = socketPrintf(data, socketId, "sss", "200 PBSZ set to ", thePbszSize, "\r\n");
+
+    my_printf("\n 200 PBSZ set to %s", thePbszSize);
 
     if (returnCode <= 0) 
     {

@@ -143,9 +143,7 @@ void initFtpData(ftpDataType *ftpData)
 	#ifdef OPENSSL_ENABLED
 	initOpenssl();
 	ftpData->serverCtx = createServerContext();
-	ftpData->clientCtx = createClientContext();
 	configureContext(ftpData->serverCtx, ftpData->ftpParameters.certificatePath, ftpData->ftpParameters.privateCertificatePath);
-	configureContext(ftpData->clientCtx, ftpData->ftpParameters.certificatePath, ftpData->ftpParameters.privateCertificatePath);
 	#endif
 
     ftpData->connectedClients = 0;

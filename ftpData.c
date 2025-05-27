@@ -755,13 +755,11 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         		data->clients[clientId].workerData.serverSsl = NULL;
         	}
 
-
         	if (data->clients[clientId].workerData.clientSsl != NULL)
         	{
         		SSL_free(data->clients[clientId].workerData.clientSsl);
         		data->clients[clientId].workerData.clientSsl = NULL;
         	}
-
 
 			#endif
       }
@@ -783,33 +781,33 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         DYNMEM_free(lastToDestroy, &data->clients[clientId].workerData.memoryTable);
     }
 
-		#ifdef OPENSSL_ENABLED
-		data->clients[clientId].workerData.serverSsl = SSL_new(data->serverCtx);
-		data->clients[clientId].workerData.clientSsl = SSL_new(data->clientCtx);
-		#endif
+    #ifdef OPENSSL_ENABLED
+    data->clients[clientId].workerData.serverSsl = SSL_new(data->serverCtx);
+    data->clients[clientId].workerData.clientSsl = SSL_new(data->serverCtx);
+    #endif
 }
 
 void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
     if (isInitialization != 1)
     {
-	if (data->clients[clientId].workerData.threadIsAlive == 1)
-	{
-		cancelWorker(data, clientId);
-	}
+        if (data->clients[clientId].workerData.threadIsAlive == 1)
+        {
+            cancelWorker(data, clientId);
+        }
 
-	pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
-	pthread_cond_destroy(&data->clients[clientId].conditionVariable);
+        pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
+        pthread_cond_destroy(&data->clients[clientId].conditionVariable);
 
-	pthread_mutex_destroy(&data->clients[clientId].writeMutex);
+        pthread_mutex_destroy(&data->clients[clientId].writeMutex);
 
-	#ifdef OPENSSL_ENABLED
-	if (data->clients[clientId].ssl != NULL)
-	{
-		SSL_free(data->clients[clientId].ssl);
-		data->clients[clientId].ssl = NULL;
-	}
-	#endif
+        #ifdef OPENSSL_ENABLED
+        if (data->clients[clientId].ssl != NULL)
+        {
+            SSL_free(data->clients[clientId].ssl);
+            data->clients[clientId].ssl = NULL;
+        }
+        #endif
     }
 
 
@@ -866,7 +864,6 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].lastActivityTimeStamp = 0;
 
 	#ifdef OPENSSL_ENABLED
-	//data->clients[clientId].workerData.ssl = SSL_new(data->ctx);
 	data->clients[clientId].ssl = SSL_new(data->serverCtx);
 	#endif
 

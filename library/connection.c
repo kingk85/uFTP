@@ -42,6 +42,8 @@
 #include "connection.h"
 #include "log.h"
 
+#include "debug_defines.h"
+
 static int is_ipv4_mapped_ipv6(const char *ip);
 
 int is_ipv4_mapped_ipv6(const char *ip) {
@@ -1266,4 +1268,92 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
     }
 }
 
+#endif
+
+#ifdef OPENSSL_ENABLED
+int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
+{
+    SSL *ssl = ftpData->clients[theSocketId].workerData.serverSsl;
+    int sockfd = ftpData->clients[theSocketId].workerData.socketConnection;
+
+    my_printf("\nSSL SSL_set_fd start");
+    
+    int rc = SSL_set_fd(ssl, sockfd);
+    if (rc == 0)
+    {
+        my_printf("\nSSL ERRORS ON SSL_set_fd");
+        ftpData->clients[theSocketId].closeTheClient = 1;
+        addLog("Closing client SSL_set_fd", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        return -1;
+    }
+    my_printf("\nSSL SSL_set_fd end");
+
+    SSL_set_accept_state(ssl);
+
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    if (flags == -1)
+    {
+        perror("fcntl get flags");
+        ftpData->clients[theSocketId].closeTheClient = 1;
+        return -1;
+    }
+
+    if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
+    {
+        perror("fcntl set nonblocking");
+        ftpData->clients[theSocketId].closeTheClient = 1;
+        return -1;
+    }
+
+    my_printf("\nSSL accept start");
+
+    int max_attempts = 500; // 500*10ms = 5 sec timeout
+    while (max_attempts--)
+    {
+        rc = SSL_accept(ssl);
+
+        if (rc == 1)
+        {
+            my_printf("\n------------------------------------------- SSL_accept success");
+            break;
+        }
+
+        int err = SSL_get_error(ssl, rc);
+        //my_printf("\nSSL_accept err: %d\n", err);
+
+        if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
+        {
+            usleep(10000); // 10 ms
+            //my_printf("\nSSL_accept waiting ...");
+            continue;
+        }
+        else
+        {
+            my_printf("\n-------------------------------------------SSL_accept failed:");
+            ERR_print_errors_fp(stderr);
+            ftpData->clients[theSocketId].closeTheClient = 1;
+            addLog("Closing client SSL_accept", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            return -1;
+        }
+
+    }
+
+    if (max_attempts <= 0)
+    {
+        my_printf("\nSSL_accept timeout");
+        ftpData->clients[theSocketId].closeTheClient = 1;
+        return -1;
+    }
+
+    ;
+
+    if (fcntl(sockfd, F_SETFL, flags) == -1)
+    {
+        perror("fcntl set blocking");
+        ftpData->clients[theSocketId].closeTheClient = 1;
+        return -1;
+    }   
+
+    return 1;
+}
 #endif

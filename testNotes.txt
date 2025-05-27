@@ -22,3 +22,7 @@ PASS password
 PROT P
 PORT 192,168,1,237,0,123
 LIST
+
+
+PASV EXAMPLE:
+openssl s_client -connect localhost:29587
