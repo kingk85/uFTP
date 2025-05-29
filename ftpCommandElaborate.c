@@ -851,6 +851,15 @@ int parseCommandList(ftpDataType *data, int socketId)
     pthread_cond_signal(&data->clients[socketId].conditionVariable);
     pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
 
+    returnCode = socketPrintf(data, socketId, "s", "150 Accepted data connection\r\n");
+    if (returnCode <= 0)
+    {
+        data->clients[socketId].closeTheClient = 1;
+        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        my_printf("\n Closing the client 8");
+        return -1;
+    }
+
     return FTP_COMMAND_PROCESSED;
 }
 
@@ -1072,6 +1081,15 @@ int parseCommandNlst(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.commandReceived = 1;
     pthread_cond_signal(&data->clients[socketId].conditionVariable);
     pthread_mutex_unlock(&data->clients[socketId].conditionMutex);
+
+    returnCode = socketPrintf(data, socketId, "s", "150 Accepted data connection\r\n");
+    if (returnCode <= 0)
+    {
+        data->clients[socketId].closeTheClient = 1;
+        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        my_printf("\n Closing the client 8");
+        return -1;
+    }
 
     return FTP_COMMAND_PROCESSED;
 }

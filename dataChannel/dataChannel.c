@@ -337,6 +337,7 @@ static int acceptConnection(cleanUpWorkerArgs *args)
 			ftpData->clients[theSocketId].closeTheClient = 1;
             addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
 		}
+
 		//SSL_set_connect_state(ftpData->clients[theSocketId].workerData.clientSsl);
 		returnCode = SSL_connect(ftpData->clients[theSocketId].workerData.clientSsl);
 		if (returnCode <= 0)
@@ -426,15 +427,6 @@ static int processListNlst(cleanUpWorkerArgs *args)
         theCommandType = COMMAND_TYPE_LIST;
     else if (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1)
         theCommandType = COMMAND_TYPE_NLST;
-
-    returnCode = socketPrintf(ftpData, theSocketId, "s", "150 Accepted data connection\r\n");
-    if (returnCode <= 0)
-    {
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-        my_printf("\n Closing the client 8");
-        return -1;
-    }
 
     returnCode = writeListDataInfoToSocket(ftpData, theSocketId, &theFiles, theCommandType, &ftpData->clients[theSocketId].workerData.memoryTable);
     if (returnCode <= 0)
