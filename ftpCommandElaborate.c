@@ -548,8 +548,7 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     /* Create worker thread */
     void *pReturn;
     int returnCode;
-    // my_printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
-    // my_printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
+
 
     if(data->clients[socketId].isIpV6 == 1)
     {
@@ -572,7 +571,12 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
         returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        data->clients[socketId].workerData.threadHasBeenCreated = 0;
         my_printf("\nPASV JOIN RETURN STATUS %d", returnCode);
+        if (returnCode != 0) 
+        {
+            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
+        }
     }
 
     data->clients[socketId].workerData.passiveModeOn = 1;
@@ -595,7 +599,7 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        LOG_ERROR("Pthead create error restarting the server");
+        LOGF("%sPthead create error(code=%d): %s restarting the server", LOG_ERROR_PREFIX, returnCode, strerror(errno));
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -619,7 +623,12 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
         returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        data->clients[socketId].workerData.threadHasBeenCreated = 0;
         my_printf("\nEPSV JOIN RETURN STATUS %d", returnCode);
+        if (returnCode != 0) 
+        {
+            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
+        }        
     }
 
     data->clients[socketId].workerData.passiveModeOn = 1;
@@ -641,7 +650,7 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        LOG_ERROR("Pthead create error restarting the server");
+        LOGF("%sPthead create error(code=%d): %s restarting the server", LOG_ERROR_PREFIX, returnCode, strerror(errno));
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -672,7 +681,12 @@ int parseCommandPort(ftpDataType *data, int socketId)
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
         returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        data->clients[socketId].workerData.threadHasBeenCreated = 0;
         my_printf("\nPORT JOIN RETURN STATUS %d", returnCode);
+        if (returnCode != 0) 
+        {
+            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
+        }        
     }
 
     data->clients[socketId].workerData.passiveModeOn = 0;
@@ -696,7 +710,7 @@ cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        LOG_ERROR("Pthead create error restarting the server");
+        LOGF("%sPthead create error(code=%d): %s restarting the server", LOG_ERROR_PREFIX, returnCode, strerror(errno));
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -2513,7 +2527,12 @@ int parseCommandEprt(ftpDataType *data, int socketId)
     if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
     {
         returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
+        data->clients[socketId].workerData.threadHasBeenCreated = 0;
         my_printf("\nPORT JOIN RETURN STATUS %d", returnCode);
+        if (returnCode != 0) 
+        {
+            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
+        }
     }
 
     data->clients[socketId].workerData.passiveModeOn = 0;
@@ -2535,7 +2554,7 @@ cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        LOG_ERROR("Pthead create error restarting the server");
+        LOGF("%sPthead create error(code=%d): %s restarting the server", LOG_ERROR_PREFIX, returnCode, strerror(errno));
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
