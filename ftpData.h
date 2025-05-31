@@ -174,6 +174,9 @@ struct workerData
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE+1];    
     int commandReceived;
 
+    int commandProcessed;
+    char theCommandResponse[STRING_SZ_SMALL+1];    
+
     long long int retrRestartAtByte;
 
     /* The PASV thread will wait the signal before start */

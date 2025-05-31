@@ -112,6 +112,17 @@ void workerCleanup(cleanUpWorkerArgs *args)
     returnCode = close(ftpData->clients[theSocketId].workerData.socketConnection);
     returnCode = close(ftpData->clients[theSocketId].workerData.passiveListeningSocket);
 
+    if (ftpData->clients[theSocketId].workerData.commandProcessed)
+    {
+        returnCode = socketPrintf(ftpData, theSocketId, "s", ftpData->clients[theSocketId].workerData.theCommandResponse);
+        if (returnCode <= 0)
+        {
+            ftpData->clients[theSocketId].closeTheClient = 1;
+            addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+            my_printf("\n Closing the client 10");
+        }
+    }
+    
     resetWorkerData(ftpData, theSocketId, 0);
 
     DYNMEM_free(args, &ftpData->clients[theSocketId].workerData.memoryTable);
@@ -212,14 +223,8 @@ static int processStorAppe(cleanUpWorkerArgs *args)
         FILE_doChownFromUidGid(ftpData->clients[theSocketId].fileToStor.text, ftpData->clients[theSocketId].login.ownerShip.uid, ftpData->clients[theSocketId].login.ownerShip.gid);
     }
 
-    returnCode = socketPrintf(ftpData, theSocketId, "s", "226 file stor ok\r\n");
-    if (returnCode <= 0)
-    {
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-        my_printf("\n Closing the client 8");
-        return -1;
-    }
+    ftpData->clients[theSocketId].workerData.commandProcessed = 1;
+    snprintf(ftpData->clients[theSocketId].workerData.theCommandResponse, STRING_SZ_SMALL, "226 file stor ok\r\n");
 
     return 1;
 }
@@ -402,15 +407,8 @@ static int processRetr(cleanUpWorkerArgs *args)
         return -1;
     }
 
-    writeReturn = socketPrintf(ftpData, theSocketId, "s", "226-File successfully transferred\r\n226 done\r\n");
-
-    if (writeReturn <= 0)
-    {
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-        my_printf("\n Closing the client 13");
-        return -1;
-    }
+    ftpData->clients[theSocketId].workerData.commandProcessed = 1;
+    snprintf(ftpData->clients[theSocketId].workerData.theCommandResponse, STRING_SZ_SMALL, "226-File successfully transferred\r\n226 done\r\n");
 
     return 1;
 }
@@ -437,14 +435,8 @@ static int processListNlst(cleanUpWorkerArgs *args)
         return -1;
     }
 
-    returnCode = socketPrintf(ftpData, theSocketId, "sds", "226 ", theFiles, " matches total\r\n");
-    if (returnCode <= 0)
-    {
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
-        my_printf("\n Closing the client 10");
-        return -1;
-    }
+    ftpData->clients[theSocketId].workerData.commandProcessed = 1;
+    snprintf(ftpData->clients[theSocketId].workerData.theCommandResponse, STRING_SZ_SMALL, "226 %d matches total\r\n", theFiles);
 
     return 1;
 }

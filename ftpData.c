@@ -730,10 +730,12 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       data->clients[clientId].workerData.extendedPassiveModeOn = 0;
       data->clients[clientId].workerData.activeIpAddressIndex = 0;
       data->clients[clientId].workerData.threadHasBeenCreated = 0;
+      data->clients[clientId].workerData.commandProcessed = 0;
 
       memset(data->clients[clientId].workerData.buffer, 0, CLIENT_BUFFER_STRING_SIZE+1);
       memset(data->clients[clientId].workerData.activeIpAddress, 0, CLIENT_BUFFER_STRING_SIZE);
       memset(data->clients[clientId].workerData.theCommandReceived, 0, CLIENT_BUFFER_STRING_SIZE+1);
+      memset(data->clients[clientId].workerData.theCommandResponse, 0, STRING_SZ_SMALL+1);
 
       cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandArgs, isInitialization, &data->clients[clientId].workerData.memoryTable);
       cleanDynamicStringDataType(&data->clients[clientId].workerData.ftpCommand.commandOps, isInitialization, &data->clients[clientId].workerData.memoryTable);
