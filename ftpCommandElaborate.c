@@ -100,7 +100,7 @@ int parseCommandUser(ftpDataType * data, int socketId)
 
 	if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 		
@@ -152,7 +152,7 @@ int parseCommandSite(ftpDataType *data, int socketId)
 
 	if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -180,18 +180,14 @@ int parseCommandPass(ftpDataType *data, int socketId)
         {
             if (((loginFailsDataType *)data->loginFailsVector.Data[searchPosition])->failureNumbers >= data->ftpParameters.maximumUserAndPassowrdLoginTries)
             {
-                // my_printf("\n TOO MANY LOGIN FAILS! \n");
                 data->clients[socketId].closeTheClient = 1;
                 returnCode = socketPrintf(data, socketId, "s", "430 Too many login failure detected, your ip will be blacklisted for 5 minutes\r\n");
 
-                char theLogString[STRING_SZ_LARGE];
-                memset(theLogString, 0, STRING_SZ_LARGE);
-                snprintf(theLogString, STRING_SZ_LARGE, "An ip %s has been blacklisted due too many password errors. Trying to login as user: %s ", data->clients[socketId].clientIpAddress, data->clients[socketId].login.name.text);
-                addLog(theLogString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOGF("%sIp %s blocked due too many password errors. Trying to login as user: %s ", LOG_SECURITY_PREFIX, data->clients[socketId].clientIpAddress, data->clients[socketId].login.name.text);
 
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
                 return FTP_COMMAND_PROCESSED;
@@ -215,7 +211,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
                 returnCode = socketPrintf(data, socketId, "s", "230 Login Ok.\r\n");
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
 
@@ -245,7 +241,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
             returnCode = socketPrintf(data, socketId, "s", "430 Invalid username or password\r\n");
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
         }
@@ -269,7 +265,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
     
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
         }
@@ -295,7 +291,7 @@ int parseCommandPass(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
         return 1;
@@ -312,7 +308,7 @@ int parseCommandAuth(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 #endif
@@ -323,7 +319,7 @@ int parseCommandAuth(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -331,7 +327,7 @@ int parseCommandAuth(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -363,7 +359,7 @@ int parseCommandPwd(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -377,7 +373,7 @@ int parseCommandSyst(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -405,7 +401,7 @@ int parseCommandFeat(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -439,7 +435,7 @@ int parseCommandProt(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -458,7 +454,7 @@ int parseCommandCcc(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 #endif
@@ -468,7 +464,7 @@ int parseCommandCcc(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 #endif
@@ -488,7 +484,7 @@ int parseCommandPbsz(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -513,7 +509,7 @@ int parseCommandTypeI(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -526,7 +522,7 @@ int parseCommandStruF(ftpDataType *data, int socketId)
     returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -540,7 +536,7 @@ int parseCommandModeS(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -561,7 +557,7 @@ int parseCommandPasv(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -587,7 +583,7 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-1");
 
     if (!workerArgs) {
-        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Failed to allocate memory for workerArgs");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -599,7 +595,7 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Pthead create error restarting the server");
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -633,7 +629,7 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
     cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-2");
 
     if (!workerArgs) {
-        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Failed to allocate memory for workerArgs");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -645,7 +641,7 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Pthead create error restarting the server");
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -688,7 +684,7 @@ int parseCommandPort(ftpDataType *data, int socketId)
 cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-3");
 
     if (!workerArgs) {
-        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Failed to allocate memory for workerArgs");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -700,7 +696,7 @@ cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Pthead create error restarting the server");
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
@@ -727,14 +723,14 @@ int parseCommandAbor(ftpDataType *data, int socketId)
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
         returnCode = socketPrintf(data, socketId, "s", "226 Transfer aborted\r\n");
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
     }
@@ -743,7 +739,7 @@ int parseCommandAbor(ftpDataType *data, int socketId)
         returnCode = socketPrintf(data, socketId, "s", "226 Since you see this ABOR must've succeeded\r\n");
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
     }
@@ -769,7 +765,7 @@ int parseCommandList(ftpDataType *data, int socketId)
         
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -799,24 +795,21 @@ int parseCommandList(ftpDataType *data, int socketId)
     if (isSafePath == 0)
     {
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);       
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
     }
 
     if(FILE_IsDirectory(data->clients[socketId].listPath.text, 0) == 0 && FILE_IsFile(data->clients[socketId].listPath.text, 0) == 0)
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "LIST not a file or directory: %s", data->clients[socketId].listPath.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("%sLIST not a file or directory: %s", LOG_DEBUG_PREFIX, data->clients[socketId].listPath.text);
         my_printf("\nLIST path not file or directoy: %s ", data->clients[socketId].listPath.text);
+
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "550 wrong path\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -826,18 +819,15 @@ int parseCommandList(ftpDataType *data, int socketId)
     if ((checkUserFilePermissions(data->clients[socketId].listPath.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
     {
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
 
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "LIST no file permissions: %s", data->clients[socketId].listPath.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOGF("%sLIST no file permissions: %s", LOG_DEBUG_PREFIX, data->clients[socketId].listPath.text);
 
         returnCode = socketPrintf(data, socketId, "s", "550 no permissions.\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -855,7 +845,7 @@ int parseCommandList(ftpDataType *data, int socketId)
     if (returnCode <= 0)
     {
         data->clients[socketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        LOG_ERROR("socketPrintf");
         my_printf("\n Closing the client 8");
         return -1;
     }
@@ -893,7 +883,7 @@ int parseCommandStat(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -920,27 +910,23 @@ int parseCommandStat(ftpDataType *data, int socketId)
         returnCode = socketPrintf(data, socketId, "s", "550 wrong path\r\n");
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
     }
 
     if(FILE_IsDirectory(data->clients[socketId].listPath.text, 0) == 0 && FILE_IsFile(data->clients[socketId].listPath.text, 0) == 0)
     {
-
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "STAT not a file or directory: %s", data->clients[socketId].listPath.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("%sSTAT not a file or directory: %s", LOG_DEBUG_PREFIX, data->clients[socketId].listPath.text);
         my_printf("\nSTAT path not file or directoy: %s ", data->clients[socketId].listPath.text);
+
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "550 wrong path\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -949,18 +935,15 @@ int parseCommandStat(ftpDataType *data, int socketId)
 
     if ((checkUserFilePermissions(data->clients[socketId].listPath.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "STAT no permissions: %s", data->clients[socketId].listPath.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOGF("%sSTAT no permissions: %s", LOG_SECURITY_PREFIX, data->clients[socketId].listPath.text);
 
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "550 no permissions.\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -970,21 +953,21 @@ int parseCommandStat(ftpDataType *data, int socketId)
     returnCode = socketPrintf(data, socketId, "s", "213-Status follow:\r\n");
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
     returnCode = writeListDataInfoToSocket(data, socketId, &theFiles, COMMAND_TYPE_STAT, &data->clients[socketId].workerData.memoryTable);
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
     returnCode = socketPrintf(data, socketId, "sds", "213 End of status ", theFiles, " matches total\r\n");
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -1003,7 +986,7 @@ int parseCommandNlst(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1014,7 +997,7 @@ int parseCommandNlst(ftpDataType *data, int socketId)
     cleanDynamicStringDataType(&data->clients[socketId].workerData.ftpCommand.commandOps, 0, &data->clients[socketId].workerData.memoryTable);
 
     theNameToNlist = getFtpCommandArg("NLST", data->clients[socketId].theCommandReceived, 1);
-    getFtpCommandArgWithOptions("NLST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand, &data->clients[socketId].workerData.memoryTable); 
+    getFtpCommandArgWithOptions("NLST", data->clients[socketId].theCommandReceived, &data->clients[socketId].workerData.ftpCommand, &data->clients[socketId].workerData.memoryTable);
     cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
 
     my_printf("\nNLIST COMMAND ARG: %s", data->clients[socketId].workerData.ftpCommand.commandArgs.text);
@@ -1034,19 +1017,15 @@ int parseCommandNlst(ftpDataType *data, int socketId)
 
     if(FILE_IsDirectory(data->clients[socketId].listPath.text, 0) == 0 && FILE_IsFile(data->clients[socketId].listPath.text, 0) == 0)
     {
-
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "NLST not a file or directory: %s", data->clients[socketId].listPath.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOGF("%sNLST not a file or directory: %s", LOG_DEBUG_PREFIX, data->clients[socketId].listPath.text);
 
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
-        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
+        setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "550 wrong path.\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1055,19 +1034,14 @@ int parseCommandNlst(ftpDataType *data, int socketId)
 
     if ((checkUserFilePermissions(data->clients[socketId].listPath.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
     {
-
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "NLST no permissions: %s", data->clients[socketId].listPath.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("%sNLST no permissions: %s", LOG_DEBUG_PREFIX, data->clients[socketId].listPath.text);
         cleanDynamicStringDataType(&data->clients[socketId].listPath, 0, &data->clients[socketId].memoryTable);
         setDynamicStringDataType(&data->clients[socketId].listPath, data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.absolutePath.textLen, &data->clients[socketId].memoryTable);        
         returnCode = socketPrintf(data, socketId, "s", "550 no permissions.\r\n");
-
+    
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1086,7 +1060,7 @@ int parseCommandNlst(ftpDataType *data, int socketId)
     if (returnCode <= 0)
     {
         data->clients[socketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        LOG_ERROR("socketPrintf"); 
         my_printf("\n Closing the client 8");
         return -1;
     }
@@ -1106,7 +1080,7 @@ int parseCommandRetr(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1127,16 +1101,12 @@ int parseCommandRetr(ftpDataType *data, int socketId)
 
         if ((checkUserFilePermissions(data->clients[socketId].fileToRetr.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_R) != FILE_PERMISSION_R)
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "RETR no permissions file: %s", data->clients[socketId].fileToRetr.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+            LOGF("%sRETR no permissions file: %s", LOG_DEBUG_PREFIX, data->clients[socketId].fileToRetr.text);
             int writeReturn = socketPrintf(data, socketId, "s", "550 no reading permission on the file\r\n");
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
 
@@ -1155,7 +1125,7 @@ int parseCommandRetr(ftpDataType *data, int socketId)
 
         if (returnCode <= 0)
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1163,16 +1133,13 @@ int parseCommandRetr(ftpDataType *data, int socketId)
     }
     else
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "RETR not a file: %s", data->clients[socketId].fileToRetr.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOGF("%sRETR not a file: %s", LOG_DEBUG_PREFIX, data->clients[socketId].fileToRetr.text);
 
         returnCode = socketPrintf(data, socketId, "s", "550 Failed to open file.\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1195,7 +1162,7 @@ int parseCommandStor(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1219,7 +1186,7 @@ int parseCommandStor(ftpDataType *data, int socketId)
                 returnCode = socketPrintf(data, socketId, "s", "550 Error no permission to overwrite the file\r\n");
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
                 return FTP_COMMAND_PROCESSED; 
@@ -1229,16 +1196,13 @@ int parseCommandStor(ftpDataType *data, int socketId)
 
         if ((checkParentDirectoryPermissions(data->clients[socketId].fileToStor.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) != FILE_PERMISSION_W)
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "STOR no permissions file: %s", data->clients[socketId].fileToStor.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOGF("%sSTOR no permissions file: %s", LOG_DEBUG_PREFIX, data->clients[socketId].fileToStor.text);
 
             returnCode = socketPrintf(data, socketId, "s", "550 No permissions to write the file\r\n");
             cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0, &data->clients[socketId].memoryTable);
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
                 
@@ -1256,24 +1220,21 @@ int parseCommandStor(ftpDataType *data, int socketId)
 
         if (returnCode <= 0)
         {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
     }
     else
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "STOR wrong path file: %s", data->clients[socketId].fileToStor.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-        
+        LOGF("%sSTOR wrong path file: %s", LOG_DEBUG_PREFIX, data->clients[socketId].fileToStor.text);
+
         returnCode = socketPrintf(data, socketId, "s", "550 Wrong path.\r\n");
         cleanDynamicStringDataType(&data->clients[socketId].fileToStor, 0, &data->clients[socketId].memoryTable);
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1296,7 +1257,7 @@ int parseCommandAppe(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1322,7 +1283,7 @@ int parseCommandAppe(ftpDataType *data, int socketId)
                 returnCode = socketPrintf(data, socketId, "s", "550 no permission to append on file\r\n");
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
                 return FTP_COMMAND_PROCESSED; 
@@ -1332,16 +1293,14 @@ int parseCommandAppe(ftpDataType *data, int socketId)
 
         if ((checkParentDirectoryPermissions(data->clients[socketId].fileToStor.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) != FILE_PERMISSION_W)
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "APPE no permission path: %s", data->clients[socketId].fileToStor.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+
+            LOGF("%sAPPE no permission path: %s", LOG_DEBUG_PREFIX, data->clients[socketId].fileToStor.text);
 
             returnCode = socketPrintf(data, socketId, "s", "550 No permissions to write the file\r\n");
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
                     
@@ -1359,22 +1318,19 @@ int parseCommandAppe(ftpDataType *data, int socketId)
 
         if (returnCode <= 0)
         {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }        
     }
     else
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "APPE wrong path: %s", data->clients[socketId].fileToStor.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOGF("%sAPPE wrong path: %s", LOG_DEBUG_PREFIX, data->clients[socketId].fileToStor.text);
 
         returnCode = socketPrintf(data, socketId, "s", "550 Wrong path.\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1448,22 +1404,19 @@ int parseCommandCwd(ftpDataType *data, int socketId)
 
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
             }
             else
             {
-                char errorString[PATH_MAX];
-                memset(errorString, 0, PATH_MAX);
-                snprintf(errorString, PATH_MAX, "CWD no permissions: %s", data->clients[socketId].login.absolutePath.text);
-                addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOGF("%sCWD no permissions: %s", LOG_DEBUG_PREFIX, data->clients[socketId].login.absolutePath.text);
                 my_printfError("no permission to cwd: %s", data->clients[socketId].login.absolutePath.text);
                 returnCode = socketPrintf(data, socketId, "sss", "550 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": no permissions\r\n");
 
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }     
 
@@ -1474,16 +1427,13 @@ int parseCommandCwd(ftpDataType *data, int socketId)
         else
         {
             my_printfError("CWD not a directory: %s", data->clients[socketId].login.absolutePath.text);
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "CWD not a directory: %s", data->clients[socketId].login.absolutePath.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOGF("%sCWD not a directory: %s", LOG_DEBUG_PREFIX, data->clients[socketId].login.absolutePath.text);
 
             returnCode = socketPrintf(data, socketId, "sss", "550 Can't change directory to ", data->clients[socketId].login.absolutePath.text, ": No such file or directory\r\n");
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }     
 
@@ -1497,7 +1447,7 @@ int parseCommandCwd(ftpDataType *data, int socketId)
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1511,15 +1461,11 @@ int parseCommandCwd(ftpDataType *data, int socketId)
         cleanDynamicStringDataType(&theSafePath, 0, &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "550 Wrong path.\r\n");
 
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "CWD wrong path: %s", data->clients[socketId].login.absolutePath.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("%sCWD wrong path: %s", LOG_DEBUG_PREFIX, data->clients[socketId].login.absolutePath.text);
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1566,7 +1512,7 @@ int parseCommandRest(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -1604,7 +1550,7 @@ int parseCommandMkd(ftpDataType *data, int socketId)
                 returnCode = socketPrintf(data, socketId, "sss", "550 error while creating directory ", theDirectoryFilename, "\r\n");
                 if (returnCode <= 0)
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
                 else
@@ -1623,7 +1569,7 @@ int parseCommandMkd(ftpDataType *data, int socketId)
 
                 if (returnCode <= 0)
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
                 else
@@ -1634,17 +1580,12 @@ int parseCommandMkd(ftpDataType *data, int socketId)
         }
         else
         {
-
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "MKD no permissions to create: %s ", theDirectoryFilename);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+            LOGF("%sMKD no permissions to create: %s ", LOG_DEBUG_PREFIX, theDirectoryFilename);
 
             returnCode = socketPrintf(data, socketId, "sss", "550 no permition to create directory ", theDirectoryFilename, "\r\n");
             if (returnCode <= 0)
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
             else
@@ -1655,18 +1596,14 @@ int parseCommandMkd(ftpDataType *data, int socketId)
     }
     else
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "MKD wrong path: %s ", theDirectoryFilename);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("MKD wrong path: %s", LOG_DEBUG_PREFIX, theDirectoryFilename);
 
         cleanDynamicStringDataType(&mkdFileName, 0, &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "550 Wrong path.\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
 
@@ -1684,7 +1621,7 @@ int parseCommandOpts(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -1727,18 +1664,14 @@ int parseCommandDele(ftpDataType *data, int socketId)
 
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
 
             }
             else
             {
-                char errorString[PATH_MAX];
-                memset(errorString, 0, PATH_MAX);
-                snprintf(errorString, PATH_MAX, "DELE no permissions on: %s ", deleFileName.text);
-                addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+                LOGF("%sDELE no permissions on: %s ", LOG_DEBUG_PREFIX, deleFileName.text);
 
                 returnCode = socketPrintf(data, socketId, "sss", "550 Could not delete the file: ", theFileToDelete, " no permissions\r\n");
 
@@ -1746,7 +1679,7 @@ int parseCommandDele(ftpDataType *data, int socketId)
 
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
 
@@ -1769,27 +1702,21 @@ int parseCommandDele(ftpDataType *data, int socketId)
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 return FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
         }
         else
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "DELE no file found: %s ", deleFileName.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
-
+            LOGF("%sDELE no file found: %s", LOG_DEBUG_PREFIX, deleFileName.text);
             returnCode = socketPrintf(data, socketId, "s", "550 Could not delete the file: No such file or file is a directory\r\n");
             functionReturnCode = FTP_COMMAND_PROCESSED;
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
-
         }
     }
     else
@@ -1840,35 +1767,26 @@ int parseCommandMdtm(ftpDataType *data, int socketId)
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
-
         }
         else
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "MDTM error can't check for file existence: %s ", mdtmFileName.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+            LOGF("%sMDTM error can't check for file existence: %s", LOG_DEBUG_PREFIX, mdtmFileName.text);
             returnCode = socketPrintf(data, socketId, "s", "550 Can't check for file existence\r\n");
             functionReturnCode = FTP_COMMAND_PROCESSED;
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
         }
     }
     else
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "MDTM invalid path: %s ", mdtmFileName.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("%sMDTM invalid path: %s ",LOG_DEBUG_PREFIX, mdtmFileName.text);
         functionReturnCode = FTP_COMMAND_NOT_RECONIZED;
     }
 
@@ -1883,7 +1801,7 @@ int parseCommandNoop(ftpDataType *data, int socketId)
     returnCode = socketPrintf(data, socketId, "s", "200 Zzz...\r\n");
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -1898,7 +1816,7 @@ int notLoggedInMessage(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -1912,7 +1830,7 @@ int parseCommandQuit(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -1951,11 +1869,8 @@ int parseCommandRmd(ftpDataType *data, int socketId)
 
                 if (returnStatus == -1)
                 {
-                    snprintf(errorString, PATH_MAX, 
-                            "RMD failed: %s - %s (errno=%d)", 
-                            rmdFileName.text, strerror(errno), errno);
 
-                    addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOGF("%sRMD failed: %s - %s (errno=%d)", LOG_DEBUG_PREFIX, rmdFileName.text, strerror(errno), errno);
 
                     returnCode = socketPrintf(data, socketId, "sss", "550 Could not remove the directory: ", strerror(errno)," \r\n");
                 }
@@ -1968,41 +1883,33 @@ int parseCommandRmd(ftpDataType *data, int socketId)
 
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
             }
             else
             {
-                char errorString[PATH_MAX];
-                memset(errorString, 0, PATH_MAX);
-                snprintf(errorString, PATH_MAX, "RMD error dir no permissions: %s ", rmdFileName.text);
-                addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
-
+                LOGF("%sRMD error dir no permissions: %s", LOG_DEBUG_PREFIX, rmdFileName.text);
                 returnCode = socketPrintf(data, socketId, "s", "550 Could not delete the directory: No permissions\r\n");
                 functionReturnCode = FTP_COMMAND_PROCESSED;
 
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
             }
         }
         else
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "RMD error dir not exist: %s ", rmdFileName.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOGF("%sRMD error dir not exist: %s ", LOG_DEBUG_PREFIX, rmdFileName.text);
 
             returnCode = socketPrintf(data, socketId, "s", "550 Could not delete the directory:No such directory\r\n");
             functionReturnCode = FTP_COMMAND_PROCESSED;
 
             if (returnCode <= 0) 
             {
-                addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                LOG_ERROR("socketPrintfError");
                 functionReturnCode = FTP_COMMAND_PROCESSED_WRITE_ERROR;
             }
         }
@@ -2043,28 +1950,21 @@ int parseCommandSize(ftpDataType *data, int socketId)
         }
         else
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "SIZE error file not exist: %s ", getSizeFromFileName.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOGF("%sSIZE error file not exist: %s", LOG_DEBUG_PREFIX, getSizeFromFileName.text);
 
             returnCode = socketPrintf(data, socketId, "s", "550 Can't check for file existence\r\n");
         }
     }
     else
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "SIZE error file wrong path: %s ", getSizeFromFileName.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("%sSIZE error file wrong path: %s", LOG_DEBUG_PREFIX, getSizeFromFileName.text);
         returnCode = socketPrintf(data, socketId, "s", "550 Can't check for file existence\r\n");
     }
     cleanDynamicStringDataType(&getSizeFromFileName, 0, &data->clients[socketId].memoryTable);
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -2111,18 +2011,14 @@ int parseCommandRnfr(ftpDataType *data, int socketId)
     }
     else
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "RNFR error renaming the file: %s ", data->clients[socketId].renameFromFile.text);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+        LOGF("%sRNFR error renaming the file: %s", LOG_DEBUG_PREFIX, data->clients[socketId].renameFromFile.text);
         cleanDynamicStringDataType(&data->clients[socketId].renameFromFile, 0, &data->clients[socketId].memoryTable);
         returnCode = socketPrintf(data, socketId, "s", "550 Sorry, but that file doesn't exist\r\n");
     }
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -2152,7 +2048,7 @@ int parseCommandRnto(ftpDataType *data, int socketId)
                 returnCode = socketPrintf(data, socketId, "s", "550 Error Renaming the file no permissions\r\n");
                 if (returnCode <= 0) 
                 {
-                    addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+                    LOG_ERROR("socketPrintfError");
                     return FTP_COMMAND_PROCESSED_WRITE_ERROR;
                 }
                 return FTP_COMMAND_PROCESSED; 
@@ -2172,22 +2068,13 @@ int parseCommandRnto(ftpDataType *data, int socketId)
                 }
                 else
                 {
-                    char errorString[PATH_MAX];
-                    memset(errorString, 0, PATH_MAX);
-                    snprintf(errorString, PATH_MAX, "RNTO error renaming the file: %s --> %s (%d)", data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text, returnCode);
-                    addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+                    LOGF("%sRNTO error renaming the file: %s --> %s (%d)", LOG_DEBUG_PREFIX, data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text, returnCode);
                     returnCode = socketPrintf(data, socketId, "s", "503 Error Renaming the file\r\n");
                 }
             }
             else
             {
-
-                char errorString[PATH_MAX];
-                memset(errorString, 0, PATH_MAX);
-                snprintf(errorString, PATH_MAX, "RNTO error renaming the file: %s --> %s", data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text);
-                addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+                LOGF("%sRNTO error renaming the file: %s --> %s", LOG_DEBUG_PREFIX, data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text);
                 returnCode = socketPrintf(data, socketId, "s", "550 No permissions to rename the file\r\n");
             }
         }
@@ -2202,32 +2089,19 @@ int parseCommandRnto(ftpDataType *data, int socketId)
                 }
                 else
                 {
-                    char errorString[PATH_MAX];
-                    memset(errorString, 0, PATH_MAX);
-                    snprintf(errorString, PATH_MAX, "RNTO error renaming the file: %s --> %s (%d)", data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text, returnCode);
-                    addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+                    LOGF("%sRNTO error renaming the file: %s --> %s (%d)", LOG_DEBUG_PREFIX, data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text, returnCode);
                     returnCode = socketPrintf(data, socketId, "s", "503 Error Renaming the file\r\n");
                 }
             }
             else
             {
-
-                char errorString[PATH_MAX];
-                memset(errorString, 0, PATH_MAX);
-                snprintf(errorString, PATH_MAX, "RNTO error renaming the file: %s --> %s", data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text);
-                addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+                LOGF("%dRNTO error renaming the file: %s --> %s", LOG_DEBUG_PREFIX, data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text);
                 returnCode = socketPrintf(data, socketId, "s", "550 No permissions to rename the file\r\n");
             }            
         }
         else
         {
-            char errorString[PATH_MAX];
-            memset(errorString, 0, PATH_MAX);
-            snprintf(errorString, PATH_MAX, "RNTO error renaming the file: %s --> %s", data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text);
-            addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-
+            LOGF("%sRNTO error renaming the file: %s --> %s", LOG_DEBUG_PREFIX, data->clients[socketId].renameFromFile.text, data->clients[socketId].renameFromFile.text);
             returnCode = socketPrintf(data, socketId, "s", "503 Need RNFR before RNTO\r\n");
         }
     }
@@ -2241,7 +2115,7 @@ int parseCommandRnto(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
     else
@@ -2268,7 +2142,7 @@ int parseCommandCdup(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -2283,7 +2157,7 @@ int parseCommandAcct(ftpDataType *data, int socketId)
 
     if (returnCode <= 0) 
     {
-        addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -2566,10 +2440,7 @@ int setPermissions(char *permissionsCommand, char *basePath, ownerShip_DataType 
     if (FILE_IsFile(theFinalFilename, 0) != 1 &&
         FILE_IsDirectory(theFinalFilename, 0) != 1)
     {
-        char errorString[PATH_MAX];
-        memset(errorString, 0, PATH_MAX);
-        snprintf(errorString, PATH_MAX, "CHMOD not a file or directory: %s", theFinalFilename);
-        addLog(errorString, CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOGF("%sCHMOD not a file or directory: %s", LOG_DEBUG_PREFIX, theFinalFilename);
 
         return FTP_CHMODE_COMMAND_RETURN_CODE_NO_FILE;
     }
@@ -2601,12 +2472,12 @@ int parseCommandEprt(ftpDataType *data, int socketId)
 
     if (returnCode < 0)
     {
-        addLog("Error parsing EPRT", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_DEBUG("Error parsing EPRT");
         returnCode = socketPrintf(data, socketId, "s", "501 command syntax error\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
         else
@@ -2618,12 +2489,12 @@ int parseCommandEprt(ftpDataType *data, int socketId)
     #ifndef IPV6_ENABLED
     if(data->clients[socketId].workerData.addressType == 2)
     {
-        addLog("Error parsing EPRT", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_DEBUG("Error parsing EPRT");
         returnCode = socketPrintf(data, socketId, "s", "501 command syntax error no ipv6 supported in this version.\r\n");
 
         if (returnCode <= 0) 
         {
-            addLog("socketPrintfError ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("socketPrintfError");
             return FTP_COMMAND_PROCESSED_WRITE_ERROR;
         }
         else
@@ -2652,7 +2523,7 @@ int parseCommandEprt(ftpDataType *data, int socketId)
 cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-4");
 
     if (!workerArgs) {
-        addLog("Failed to allocate memory for workerArgs", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Failed to allocate memory for workerArgs");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
@@ -2664,7 +2535,7 @@ cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
-        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Pthead create error restarting the server");
         exit(0);
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }

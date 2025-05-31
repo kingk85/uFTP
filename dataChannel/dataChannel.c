@@ -54,7 +54,6 @@
 #include "debugHelper.h"
 #include "dataChannel.h"
 
-
 static int acceptConnection(cleanUpWorkerArgs *args);
 static int processStorAppe(cleanUpWorkerArgs *args);
 static int processListNlst(cleanUpWorkerArgs *args);
@@ -118,7 +117,7 @@ void workerCleanup(cleanUpWorkerArgs *args)
         if (returnCode <= 0)
         {
             ftpData->clients[theSocketId].closeTheClient = 1;
-            addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+            LOG_ERROR("socketPrintf"); 
             my_printf("\n Closing the client 10");
         }
     }
@@ -170,7 +169,7 @@ static int processStorAppe(cleanUpWorkerArgs *args)
         if (returnCode <= 0)
         {
             ftpData->clients[theSocketId].closeTheClient = 1;
-            addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+            LOG_ERROR("socketPrintf"); 
             my_printf("\n Closing the client 6");
             return -1;
         }
@@ -290,7 +289,7 @@ static int acceptConnection(cleanUpWorkerArgs *args)
             if (returnCode <= 0)
             {
                 ftpData->clients[theSocketId].closeTheClient = 1;
-                addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);            
+                LOG_ERROR("socketPrintf");            
                 my_printf("\n Closing the client 2");
                 return -1;
             }
@@ -313,7 +312,7 @@ static int acceptConnection(cleanUpWorkerArgs *args)
             else
             {
                 ftpData->clients[theSocketId].closeTheClient = 1;
-                addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                LOG_ERROR("Socket error"); 
                 my_printf("\n Closing the client 3");
                 return -1;
             }
@@ -340,7 +339,7 @@ static int acceptConnection(cleanUpWorkerArgs *args)
 		{
 			my_printf("\nSSL ERRORS ON WORKER SSL_set_fd");
 			ftpData->clients[theSocketId].closeTheClient = 1;
-            addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+            LOG_ERROR("SSL ERRORS ON WORKER SSL_set_fd"); 
 		}
 
 		//SSL_set_connect_state(ftpData->clients[theSocketId].workerData.clientSsl);
@@ -360,7 +359,7 @@ static int acceptConnection(cleanUpWorkerArgs *args)
     if (ftpData->clients[theSocketId].workerData.socketConnection < 0)
     {
         ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        LOG_ERROR("Socket error"); 
         my_printf("\n Closing the client 4");
         return -1;
     }
@@ -371,7 +370,7 @@ static int acceptConnection(cleanUpWorkerArgs *args)
     if (returnCode <= 0)
     {
         ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        LOG_ERROR("socketPrintf"); 
         my_printf("\n Closing the client 5");
         return -1;
     }
@@ -399,7 +398,7 @@ static int processRetr(cleanUpWorkerArgs *args)
         if (writeReturn <= 0)
         {
         ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        LOG_ERROR("socketPrintf"); 
         my_printf("\n Closing the client 12");
         return -1;
         }
@@ -430,7 +429,7 @@ static int processListNlst(cleanUpWorkerArgs *args)
     if (returnCode <= 0)
     {
         ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+        LOG_ERROR("writeListDataInfoToSocket"); 
         my_printf("\n Closing the client 9");
         return -1;
     }

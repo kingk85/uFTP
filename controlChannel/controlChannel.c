@@ -115,7 +115,7 @@ void evaluateControlChannel(ftpDataType *ftpData)
                     if ( ((int)time(NULL) - ftpData->clients[processingSock].tlsNegotiatingTimeStart) > TLS_NEGOTIATING_TIMEOUT )
                     {
                         ftpData->clients[processingSock].closeTheClient = 1;
-                        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                        LOGF("%sTLS timeout closing the client time:%lld, start time: %lld..", LOG_DEBUG_PREFIX, (int)time(NULL), ftpData->clients[processingSock].tlsNegotiatingTimeStart); 
                         //my_printf("\nTLS timeout closing the client time:%lld, start time: %lld..", (int)time(NULL), ftpData->clients[processingSock].tlsNegotiatingTimeStart);
                     }
                 }
@@ -144,18 +144,9 @@ void evaluateControlChannel(ftpDataType *ftpData)
         //The client is not connected anymore
         if ((ftpData->clients[processingSock].bufferIndex) == 0)
         {
-            //addLog("Client not connected anymore", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
             closeClient(ftpData, processingSock);
         }
 
-        //Debug print errors
-        if (ftpData->clients[processingSock].bufferIndex < 0)
-        {
-            //ftpData->clients[processingSock].closeTheClient = 1;
-            //addLog("Socket write error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
-            //my_printfError("\n1 Errno = %d", errno);
-            continue;
-        }
 
         //Some commands has been received
         if (ftpData->clients[processingSock].bufferIndex > 0)
@@ -184,9 +175,10 @@ void evaluateControlChannel(ftpDataType *ftpData)
                                 if (returnCode < 0)
                                 {
                                     ftpData->clients[processingSock].closeTheClient = 1;
-                                    addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                                    LOG_ERROR("socketPrintf"); 
                                 }
                                 my_printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData->clients[processingSock].buffer);
+                                LOGF("%sCommand not supported: %s", LOG_DEBUG_PREFIX, ftpData->clients[processingSock].buffer);
                             }
                             else if (commandProcessStatus == FTP_COMMAND_PROCESSED)
                             {
@@ -195,7 +187,7 @@ void evaluateControlChannel(ftpDataType *ftpData)
                             else if (commandProcessStatus == FTP_COMMAND_PROCESSED_WRITE_ERROR)
                             {
                                 ftpData->clients[processingSock].closeTheClient = 1;
-                                addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                                LOG_ERROR("ftp command processed error"); 
                                 my_printf("\n Write error WARNING!");
                             }
                         }
@@ -210,7 +202,7 @@ void evaluateControlChannel(ftpDataType *ftpData)
                     if (returnCode <= 0) 
                     {
                         ftpData->clients[processingSock].closeTheClient = 1;
-                        addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                        LOG_ERROR("socketPrintf"); 
                     }
                     my_printf("\n Command too long closing the client.");
                     break;

@@ -257,7 +257,7 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
 
                 // 
                 if ((dir->d_name[0] == '.' && dir->d_name[1] == '.' && strnlen(dir->d_name, 3) == 2) && (commandOps == NULL || commandOps[0] != 'a'))
-                    continue;                                
+                    continue;
 
                 //Skips all files and dir starting with .
                 if ((dir->d_name[0] == '.' && commandOps == NULL) || (dir->d_name[0] == '.' && commandOps[0] != 'a'  && commandOps[0] != 'A'))
@@ -341,7 +341,7 @@ int FILE_GetDirectoryInodeCount(char * DirectoryInodeName)
                 continue;
 
             if ( dir->d_name[0] == '.' && dir->d_name[1] == '.' && strnlen(dir->d_name, 3) == 2)
-                continue;                                
+                continue;
 
             FileAndFolderIndex++;
 
@@ -757,7 +757,7 @@ void FILE_AppendStringToFile(char *fileName, char *theString)
         my_printfError("\nError while opening file %s.", fileName);
     }
 
-    fprintf(fp, "\n%s", theString);    
+    fprintf(fp, "\n%s", theString);
     fclose(fp);
 }
 

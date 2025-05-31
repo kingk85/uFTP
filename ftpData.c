@@ -62,7 +62,7 @@ static char *my_realpath(const char *path, char *resolved_path)
     else 
     {
         my_printfError("getcwd");
-        addLog("getcwd error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("getcwd");
         return NULL;
     }
 
@@ -226,13 +226,13 @@ int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDa
         else
         {
             my_printfError("\nPath check error: %s check if is in: %s",loginData->homePath.text, real_path);
-            addLog("Path check error ", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOGF("%sPath check error: %s check if is in: %s", LOG_DEBUG_PREFIX, loginData->homePath.text, real_path);
             return 0;
         }
     }
     else 
     {
-        addLog("Realpath error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOGF("%sRealpath error: %s", LOG_DEBUG_PREFIX, theDirectoryName);
         my_printfError("\nRealpath error input %s", theDirectoryName);
         my_printfError("\ntheDirectoryToCheck error input %s", theDirectoryToCheck);
         return 0;
@@ -294,7 +294,7 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
     }
 
     // If we’re here, we failed to find a port
-    addLog("Failed to find available random port", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+    LOG_ERROR("Failed to find available random port");
     data->clients[socketPosition].workerData.connectionPort = 0;
 }
 
@@ -695,16 +695,16 @@ void cancelWorker(ftpDataType *data, int clientId)
     void *pReturn;
 
     if (data->clients[clientId].workerData.threadHasBeenCreated) {
-        addLog("Cancelling thread because it is busy", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_DEBUG("Cancelling thread because it is busy");
 
         int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
         if (returnCode != 0) {
-            addLog("Cancelling thread ERROR", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOGF("%sCancel thread error: %d", LOG_ERROR_PREFIX, returnCode);
         }
 
         returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
         if (returnCode != 0) {
-            addLog("Joining thread ERROR", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
         }
 
         data->clients[clientId].workerData.threadHasBeenCreated = 0;

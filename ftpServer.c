@@ -97,7 +97,7 @@ void initFtpServer(void)
 	if(returnCode != 0)
 	{
 		my_printf("pthread_create WatchDog Error %d", returnCode);
-        addLog("Pthead create error restarting the server", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Pthead create error restarting the server");
         exit(0);
 	}
 }

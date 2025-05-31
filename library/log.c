@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <stdarg.h>
 
 #include "log.h"
 #include "../debugHelper.h"
@@ -125,7 +126,7 @@ int logInit(const char* folder, int numberOfLogFiles) {
     sem_init(&logSem, 0, 0);
 
     if (pthread_create(&logThreadId, NULL, logThread, NULL) != 0) {
-        addLog("Failed to create log thread", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Failed to create log thread");
         return -1;
     }
 
@@ -135,7 +136,7 @@ int logInit(const char* folder, int numberOfLogFiles) {
     return 1;
 }
 
-void addLog(const char* message, const char* file, int line, const char* function) {
+void logMessage(const char* message, const char* file, int line, const char* function) {
     if (maxLogFiles <= 0 || !message) return;
 
     char logEntry[LOG_LINE_SIZE] = {0};
@@ -153,4 +154,17 @@ void addLog(const char* message, const char* file, int line, const char* functio
     logQueue.PushBack(&logQueue, logEntry, strlen(logEntry));
     pthread_mutex_unlock(&logMutex);
     sem_post(&logSem);
+}
+
+// printf-style log function
+void logMessagef(const char* file, int line, const char* function, const char* fmt, ...) {
+    if (maxLogFiles <= 0 || !fmt) return;
+
+    char messageBuffer[LOG_LINE_SIZE] = {0};
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(messageBuffer, sizeof(messageBuffer), fmt, args);
+    va_end(args);
+
+    logMessage(messageBuffer, file, line, function);
 }

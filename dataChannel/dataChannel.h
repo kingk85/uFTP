@@ -8,7 +8,6 @@ typedef struct {
     int socketId;
 } cleanUpWorkerArgs;
 
-
 void workerCleanup(cleanUpWorkerArgs *args);
 void *connectionWorkerHandle(cleanUpWorkerArgs *args);
 

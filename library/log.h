@@ -25,7 +25,20 @@
 #ifndef LOG_H
 #define LOG_H
 
+#define LOG_INFO_PREFIX "[INFO] "
+#define LOG_DEBUG_PREFIX "[DEBUG] "
+#define LOG_ERROR_PREFIX "[ERROR] "
+#define LOG_SECURITY_PREFIX "[SECURITY] "
+
+#define LOG(msg) logMessage(msg, __FILE__, __LINE__, __func__)
+#define LOG_INFO(msg) logMessage(LOG_INFO_PREFIX msg, __FILE__, __LINE__, __func__)
+#define LOG_DEBUG(msg) logMessage(LOG_DEBUG_PREFIX msg, __FILE__, __LINE__, __func__)
+#define LOG_ERROR(msg) logMessage(LOG_ERROR_PREFIX msg, __FILE__, __LINE__, __func__)
+#define LOG_SECURITY(msg) logMessage(LOG_SECURITY_PREFIX msg, __FILE__, __LINE__, __func__)
+#define LOGF(fmt, ...) logMessagef(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+
 int logInit(const char* folder, int numberOfLogFiles);
-void addLog(const char* message, const char* file, int line, const char* function);
+void logMessage(const char* message, const char* file, int line, const char* function);
+void logMessagef(const char* file, int line, const char* function, const char* fmt, ...);
 
 #endif

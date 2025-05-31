@@ -404,7 +404,7 @@ int createSocket(ftpDataType * ftpData)
   if ((sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
   {
 	perror("socket() failed");
-	addLog("Socket creation failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+	LOG_ERROR("Socket creation failed");
 	return -1;
   }
 
@@ -418,7 +418,7 @@ int createSocket(ftpDataType * ftpData)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("socketopt failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("socketopt failed");
 	}
 #endif
 
@@ -428,7 +428,7 @@ reuse = 1;
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("setsocket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("setsocket error");
 	}
 #endif
 
@@ -442,7 +442,7 @@ reuse = 1;
 	{
 		close(sock);
 		perror("bind() failed");
-		addLog("bind failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("bind failed");
 		return -1;
 	}
 
@@ -450,7 +450,7 @@ reuse = 1;
   errorCode = listen(sock, ftpData->ftpParameters.maxClients + 1);
   if (errorCode < 0)
   {
-	  addLog("listen error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);	
+	  LOG_ERROR("listen error");	
 	  if (sock != -1)
 	  {
 		close(sock);
@@ -471,7 +471,7 @@ int createPassiveSocket(int port)
     if ((sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
     {
         perror("socket() failed");
-        addLog("socket failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socket failed");
         return -1;
     }
 
@@ -486,7 +486,7 @@ int createPassiveSocket(int port)
     {
         perror("setsockopt(SO_REUSEADDR) failed");
         my_printfError("setsockopt(SO_REUSEADDR) failed");
-        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("setsocketerror");
     }
 #endif
 
@@ -495,7 +495,7 @@ int createPassiveSocket(int port)
     {
         perror("setsockopt(SO_REUSEPORT) failed");
         my_printfError("setsockopt(SO_REUSEPORT) failed");
-        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("setsocketerror");
     }
 #endif
 
@@ -519,7 +519,7 @@ int createPassiveSocket(int port)
         {
             // Other bind errors: fail immediately
             perror("bind() failed");
-            addLog("bind failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("bind failed");
             close(sock);
             return -1;
         }
@@ -527,8 +527,8 @@ int createPassiveSocket(int port)
 
     if (returnCode != 0)
     {
-        my_printf("Bid failed after %d retries, errno=%d\n", max_retries, errno);
-		addLog("bind failed failed after all attempts!", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        my_printf("Bind failed after %d retries, errno=%d\n", max_retries, errno);
+		LOGF("%sBind failed after %d retries, errno=%d\n", LOG_ERROR_PREFIX, max_retries, errno);
         close(sock);
         return -1;
     }
@@ -537,7 +537,7 @@ int createPassiveSocket(int port)
     returnCode = listen(sock, 1);
     if (returnCode == -1)
     {
-        addLog("listen failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("listen failed");
         my_printf("\nCould not listen %d errno = %d", sock, errno);
         if (sock != -1)
             close(sock);
@@ -606,7 +606,7 @@ int createSocket(ftpDataType * ftpData)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("socketopt failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("socketopt failed");
 	}
 
 #endif
@@ -616,7 +616,7 @@ int createSocket(ftpDataType * ftpData)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("setsocket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("setsocket error");
 	}
 #endif
   //Bind socket
@@ -654,7 +654,7 @@ int createPassiveSocket(int port)
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         perror("socket() failed");
-        addLog("socket failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("socket failed");
         return -1;
     }
 
@@ -669,7 +669,7 @@ int createPassiveSocket(int port)
     {
         perror("setsockopt(SO_REUSEADDR) failed");
         my_printfError("setsockopt(SO_REUSEADDR) failed");
-        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("setsocketerror");
     }
 #endif
 
@@ -678,7 +678,7 @@ int createPassiveSocket(int port)
     {
         perror("setsockopt(SO_REUSEPORT) failed");
         my_printfError("setsockopt(SO_REUSEPORT) failed");
-        addLog("setsocketerror", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("setsocketerror");
     }
 #endif
 
@@ -701,7 +701,7 @@ int createPassiveSocket(int port)
         else
         {
             perror("bind() failed");
-            addLog("bind failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("bind failed");
             close(sock);
             return -1;
         }
@@ -709,8 +709,8 @@ int createPassiveSocket(int port)
 
     if (returnCode != 0)
     {
-        my_printf("Bind failed after %d retries, errno=%d\n", max_retries, errno);
-        addLog("bind failed after all attempts!", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        my_printf("bind failed after %d retries, errno=%d\n", max_retries, errno);
+        LOGF("%sbind failed after %d retries, errno=%d\n", LOG_ERROR_PREFIX, max_retries, errno);
         close(sock);
         return -1;
     }
@@ -719,7 +719,7 @@ int createPassiveSocket(int port)
     returnCode = listen(sock, 1);
     if (returnCode == -1)
     {
-        addLog("listen failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("listen failed");
         my_printf("\nCould not listen %d errno = %d", sock, errno);
         close(sock);
         return -1;
@@ -741,7 +741,7 @@ int createActiveSocketV6(int port, char *ipAddress)
     if ((sockfd = socket(AF_INET6, SOCK_STREAM, 0)) < 0) 
 	{
 		my_printfError("Socket creation failed");
-		addLog("Socket creation failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("Socket creation failed");
         return -1;
     }
 
@@ -751,7 +751,7 @@ int createActiveSocketV6(int port, char *ipAddress)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("set socket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("set socket error");
 	}
 #endif
 
@@ -760,7 +760,7 @@ int createActiveSocketV6(int port, char *ipAddress)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("setsockopt error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("setsockopt error");
 	}
 #endif
 
@@ -774,7 +774,7 @@ int createActiveSocketV6(int port, char *ipAddress)
 	else 
 	{
 		my_printfError("Invalid ip address");
-		addLog("Invalid ip address", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("Invalid ip address");
         return -1;
     }
 
@@ -782,7 +782,7 @@ int createActiveSocketV6(int port, char *ipAddress)
     if (connect(sockfd, serv_addr_any, sizeof(serv_addr6)) < 0) 
 	{
 		my_printfError("Connection failed");
-		addLog("Connection failed", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("Connection failed");
 		return -1;
     }
 
@@ -822,7 +822,7 @@ int createActiveSocket(int port, char *ipAddress)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("set socket error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("set socket error");
 	}
 #endif
 
@@ -831,7 +831,7 @@ int createActiveSocket(int port, char *ipAddress)
 	{
 		perror("setsockopt(SO_REUSEADDR) failed");
 		my_printfError("setsockopt(SO_REUSEADDR) failed");
-		addLog("setsockopt error", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+		LOG_ERROR("setsockopt error");
 	}
 #endif
   
@@ -971,7 +971,7 @@ void checkClientConnectionTimeout(ftpDataType * ftpData)
             (int)time(NULL) - ftpData->clients[processingSock].lastActivityTimeStamp > ftpData->ftpParameters.maximumIdleInactivity)
             {
                 ftpData->clients[processingSock].closeTheClient = 1;
-				addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+				LOG_DEBUG("timeout, closing the connection for inactivity"); 
             }
     }
 }
@@ -1114,7 +1114,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 {
                 	int theReturnCode = socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
                     ftpData->clients[availableSocketIndex].closeTheClient = 1;
-					addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+					LOGF("%stoo many connection from ip address: %s maximum allowed: %d", LOG_SECURITY_PREFIX, ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionsPerIp); 
                 }
                 else
                 {
@@ -1122,7 +1122,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 	if (returnCode <= 0)
                 	{
                 		ftpData->clients[availableSocketIndex].closeTheClient = 1;
-						addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+						LOG_ERROR("socketPrintf"); 
                 	}
                 }
                 
@@ -1132,7 +1132,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             {
                 //Errors while accepting, socket will be closed
                 ftpData->clients[availableSocketIndex].closeTheClient = 1;
-				//addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+				LOG_ERROR("Errors while accepting, socket will be closed"); 
                 //my_printf("\n2 Errno = %d", errno);
                 return 1;
             }
@@ -1221,7 +1221,8 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 {
                 	int theReturnCode = socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
                     ftpData->clients[availableSocketIndex].closeTheClient = 1;
-					addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+                    char
+					LOGF("%sToo many connection from %s max per ip is %d", LOG_SECURITY_PREFIX, ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionsPerIp); 
                 }
                 else
                 {
@@ -1229,7 +1230,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                 	if (returnCode <= 0)
                 	{
                 		ftpData->clients[availableSocketIndex].closeTheClient = 1;
-						addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+						LOG_ERROR("socketPrintf"); 
                 	}
                 }
                 
@@ -1239,7 +1240,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             {
                 //Errors while accepting, socket will be closed
                 ftpData->clients[availableSocketIndex].closeTheClient = 1;
-				//addLog("Closing the client", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC); 
+				LOG_ERROR("Errors while accepting, socket will be closed"); 
                 //my_printf("\n2 Errno = %d", errno);
                 return 1;
             }
@@ -1283,7 +1284,7 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
     {
         my_printf("\nSSL ERRORS ON SSL_set_fd");
         ftpData->clients[theSocketId].closeTheClient = 1;
-        addLog("Closing client SSL_set_fd", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+        LOG_ERROR("Closing client SSL_set_fd");
         return -1;
     }
     my_printf("\nSSL SSL_set_fd end");
@@ -1353,7 +1354,7 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
             my_printf("\n-------------------------------------------SSL_accept failed:");
             ERR_print_errors_fp(stderr);
             ftpData->clients[theSocketId].closeTheClient = 1;
-            addLog("Closing client SSL_accept", CURRENT_FILE, CURRENT_LINE, CURRENT_FUNC);
+            LOG_ERROR("Closing client SSL_accept");
             return -1;
         }
 
