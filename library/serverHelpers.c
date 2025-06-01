@@ -18,7 +18,6 @@
 
 #include "../ftpData.h"
 #include "../ftpServer.h"
-#include "library/logFunctions.h"
 #include "library/fileManagement.h"
 #include "library/configRead.h"
 #include "library/openSsl.h"

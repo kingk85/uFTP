@@ -39,7 +39,6 @@
 
 #include "ftpData.h"
 #include "ftpServer.h"
-#include "library/logFunctions.h"
 #include "library/fileManagement.h"
 #include "library/configRead.h"
 #include "library/openSsl.h"
@@ -550,7 +549,6 @@ int parseCommandPasv(ftpDataType *data, int socketId)
     void *pReturn;
     int returnCode;
 
-
     if(data->clients[socketId].isIpV6 == 1)
     {
 		returnCode = socketPrintf(data, socketId, "s", "500 Server use IPV6, use EPSV instead.\r\n");
@@ -596,7 +594,6 @@ int parseCommandPasv(ftpDataType *data, int socketId)
 int parseCommandEpsv(ftpDataType *data, int socketId)
 {
     /* Create worker thread */
-    void *pReturn;
     int returnCode;
     // my_printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
@@ -652,7 +649,7 @@ int parseCommandPort(ftpDataType *data, int socketId)
     
     my_printf("\n Port command received port: %d", data->clients[socketId].workerData.connectionPort);
 
-cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-3");
+    cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-3");
 
     if (!workerArgs) {
         LOG_ERROR("Failed to allocate memory for workerArgs");
@@ -824,7 +821,6 @@ int parseCommandList(ftpDataType *data, int socketId)
 
 int parseCommandStat(ftpDataType *data, int socketId)
 {
-
     int isSafePath = 0;
     int returnCode = 0;
     char *theNameToList = NULL;

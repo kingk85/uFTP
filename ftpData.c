@@ -690,8 +690,6 @@ void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
     }
 }
 
-
-
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 {
 	  my_printf("\nReset of worker id: %d", clientId);

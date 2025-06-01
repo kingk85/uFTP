@@ -37,7 +37,6 @@
 
 /* FTP LIBS */
 #include "library/fileManagement.h"
-#include "library/logFunctions.h"
 #include "library/configRead.h"
 #include "library/signals.h"
 #include "library/openSsl.h"
