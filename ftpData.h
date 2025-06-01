@@ -314,7 +314,6 @@ int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);
 void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector);
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization);
-void cancelWorker(ftpDataType *data, int clientId);
 void resetClientData(ftpDataType *data, int clientId, int isInitialization);
 int compareStringCaseInsensitive(char *stringIn, char* stringRef, int stringLenght);
 int isCharInString(char *theString, int stringLen, char theChar);

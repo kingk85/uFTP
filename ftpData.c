@@ -690,27 +690,7 @@ void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
     }
 }
 
-void cancelWorker(ftpDataType *data, int clientId)
-{
-    void *pReturn;
 
-    if (data->clients[clientId].workerData.threadHasBeenCreated) {
-        LOG_DEBUG("Cancelling thread because it is busy");
-
-        int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
-        if (returnCode != 0) {
-            LOGF("%sCancel thread error: %d", LOG_ERROR_PREFIX, returnCode);
-        }
-
-        returnCode = pthread_join(data->clients[clientId].workerData.workerThread, &pReturn);
-        if (returnCode != 0) {
-            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
-        }
-
-        data->clients[clientId].workerData.threadHasBeenCreated = 0;
-        data->clients[clientId].workerData.workerThread = 0; // Reset thread ID
-    }
-}
 
 void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 {
@@ -792,14 +772,11 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
 {
     if (isInitialization != 1)
     {
-        if (data->clients[clientId].workerData.threadIsAlive == 1)
-        {
-            cancelWorker(data, clientId);
-        }
 
+        handleThreadReuse(data, clientId);
+        
         pthread_mutex_destroy(&data->clients[clientId].conditionMutex);
         pthread_cond_destroy(&data->clients[clientId].conditionVariable);
-
         pthread_mutex_destroy(&data->clients[clientId].writeMutex);
 
         #ifdef OPENSSL_ENABLED

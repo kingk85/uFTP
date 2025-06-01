@@ -940,7 +940,7 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
-    	cancelWorker(ftpData, processingSocket);
+    	handleThreadReuse(ftpData, processingSocket);
     }
 
     FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    

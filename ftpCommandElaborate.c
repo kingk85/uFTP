@@ -46,6 +46,7 @@
 #include "library/connection.h"
 #include "library/dynamicMemory.h"
 #include "library/auth.h"
+#include "library/serverHelpers.h"
 #include "dataChannel/dataChannel.h"
 #include "ftpCommandsElaborate.h"
 
@@ -563,26 +564,11 @@ int parseCommandPasv(ftpDataType *data, int socketId)
         return FTP_COMMAND_PROCESSED;
     }
 
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-        cancelWorker(data, socketId);
-    }
-
-    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
-    {
-        returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        data->clients[socketId].workerData.threadHasBeenCreated = 0;
-        my_printf("\nPASV JOIN RETURN STATUS %d", returnCode);
-        if (returnCode != 0) 
-        {
-            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
-        }
-    }
+    handleThreadReuse(data, socketId);
 
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 0;
-
 
     cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-1");
 
@@ -615,21 +601,7 @@ int parseCommandEpsv(ftpDataType *data, int socketId)
     // my_printf("\n data->clients[%d].workerData.workerThread = %d",socketId,  (int)data->clients[socketId].workerData.workerThread);
 
     // my_printf("\n data->clients[%d].workerData.threadHasBeenCreated = %d", socketId,  data->clients[socketId].workerData.threadHasBeenCreated);
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-        cancelWorker(data, socketId);
-    }
-
-    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
-    {
-        returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        data->clients[socketId].workerData.threadHasBeenCreated = 0;
-        my_printf("\nEPSV JOIN RETURN STATUS %d", returnCode);
-        if (returnCode != 0) 
-        {
-            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
-        }        
-    }
+    handleThreadReuse(data, socketId);
 
     data->clients[socketId].workerData.passiveModeOn = 1;
     data->clients[socketId].workerData.extendedPassiveModeOn = 1;
@@ -672,22 +644,7 @@ int parseCommandPort(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.connectionPort = (portBytes[0] * 256) + portBytes[1];
     returnCode = snprintf(data->clients[socketId].workerData.activeIpAddress, CLIENT_BUFFER_STRING_SIZE, "%d.%d.%d.%d", ipAddressBytes[0], ipAddressBytes[1], ipAddressBytes[2], ipAddressBytes[3]);
 
-    void *pReturn;
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-        cancelWorker(data, socketId);
-    }
-
-    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
-    {
-        returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        data->clients[socketId].workerData.threadHasBeenCreated = 0;
-        my_printf("\nPORT JOIN RETURN STATUS %d", returnCode);
-        if (returnCode != 0) 
-        {
-            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
-        }        
-    }
+    handleThreadReuse(data, socketId);
 
     data->clients[socketId].workerData.passiveModeOn = 0;
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
@@ -729,10 +686,8 @@ int parseCommandAbor(ftpDataType *data, int socketId)
     int returnCode;
     if (data->clients[socketId].workerData.threadIsAlive == 1)
     {
-        if (data->clients[socketId].workerData.threadIsAlive == 1)
-        {
-            cancelWorker(data, socketId);
-        }
+
+        handleThreadReuse(data, socketId);
 
         returnCode = socketPrintf(data, socketId, "s", "426 ABORT\r\n");
         if (returnCode <= 0) 
@@ -2518,22 +2473,7 @@ int parseCommandEprt(ftpDataType *data, int socketId)
     }   
     #endif
     
-    void *pReturn;
-    if (data->clients[socketId].workerData.threadIsAlive == 1)
-    {
-        cancelWorker(data, socketId);
-    }
-
-    if (data->clients[socketId].workerData.threadHasBeenCreated == 1)
-    {
-        returnCode = pthread_join(data->clients[socketId].workerData.workerThread, &pReturn);
-        data->clients[socketId].workerData.threadHasBeenCreated = 0;
-        my_printf("\nPORT JOIN RETURN STATUS %d", returnCode);
-        if (returnCode != 0) 
-        {
-            LOGF("%sJoining thread error: %d", LOG_ERROR_PREFIX, returnCode);
-        }
-    }
+    handleThreadReuse(data, socketId);
 
     data->clients[socketId].workerData.passiveModeOn = 0;
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
@@ -2550,7 +2490,6 @@ cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->
     workerArgs->socketId = socketId;
 
     returnCode = pthread_create(&data->clients[socketId].workerData.workerThread, NULL, connectionWorkerHandle, workerArgs);
-
     if (returnCode != 0)
     {
         my_printfError("\nError in pthread_create %d", returnCode);
