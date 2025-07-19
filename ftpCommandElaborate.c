@@ -385,21 +385,33 @@ int parseCommandSyst(ftpDataType *data, int socketId)
 
 int parseCommandFeat(ftpDataType *data, int socketId)
 {
-    /*
-        FEAT
-        211-Features:
-        EPRT --> to be implemented
-        REST
-        TVFS
-        211 End
-     */
-
     int returnCode;
 #ifdef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nEPRT\r\nUTF8\r\nAUTH TLS\r\nPBSZ\r\nPROT\r\nSIZE\r\nMDTM\r\nREST\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s",
+        "211-Extensions supported:\r\n"
+        " PASV\r\n"
+        " EPSV\r\n"
+        " EPRT\r\n"
+        " UTF8\r\n"
+        " AUTH TLS\r\n"
+        " PBSZ\r\n"
+        " PROT\r\n"
+        " SIZE\r\n"
+        " MDTM\r\n"
+        " REST STREAM\r\n"
+        "211 End.\r\n");
 #endif
 #ifndef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "211-Extensions supported:\r\nPASV\r\nEPSV\r\nEPRT\r\nUTF8\r\nSIZE\r\nMDTM\r\nREST\r\n211 End.\r\n");
+    returnCode = socketPrintf(data, socketId, "s",
+        "211-Extensions supported:\r\n"
+        " PASV\r\n"
+        " EPSV\r\n"
+        " EPRT\r\n"
+        " UTF8\r\n"
+        " SIZE\r\n"
+        " MDTM\r\n"
+        " REST STREAM\r\n"
+        "211 End.\r\n");
 #endif
 
     if (returnCode <= 0) 
@@ -410,6 +422,7 @@ int parseCommandFeat(ftpDataType *data, int socketId)
 
     return FTP_COMMAND_PROCESSED;
 }
+
 
 int parseCommandProt(ftpDataType *data, int socketId)
 {
