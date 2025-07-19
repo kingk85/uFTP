@@ -444,7 +444,7 @@ int parseCommandProt(ftpDataType *data, int socketId)
 
 int parseCommandCcc(ftpDataType *data, int socketId)
 {
-    int returnCode;  
+    int returnCode;
 
 #ifdef OPENSSL_ENABLED
     if (!data->clients[socketId].tlsIsEnabled) {
@@ -457,7 +457,6 @@ int parseCommandCcc(ftpDataType *data, int socketId)
     }
 
     returnCode = socketPrintf(data, socketId, "s", "200 Control connection switched to plaintext\r\n");
-
     if (returnCode <= 0) 
     {
         LOG_ERROR("socketPrintfError");
@@ -470,7 +469,6 @@ int parseCommandCcc(ftpDataType *data, int socketId)
 
 #ifndef OPENSSL_ENABLED
     returnCode = socketPrintf(data, socketId, "s", "502 Command not supported\r\n");
-
     if (returnCode <= 0) 
     {
         LOG_ERROR("socketPrintfError");
@@ -2102,14 +2100,26 @@ int parseCommandCdup(ftpDataType *data, int socketId)
 {
     int returnCode;
 
-    FILE_DirectoryToParent(&data->clients[socketId].login.absolutePath.text, &data->clients[socketId].memoryTable);
-    FILE_DirectoryToParent(&data->clients[socketId].login.ftpPath.text, &data->clients[socketId].memoryTable);
+    returnCode = FILE_DirectoryToParent(&data->clients[socketId].login.absolutePath.text, &data->clients[socketId].memoryTable);
+    returnCode = FILE_DirectoryToParent(&data->clients[socketId].login.ftpPath.text, &data->clients[socketId].memoryTable);
     data->clients[socketId].login.absolutePath.textLen = strlen(data->clients[socketId].login.absolutePath.text);
     data->clients[socketId].login.ftpPath.textLen = strlen(data->clients[socketId].login.ftpPath.text);
 
     if (strncmp(data->clients[socketId].login.absolutePath.text, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen) != 0)
     {
         setDynamicStringDataType(&data->clients[socketId].login.absolutePath, data->clients[socketId].login.homePath.text, data->clients[socketId].login.homePath.textLen, &data->clients[socketId].memoryTable);
+    }
+
+    if (!returnCode)
+    {
+        returnCode = socketPrintf(data, socketId, "sss", "550 Already at root directory. ", data->clients[socketId].login.ftpPath.text, "\r\n");
+
+        if (returnCode <= 0) 
+        {
+            LOG_ERROR("socketPrintfError");
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        return FTP_COMMAND_PROCESSED;
     }
 
     returnCode = socketPrintf(data, socketId, "sss", "250 OK. Current directory is ", data->clients[socketId].login.ftpPath.text, "\r\n");

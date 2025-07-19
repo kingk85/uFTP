@@ -781,7 +781,7 @@ void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTab
     (*sourceString)[theNewSize] = '\0';
 }
 
-void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable)
+int FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable)
 {
    //my_printf("\n");
 
@@ -802,6 +802,10 @@ void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType **
    }
    
    //my_printf("\n theLastSlash = %d", theLastSlash);
+   if (theLastSlash == 0 && strLen == 1)
+   {
+    return 0;
+   }
 
    if (theLastSlash > -1)
    {
@@ -818,6 +822,8 @@ void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType **
 
        //my_printf("\nThe directory upped is = %s", (*sourceString));  
    }
+
+   return 1;
 }
 
 int FILE_LockFile(int fd)

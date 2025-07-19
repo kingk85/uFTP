@@ -74,7 +74,7 @@
     void FILE_AppendStringToFile(char *fileName, char *theString);
     time_t FILE_GetLastModifiedData(char *path);
     void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTable_DataType ** memoryTable);
-    void FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable);
+    int FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable);
     int FILE_LockFile(int fd);
     int FILE_doChownFromUidGidString(const char *file_path, const char *user_name, const char *group_name);
     int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid);
