@@ -91,6 +91,7 @@ int parseCommandUser(ftpDataType * data, int socketId)
                 returnCode = socketPrintf(data, socketId, "s", "430 User is blocked.\r\n");
             }
 
+            data->clients[socketId].login.userLoggedIn = 0;
 		}
 		else
 		{
@@ -322,6 +323,8 @@ int parseCommandAuth(ftpDataType *data, int socketId)
         LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
+
+    data->clients[socketId].login.userLoggedIn = 0;
 
     returnCode = SSL_set_fd(data->clients[socketId].ssl, data->clients[socketId].socketDescriptor);
 

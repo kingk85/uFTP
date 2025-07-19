@@ -300,7 +300,6 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
          IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "QUIT") &&
 		 IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "PBSZ") &&
 		 IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "PROT") &&
-		 IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "CCC") &&
          IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "AUTH TLS")))
     {
         toReturn = notLoggedInMessage(ftpData, processingElement);
