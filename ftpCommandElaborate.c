@@ -427,25 +427,37 @@ int parseCommandFeat(ftpDataType *data, int socketId)
 int parseCommandProt(ftpDataType *data, int socketId)
 {
     int returnCode;
-    char *theProtArg;
-    theProtArg = getFtpCommandArg("PROT", data->clients[socketId].theCommandReceived, 0);
+    char *theProtArg = getFtpCommandArg("PROT", data->clients[socketId].theCommandReceived, 0);
+
+    // Check that PBSZ was previously set before allowing PROT
+    if (data->clients[socketId].pbszIsSet == 0)
+    {
+        returnCode = socketPrintf(data, socketId, "s", "503 PROT requires prior PBSZ command\r\n");
+        if (returnCode <= 0) 
+        {
+            LOG_ERROR("socketPrintfError");
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        return FTP_COMMAND_PROCESSED;
+    }
 
     if (theProtArg[0] == 'C' || theProtArg[0] == 'c')
     {
-        // Clear
+        // Clear data channel (no protection)
         my_printf("\n---------------- Set data channel to clear");
         data->clients[socketId].dataChannelIsTls = 0;
         returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
     else if (theProtArg[0] == 'P' || theProtArg[0] == 'p')
     {
-        // Private
+        // Private (encrypted) data channel
         my_printf("\n---------------- Set data channel to private");
         data->clients[socketId].dataChannelIsTls = 1;
         returnCode = socketPrintf(data, socketId, "scs", "200 PROT set to ", theProtArg[0], "\r\n");
     }
     else
     {
+        // Unsupported protection level
         returnCode = socketPrintf(data, socketId, "scs", "502 Mode ", theProtArg[0], " is not implemented\r\n");
     }
 
@@ -457,6 +469,7 @@ int parseCommandProt(ftpDataType *data, int socketId)
 
     return FTP_COMMAND_PROCESSED;
 }
+
 
 int parseCommandCcc(ftpDataType *data, int socketId)
 {
@@ -498,21 +511,53 @@ int parseCommandCcc(ftpDataType *data, int socketId)
 int parseCommandPbsz(ftpDataType *data, int socketId)
 {
     int returnCode;
-    char *thePbszSize;
-    thePbszSize = getFtpCommandArg("PBSZ", data->clients[socketId].theCommandReceived, 0);
+    char *thePbszSize = getFtpCommandArg("PBSZ", data->clients[socketId].theCommandReceived, 0);
 
-    returnCode = socketPrintf(data, socketId, "sss", "200 PBSZ set to ", thePbszSize, "\r\n");
-
-    my_printf("\n 200 PBSZ set to %s", thePbszSize);
-
-    if (returnCode <= 0) 
+    // PBSZ requires TLS session active
+    if (data->clients[socketId].tlsIsEnabled == 0) 
     {
+        returnCode = socketPrintf(data, socketId, "s", "503 PBSZ requires an active TLS session\r\n");
+        if (returnCode <= 0) {
+            LOG_ERROR("socketPrintfError");
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        return FTP_COMMAND_PROCESSED;
+    }
+
+    // PBSZ must be sent before login
+    if (data->clients[socketId].login.userLoggedIn == 1) 
+    {
+        returnCode = socketPrintf(data, socketId, "s", "503 PBSZ must be sent before login\r\n");
+        if (returnCode <= 0) {
+            LOG_ERROR("socketPrintfError");
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        return FTP_COMMAND_PROCESSED;
+    }
+
+    // Only PBSZ 0 is supported
+    if (!thePbszSize || strcmp(thePbszSize, "0") != 0) 
+    {
+        returnCode = socketPrintf(data, socketId, "s", "501 Only PBSZ 0 is supported\r\n");
+        if (returnCode <= 0) {
+            LOG_ERROR("socketPrintfError");
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        return FTP_COMMAND_PROCESSED;
+    }
+
+    // Successful PBSZ negotiation
+    returnCode = socketPrintf(data, socketId, "s", "200 PBSZ=0\r\n");
+    if (returnCode <= 0) {
         LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
+    
+    data->clients[socketId].pbszIsSet = 1;
 
     return FTP_COMMAND_PROCESSED;
 }
+
 
 int parseCommandTypeA(ftpDataType *data, int socketId)
 {
@@ -1605,7 +1650,32 @@ int parseCommandMkd(ftpDataType *data, int socketId)
 int parseCommandOpts(ftpDataType *data, int socketId)
 {
     int returnCode;
-    returnCode = socketPrintf(data, socketId, "s", "200 OK\r\n");
+    char *optionString = getFtpCommandArg("OPTS", data->clients[socketId].theCommandReceived, 0);
+
+    my_printf("\noptionString: %s", optionString);
+
+    if (!optionString || strlen(optionString) == 0)
+    {
+        returnCode = socketPrintf(data, socketId, "s", "501 Syntax error in parameters or arguments.\r\n");
+        if (returnCode <= 0) LOG_ERROR("socketPrintfError");
+        return FTP_COMMAND_PROCESSED;
+    }
+
+    // For example, parse only UTF8 ON/OFF options:
+    if (strncasecmp(optionString, "UTF8 ON", 7) == 0)
+    {
+        // Enable UTF8 (set a flag in client/session data if needed)
+        returnCode = socketPrintf(data, socketId, "s", "200 UTF8 mode enabled\r\n");
+    }
+    else if (strncasecmp(optionString, "UTF8 OFF", 8) == 0)
+    {
+        // Disable UTF8
+        returnCode = socketPrintf(data, socketId, "s", "200 UTF8 mode disabled\r\n");
+    }
+    else
+    {
+        returnCode = socketPrintf(data, socketId, "s", "501 Option not supported.\r\n");
+    }
 
     if (returnCode <= 0) 
     {
@@ -1615,6 +1685,7 @@ int parseCommandOpts(ftpDataType *data, int socketId)
 
     return FTP_COMMAND_PROCESSED;
 }
+
 
 int parseCommandDele(ftpDataType *data, int socketId)
 {

@@ -195,6 +195,7 @@ struct clientData
     int isIpV6;
     int tlsIsEnabled;
     int tlsIsNegotiating;
+    int pbszIsSet;
     unsigned long long int tlsNegotiatingTimeStart;
     int dataChannelIsTls;
     pthread_mutex_t writeMutex;

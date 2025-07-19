@@ -816,7 +816,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].closeTheClient = 0;
     data->clients[clientId].sockaddr_in_size = sizeof(struct sockaddr_in);
     data->clients[clientId].sockaddr_in_server_size = sizeof(struct sockaddr_in);
-    
+    data->clients[clientId].pbszIsSet = 0;
     
     memset(&data->clients[clientId].client_sockaddr_in, 0, data->clients[clientId].sockaddr_in_size);
     memset(&data->clients[clientId].server_sockaddr_in, 0, data->clients[clientId].sockaddr_in_server_size);
