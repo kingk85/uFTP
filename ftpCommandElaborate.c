@@ -444,23 +444,32 @@ int parseCommandProt(ftpDataType *data, int socketId)
 
 int parseCommandCcc(ftpDataType *data, int socketId)
 {
-    int returnCode;
+    int returnCode;  
 
 #ifdef OPENSSL_ENABLED
+    if (!data->clients[socketId].tlsIsEnabled) {
+        returnCode = socketPrintf(data, socketId, "s", "533 Control connection not encrypted\r\n");
+        if (returnCode <= 0) {
+            LOG_ERROR("socketPrintfError");
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+        return FTP_COMMAND_PROCESSED;
+    }
 
-    returnCode = socketPrintf(data, socketId, "s", "200 TLS connection aborted\r\n");
-    SSL_set_shutdown(data->clients[socketId].ssl, SSL_SENT_SHUTDOWN);
-    data->clients[socketId].tlsIsEnabled = 0;
+    returnCode = socketPrintf(data, socketId, "s", "200 Control connection switched to plaintext\r\n");
 
     if (returnCode <= 0) 
     {
         LOG_ERROR("socketPrintfError");
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
+
+    SSL_shutdown(data->clients[socketId].ssl);  // Clean shutdown
+    data->clients[socketId].tlsIsEnabled = 0;   // Mark as plaintext
 #endif
 
 #ifndef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "502 command not supported\r\n");
+    returnCode = socketPrintf(data, socketId, "s", "502 Command not supported\r\n");
 
     if (returnCode <= 0) 
     {
