@@ -702,7 +702,7 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
       data->clients[clientId].workerData.socketConnection = 0;
       data->clients[clientId].workerData.bufferIndex = 0;
       data->clients[clientId].workerData.commandReceived = 0;
-      data->clients[clientId].workerData.retrRestartAtByte = 0;
+      // data->clients[clientId].workerData.retrRestartAtByte = 0;
       data->clients[clientId].workerData.threadIsAlive = 0;
       data->clients[clientId].workerData.activeModeOn = 0;
       data->clients[clientId].workerData.extendedPassiveModeOn = 0;

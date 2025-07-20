@@ -2239,17 +2239,13 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
 {
     long long int readen = 0;
     long long int toReturn = 0, writtenSize = 0;
-    long long int currentPosition = 0;
     long long int theFileSize;
     char buffer[FTP_COMMAND_ELABORATE_CHAR_BUFFER];
+    memset(buffer, 0, FTP_COMMAND_ELABORATE_CHAR_BUFFER);
 
 #ifdef LARGE_FILE_SUPPORT_ENABLED
-    // #warning LARGE FILE SUPPORT IS ENABLED!
     retrFP = fopen64(data->clients[theSocketId].fileToRetr.text, "rb");
-#endif
-
-#ifndef LARGE_FILE_SUPPORT_ENABLED
-#warning LARGE FILE SUPPORT IS NOT ENABLED!
+#else
     retrFP = fopen(data->clients[theSocketId].fileToRetr.text, "rb");
 #endif
 
@@ -2259,29 +2255,29 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
     }
 
     theFileSize = FILE_GetFileSize(retrFP);
+    my_printf("\ntheFileSize %lld", theFileSize);
 
     if (startFrom > 0)
     {
+        my_printf("\nCursor moved %lld", startFrom);
+
 #ifdef LARGE_FILE_SUPPORT_ENABLED
-        // #warning LARGE FILE SUPPORT IS ENABLED!
-        currentPosition = (long long int)lseek64(fileno(retrFP), startFrom, SEEK_SET);
+        if (fseeko64(retrFP, startFrom, SEEK_SET) != 0)
+#else
+        if (fseeko(retrFP, startFrom, SEEK_SET) != 0)
 #endif
-
-#ifndef LARGE_FILE_SUPPORT_ENABLED
-#warning LARGE FILE SUPPORT IS NOT ENABLED!
-        currentPosition = (long long int)lseek(fileno(retrFP), startFrom, SEEK_SET);
-#endif
-
-        if (currentPosition == -1)
         {
             fclose(retrFP);
             retrFP = NULL;
             return toReturn;
         }
+
+        my_printf("\ncurrentPosition %lld", startFrom);
     }
 
     while ((readen = (long long int)fread(buffer, sizeof(char), FTP_COMMAND_ELABORATE_CHAR_BUFFER, retrFP)) > 0)
     {
+        my_printf("\nTRANSFER read %lld bytes: %.*s", readen, (int)readen, buffer);
 
         if (data->clients[theSocketId].dataChannelIsTls != 1)
         {
@@ -2289,7 +2285,6 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
         }
         else
         {
-
 #ifdef OPENSSL_ENABLED
             if (data->clients[theSocketId].workerData.passiveModeOn == 1)
                 writtenSize = SSL_write(data->clients[theSocketId].workerData.serverSsl, buffer, readen);
@@ -2300,7 +2295,6 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
 
         if (writtenSize <= 0)
         {
-
             my_printf("\nError %lld while writing retr file.", writtenSize);
             fclose(retrFP);
             retrFP = NULL;
@@ -2308,7 +2302,7 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
         }
         else
         {
-            toReturn = toReturn + writtenSize;
+            toReturn += writtenSize;
             data->clients[theSocketId].lastActivityTimeStamp = (int)time(NULL);
         }
     }
@@ -2316,6 +2310,8 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
     retrFP = NULL;
     return toReturn;
 }
+
+
 
 char *getFtpCommandArg(char *theCommand, char *theCommandString, int skipArgs)
 {

@@ -55,6 +55,7 @@
 /* Private function definition */
 static int processCommand(int processingElement, ftpDataType *ftpData);
 static void memoryDebug(ftpDataType *ftpData);
+static int isTransferCommand(int processingElement, ftpDataType *ftpData);
 
 void evaluateControlChannel(ftpDataType *ftpData)
 {
@@ -235,6 +236,22 @@ static void memoryDebug(ftpDataType *ftpData)
 	}
 }
 
+static int isTransferCommand(int processingElement, ftpDataType *ftpData)
+{
+    if (IS_CMD(ftpData->clients[processingElement].theCommandReceived, "RETR") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "STOR") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "PASV") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE I") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE A") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE F") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "APPE"))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
 static int processCommand(int processingElement, ftpDataType *ftpData)
 {
     //command handler structure
@@ -290,6 +307,13 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
     int toReturn = 0;
     //printTimeStamp();
     my_printf("\nCommand received from (%d): %s", processingElement, ftpData->clients[processingElement].theCommandReceived);
+
+    if(!isTransferCommand(processingElement, ftpData) && 
+        ftpData->clients[processingElement].workerData.retrRestartAtByte != 0)
+    {
+        my_printf("Reset: retrRestartAtByte");
+        ftpData->clients[processingElement].workerData.retrRestartAtByte = 0;
+    }
 
     cleanDynamicStringDataType(&ftpData->clients[processingElement].ftpCommand.commandArgs, 0, ftpData->clients[processingElement].memoryTable);
     cleanDynamicStringDataType(&ftpData->clients[processingElement].ftpCommand.commandOps, 0, ftpData->clients[processingElement].memoryTable);

@@ -133,92 +133,88 @@ void workerCleanup(cleanUpWorkerArgs *args)
 static int processStorAppe(cleanUpWorkerArgs *args)
 {
     ftpDataType *ftpData = args->ftpData;
-	int theSocketId = args->socketId;
-	int returnCode = 0;
+    int theSocketId = args->socketId;
+    int returnCode = 0;
+    off_t restartPos = ftpData->clients[theSocketId].workerData.retrRestartAtByte;
+    FILE *file = NULL;
 
-    if (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "APPE", strlen("APPE")) == 1)
-    {
-        #ifdef LARGE_FILE_SUPPORT_ENABLED
-                //#warning LARGE FILE SUPPORT IS ENABLED!
-                ftpData->clients[theSocketId].workerData.theStorFile = fopen64(ftpData->clients[theSocketId].fileToStor.text, "ab");
-        #endif
+    const char *filePath = ftpData->clients[theSocketId].fileToStor.text;
+    const char *command = ftpData->clients[theSocketId].workerData.theCommandReceived;
 
-        #ifndef LARGE_FILE_SUPPORT_ENABLED
-                #warning LARGE FILE SUPPORT IS NOT ENABLED!
-                ftpData->clients[theSocketId].workerData.theStorFile = fopen(ftpData->clients[theSocketId].fileToStor.text, "ab");
-        #endif
-    }
-    else
-    {
-        #ifdef LARGE_FILE_SUPPORT_ENABLED
-                //#warning LARGE FILE SUPPORT IS ENABLED!
-                ftpData->clients[theSocketId].workerData.theStorFile = fopen64(ftpData->clients[theSocketId].fileToStor.text, "wb");
-        #endif
+    int isAppe = compareStringCaseInsensitive(command, "APPE", strlen("APPE")) == 1;
 
-        #ifndef LARGE_FILE_SUPPORT_ENABLED
-                #warning LARGE FILE SUPPORT IS NOT ENABLED!
-                ftpData->clients[theSocketId].workerData.theStorFile = fopen(ftpData->clients[theSocketId].fileToStor.text, "wb");
-        #endif
-    }
+    #ifdef LARGE_FILE_SUPPORT_ENABLED
+        if (isAppe) {
+            file = fopen64(filePath, "ab");
+        } else if (restartPos > 0) {
+            file = fopen64(filePath, "r+b");
+        } else {
+            file = fopen64(filePath, "wb");
+        }
+    #else
+        if (isAppe) {
+            file = fopen(filePath, "ab");
+        } else if (restartPos > 0) {
+            file = fopen(filePath, "r+b");
+        } else {
+            file = fopen(filePath, "wb");
+        }
+    #endif
 
-    if (ftpData->clients[theSocketId].workerData.theStorFile == NULL)
-    {
+    ftpData->clients[theSocketId].workerData.theStorFile = file;
+
+    if (file == NULL) {
         returnCode = socketPrintf(ftpData, theSocketId, "s", "553 Unable to write the file\r\n");
-
-        if (returnCode <= 0)
-        {
+        if (returnCode <= 0) {
             ftpData->clients[theSocketId].closeTheClient = 1;
-            LOG_ERROR("socketPrintf"); 
+            LOG_ERROR("socketPrintf");
             my_printf("\n Closing the client 6");
             return -1;
         }
-
         return -1;
     }
 
-    while(1)
-    {
-        if (ftpData->clients[theSocketId].dataChannelIsTls != 1)
-        {
-            ftpData->clients[theSocketId].workerData.bufferIndex = read(ftpData->clients[theSocketId].workerData.socketConnection, ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
-        }
-        else if (ftpData->clients[theSocketId].dataChannelIsTls == 1)
-        {
-            #ifdef OPENSSL_ENABLED
-            if (ftpData->clients[theSocketId].workerData.passiveModeOn == 1)
-                ftpData->clients[theSocketId].workerData.bufferIndex = SSL_read(ftpData->clients[theSocketId].workerData.serverSsl, ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
-            else if(ftpData->clients[theSocketId].workerData.activeModeOn == 1)
-                ftpData->clients[theSocketId].workerData.bufferIndex = SSL_read(ftpData->clients[theSocketId].workerData.clientSsl, ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
-            #endif
-        }
-        else
-        {
-            my_printf("\nError state");
-        }
+    if (!isAppe && restartPos > 0) {
+        fseeko(file, restartPos, SEEK_SET);
+        ftpData->clients[theSocketId].workerData.retrRestartAtByte = 0;
+    }
 
-        if (ftpData->clients[theSocketId].workerData.bufferIndex == 0)
-        {
-            break;
+    while (1) {
+        int bytesRead = 0;
+
+        if (ftpData->clients[theSocketId].dataChannelIsTls != 1) {
+            bytesRead = read(ftpData->clients[theSocketId].workerData.socketConnection,
+                             ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
         }
-        else if (ftpData->clients[theSocketId].workerData.bufferIndex > 0)
-        {
-            fwrite(ftpData->clients[theSocketId].workerData.buffer, ftpData->clients[theSocketId].workerData.bufferIndex, 1, ftpData->clients[theSocketId].workerData.theStorFile);
+    #ifdef OPENSSL_ENABLED
+        else {
+            if (ftpData->clients[theSocketId].workerData.passiveModeOn == 1) {
+                bytesRead = SSL_read(ftpData->clients[theSocketId].workerData.serverSsl,
+                                     ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+            } else if (ftpData->clients[theSocketId].workerData.activeModeOn == 1) {
+                bytesRead = SSL_read(ftpData->clients[theSocketId].workerData.clientSsl,
+                                     ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+            }
+        }
+    #endif
+
+        if (bytesRead == 0) {
+            break;
+        } else if (bytesRead > 0) {
+            fwrite(ftpData->clients[theSocketId].workerData.buffer, bytesRead, 1, file);
             usleep(100);
             ftpData->clients[theSocketId].lastActivityTimeStamp = (int)time(NULL);
-        }
-        else if (ftpData->clients[theSocketId].workerData.bufferIndex < 0)
-        {
+        } else {
             break;
         }
     }
 
-    int theReturnCode;
-    theReturnCode = fclose(ftpData->clients[theSocketId].workerData.theStorFile);
+    fclose(file);
     ftpData->clients[theSocketId].workerData.theStorFile = NULL;
 
-    if (ftpData->clients[theSocketId].login.ownerShip.ownerShipSet == 1)
-    {
-        FILE_doChownFromUidGid(ftpData->clients[theSocketId].fileToStor.text, ftpData->clients[theSocketId].login.ownerShip.uid, ftpData->clients[theSocketId].login.ownerShip.gid);
+    if (ftpData->clients[theSocketId].login.ownerShip.ownerShipSet == 1) {
+        FILE_doChownFromUidGid(filePath, ftpData->clients[theSocketId].login.ownerShip.uid,
+                               ftpData->clients[theSocketId].login.ownerShip.gid);
     }
 
     ftpData->clients[theSocketId].workerData.commandProcessed = 1;
@@ -226,6 +222,7 @@ static int processStorAppe(cleanUpWorkerArgs *args)
 
     return 1;
 }
+
 
 static int acceptConnection(cleanUpWorkerArgs *args)
 {
@@ -386,6 +383,8 @@ static int processRetr(cleanUpWorkerArgs *args)
 	int theSocketId = args->socketId;
 	int returnCode = 0;
     long long int writenSize = 0, writeReturn = 0;
+
+    my_printf("\n ftpData->clients[theSocketId].workerData.retrRestartAtByte = %d", ftpData->clients[theSocketId].workerData.retrRestartAtByte);
 
     writenSize = writeRetrFile(ftpData, theSocketId, ftpData->clients[theSocketId].workerData.retrRestartAtByte, ftpData->clients[theSocketId].workerData.theStorFile);
     ftpData->clients[theSocketId].workerData.retrRestartAtByte = 0;
