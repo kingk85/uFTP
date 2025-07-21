@@ -535,17 +535,6 @@ int parseCommandPbsz(ftpDataType *data, int socketId)
         return FTP_COMMAND_PROCESSED;
     }
 
-    // PBSZ must be sent before login
-    if (data->clients[socketId].login.userLoggedIn == 1) 
-    {
-        returnCode = socketPrintf(data, socketId, "s", "503 PBSZ must be sent before login\r\n");
-        if (returnCode <= 0) {
-            LOG_ERROR("socketPrintfError");
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-        }
-        return FTP_COMMAND_PROCESSED;
-    }
-
     // Only PBSZ 0 is supported
     if (!thePbszSize || strcmp(thePbszSize, "0") != 0) 
     {
