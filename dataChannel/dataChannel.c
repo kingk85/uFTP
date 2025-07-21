@@ -223,7 +223,6 @@ static int processStorAppe(cleanUpWorkerArgs *args)
     return 1;
 }
 
-
 static int acceptConnection(cleanUpWorkerArgs *args)
 {
     ftpDataType *ftpData = args->ftpData;
