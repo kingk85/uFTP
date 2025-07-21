@@ -6,6 +6,7 @@ import time
 import ssl
 import socket
 import ftplib
+import re
 
 FTP_HOST = '127.0.0.1'
 FTP_PORT = 21
@@ -115,32 +116,103 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
         self.assertTrue(pwd.startswith('/'), f"PWD should return directory path, got: {pwd}")
         resp = self.ftp.cwd('/')
         self.assertTrue(resp.startswith('250'), f"CWD should succeed with 250 response, got: {resp}")
-        
-    def Disabledtest_utf8_mkd(self):
-        """Verify server accepts MKD command with UTF-8 directory names."""
+            
+
+    def Disabledtest_mkdr(self):
         test_dirs = [
-            "Café",
-            "测试",
-            "директория",
-            "データ",
-            "résumé"
+            "dir1",
+            "dir2",
+            "dir3"
         ]
-    
+        
+        self.utf8_mkd(test_dirs)
+        
+
+
+    def test_utf8_mkd(self):
+        test_dirs = ["директория", "データ", "résumé"]
+
         with ftplib.FTP() as ftp:
             ftp.connect(FTP_HOST, FTP_PORT, timeout=5)
             ftp.login(FTP_USER, FTP_PASS)
-    
+            ftp.encoding = 'utf-8'
+
+            # Enable UTF-8 option
+            try:
+                ftp.sendcmd("OPTS UTF8 ON")
+            except Exception:
+                pass
+
+            for d in test_dirs:
+                # Try to remove if exists
+                try:
+                    ftp.rmd(d)
+                except ftplib.error_perm:
+                    pass
+
+                response = ftp.mkd(d)
+
+                # Match response code and directory name more flexibly
+                m = re.match(r'257\s+"?(.+?)"?\s', response)
+                assert m is not None, f"MKD response format incorrect: {response}"
+                dir_in_response = m.group(1)
+                assert dir_in_response == d, f"Directory name mismatch: expected {d}, got {dir_in_response}"
+
+                # Cleanup
+                ftp.rmd(d)
+
+
+    def utf8_mkd(self, test_dirs):
+        #test_dirs = [
+        #    "Café",
+        #    "测试",
+        #    "директория",
+        #    "データ",
+        #    "résumé"
+        #]
+
+        with ftplib.FTP() as ftp:
+            ftp.connect(FTP_HOST, FTP_PORT, timeout=5)
+            ftp.login(FTP_USER, FTP_PASS)
+
+            ftp.encoding = 'utf-8'
+            try:
+                print("C: OPTS UTF8 ON")
+                response = ftp.sendcmd("OPTS UTF8 ON")
+                print(f"S: {repr(response)}")
+            except Exception as e:
+                print(f"Warning: OPTS UTF8 ON failed: {e}")
+
             for dir_name_utf8 in test_dirs:
                 with self.subTest(dir=dir_name_utf8):
-                    print(f"C: MKD {dir_name_utf8}")
-                    response = ftp.mkd(dir_name_utf8)
-                    print(f"S: {response}")
-    
-                    self.assertTrue(response.startswith('257'), f"MKD failed for directory '{dir_name_utf8}'")
-    
-                    # Clean up after test
-                    ftp.rmd(dir_name_utf8)
-                    print(f"Removed directory: {dir_name_utf8}")
+                    try:
+                        # Delete if exists
+                        try:
+                            ftp.cwd(dir_name_utf8)
+                            ftp.cwd("..")
+                            ftp.rmd(dir_name_utf8)
+                            print(f"Deleted existing dir: {dir_name_utf8}")
+                        except ftplib.error_perm:
+                            pass
+
+                        # Create directory
+                        print(f"C: MKD {dir_name_utf8}")
+                        response = ftp.mkd(dir_name_utf8)
+                        print(f"S: {repr(response)}")
+
+                        self.assertTrue(response.startswith('257'),
+                            f"MKD failed: Server responded with: {repr(response)}")
+
+                        # Verify directory is accessible by changing to it
+                        ftp.cwd(dir_name_utf8)
+                        ftp.cwd("..")
+
+                        # Cleanup
+                        ftp.rmd(dir_name_utf8)
+                        print(f"Removed directory: {dir_name_utf8}")
+
+                    except Exception as e:
+                        self.fail(f"Exception for directory '{dir_name_utf8}': {e}")
 
 
     def test_pbsz_prot_violations(self):
@@ -192,36 +264,6 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
                                 "Violation: Server accepted PROT without prior PBSZ.")
         finally:
             ssock.close()
-
-
-
-    def Disabtest_utf8_mkd_with_opts(self):
-        dir_name_utf8 = "rés"
-        try:
-            with ftplib.FTP() as ftp:
-                ftp.connect(FTP_HOST, FTP_PORT, timeout=5)
-                ftp.login(FTP_USER, FTP_PASS)
-    
-                # Enable UTF-8 mode on the server
-                print("C: OPTS UTF8 ON")
-                response = ftp.sendcmd("OPTS UTF8 ON")
-                print(f"S: {response}")
-    
-                if not response.startswith('200'):
-                    print("Warning: OPTS UTF8 not supported or rejected by server.")
-    
-                # Now try to create directory with UTF-8 name
-                print(f"C: MKD {dir_name_utf8}")
-                response = ftp.mkd(dir_name_utf8)
-                print(f"S: {response}")
-    
-                print(f"Successfully created UTF-8 directory: {dir_name_utf8}")
-    
-        except ftplib.error_perm as e:
-            print(f"FTP permission error creating directory '{dir_name_utf8}': {e}")
-        except Exception as e:
-            print(f"Error: {e}")
-
 
     
     def test_feat_space_indent(self):
@@ -630,7 +672,7 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
         resp = self.ftp.quit()
         self.assertTrue(resp.startswith('221'), f"QUIT should respond with 221, got: {resp}")
 
-    def Disabledtest_invalid_command(self):
+    def test_invalid_command(self):
         try:
             resp = self.ftp.sendcmd('FOOBAR')
             self.assertTrue(resp.startswith('500') or resp.startswith('502'),

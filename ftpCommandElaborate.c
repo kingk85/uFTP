@@ -167,6 +167,19 @@ int parseCommandPass(ftpDataType *data, int socketId)
     loginFailsDataType element;
     int searchPosition = -1;
 
+    if (data->clients[socketId].login.name.textLen <= 0)
+    {
+        returnCode = socketPrintf(data, socketId, "s", "503 Login with USER first.\r\n");
+
+        if (returnCode <= 0) 
+        {
+            LOG_ERROR("socketPrintfError");
+            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+        }
+
+        return FTP_COMMAND_PROCESSED;
+    }
+
     thePass = getFtpCommandArg("PASS", data->clients[socketId].theCommandReceived, 0);
 
     strncpy(element.ipAddress, data->clients[socketId].clientIpAddress, INET_ADDRSTRLEN);
@@ -1597,9 +1610,8 @@ int parseCommandMkd(ftpDataType *data, int socketId)
                 {
                     returnStatus = FILE_doChownFromUidGid(mkdFileName.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid);
                 }
-
-                returnCode = socketPrintf(data, socketId, "sss", "257 \"", theDirectoryFilename, "\" : The directory was successfully created\r\n");
-
+                returnCode = socketPrintf(data, socketId, "sss", "257 \"", theDirectoryFilename, "\" The directory was successfully created\r\n");
+                my_printf("\n\n ------------------ Directory created");
                 if (returnCode <= 0)
                 {
                     LOG_ERROR("socketPrintfError");
@@ -1881,6 +1893,21 @@ int notLoggedInMessage(ftpDataType *data, int socketId)
 
     return FTP_COMMAND_PROCESSED;
 }
+
+int invalidCommandResponse(ftpDataType *data, int socketId)
+{
+    int returnCode;
+    returnCode = socketPrintf(data, socketId, "s", "500 Syntax error, command unrecognized.\r\n");
+
+    if (returnCode <= 0) 
+    {
+        LOG_ERROR("socketPrintfError");
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    return FTP_COMMAND_PROCESSED;
+}
+
 
 int parseCommandQuit(ftpDataType *data, int socketId)
 {

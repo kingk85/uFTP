@@ -305,8 +305,27 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
     #define COMMAND_MAP_SIZE (sizeof(commandMap) / sizeof(CommandMapEntry))
 
     int toReturn = 0;
+    int commandIndex = -1;
+
     //printTimeStamp();
     my_printf("\nCommand received from (%d): %s", processingElement, ftpData->clients[processingElement].theCommandReceived);
+
+    for (int i = 0; i < COMMAND_MAP_SIZE; ++i)
+    {
+        if (IS_CMD(ftpData->clients[processingElement].theCommandReceived, commandMap[i].command))
+        {
+            commandIndex = i;
+            break;
+        }
+    }
+
+    if (commandIndex == -1)
+    {
+        toReturn = invalidCommandResponse(ftpData, processingElement);
+        ftpData->clients[processingElement].commandIndex = 0;
+        memset(ftpData->clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);
+        return toReturn;        
+    }
 
     if(!isTransferCommand(processingElement, ftpData) && 
         ftpData->clients[processingElement].workerData.retrRestartAtByte != 0)
@@ -332,15 +351,8 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
         return 1;
     }
 
-    for (int i = 0; i < COMMAND_MAP_SIZE; ++i)
-    {
-        if (IS_CMD(ftpData->clients[processingElement].theCommandReceived, commandMap[i].command))
-        {
-            my_printf("\n%s COMMAND RECEIVED", commandMap[i].command);
-            toReturn = commandMap[i].handler(ftpData, processingElement);
-            break;
-        }
-    }
+    my_printf("\n%s COMMAND RECEIVED", commandMap[commandIndex].command);
+    toReturn = commandMap[commandIndex].handler(ftpData, processingElement);
 
     ftpData->clients[processingElement].commandIndex = 0;
     memset(ftpData->clients[processingElement].theCommandReceived, 0, CLIENT_COMMAND_STRING_SIZE+1);

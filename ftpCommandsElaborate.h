@@ -76,6 +76,7 @@ int parseCommandRetr(ftpDataType * data, int socketId);
 int parseCommandMkd(ftpDataType * data, int socketId);
 int parseCommandNoop(ftpDataType * data, int socketId);
 int notLoggedInMessage(ftpDataType * data, int socketId);
+int invalidCommandResponse(ftpDataType *data, int socketId);
 int parseCommandRmd(ftpDataType * data, int socketId);
 int parseCommandQuit(ftpDataType * data, int socketId);
 int parseCommandSize(ftpDataType * data, int socketId);
