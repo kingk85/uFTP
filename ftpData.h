@@ -213,6 +213,7 @@ struct clientData
     char theCommandReceived[CLIENT_COMMAND_STRING_SIZE+1];
     
     dynamicStringDataType renameFromFile;
+    dynamicStringDataType renameFromFileWd;
     dynamicStringDataType renameToFile;
     
     dynamicStringDataType fileToStor;

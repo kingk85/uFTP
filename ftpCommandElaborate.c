@@ -436,7 +436,6 @@ int parseCommandFeat(ftpDataType *data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
-
 int parseCommandProt(ftpDataType *data, int socketId)
 {
     int returnCode;
@@ -482,7 +481,6 @@ int parseCommandProt(ftpDataType *data, int socketId)
 
     return FTP_COMMAND_PROCESSED;
 }
-
 
 int parseCommandCcc(ftpDataType *data, int socketId)
 {
@@ -570,7 +568,6 @@ int parseCommandPbsz(ftpDataType *data, int socketId)
 
     return FTP_COMMAND_PROCESSED;
 }
-
 
 int parseCommandTypeA(ftpDataType *data, int socketId)
 {
@@ -1698,7 +1695,6 @@ int parseCommandOpts(ftpDataType *data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
-
 int parseCommandDele(ftpDataType *data, int socketId)
 {
     int functionReturnCode = 0;
@@ -1908,7 +1904,6 @@ int invalidCommandResponse(ftpDataType *data, int socketId)
     return FTP_COMMAND_PROCESSED;
 }
 
-
 int parseCommandQuit(ftpDataType *data, int socketId)
 {
     int returnCode;
@@ -2065,6 +2060,7 @@ int parseCommandRnfr(ftpDataType *data, int socketId)
 
     theRnfrFileName = getFtpCommandArg("RNFR", data->clients[socketId].theCommandReceived, 0);
     cleanDynamicStringDataType(&data->clients[socketId].renameFromFile, 0, &data->clients[socketId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[socketId].renameFromFileWd, 0, &data->clients[socketId].memoryTable);
 
     isSafePath = getSafePath(&data->clients[socketId].renameFromFile, theRnfrFileName, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
 
@@ -2078,6 +2074,7 @@ int parseCommandRnfr(ftpDataType *data, int socketId)
             if ((checkUserFilePermissions(data->clients[socketId].renameFromFile.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) == FILE_PERMISSION_W)
             {
                 returnCode = socketPrintf(data, socketId, "s", "350 RNFR accepted - file exists, ready for destination\r\n");
+                setDynamicStringDataType(&data->clients[socketId].renameFromFileWd, data->clients[socketId].login.ftpPath.text, data->clients[socketId].login.ftpPath.textLen, &data->clients[socketId].memoryTable);
             }
             else 
             {
@@ -2123,13 +2120,16 @@ int parseCommandRnto(ftpDataType *data, int socketId)
     isSafePath = getSafePath(&data->clients[socketId].renameToFile, theRntoFileName, &data->clients[socketId].login, &data->clients[socketId].memoryTable);
 
     if (isSafePath == 1 &&
-        data->clients[socketId].renameFromFile.textLen > 0)
+        data->clients[socketId].renameFromFile.textLen > 0 &&
+        data->clients[socketId].renameFromFileWd.textLen == data->clients[socketId].login.ftpPath.textLen &&
+        strcmp(data->clients[socketId].renameFromFileWd.text, data->clients[socketId].login.ftpPath.text) == 0)
     {
         if(FILE_IsFile(data->clients[socketId].renameToFile.text, 0) == 1)
         {
             if ((checkUserFilePermissions(data->clients[socketId].renameToFile.text, data->clients[socketId].login.ownerShip.uid, data->clients[socketId].login.ownerShip.gid) & FILE_PERMISSION_W) != FILE_PERMISSION_W)
             {
                 cleanDynamicStringDataType(&data->clients[socketId].renameFromFile, 0, &data->clients[socketId].memoryTable);
+                cleanDynamicStringDataType(&data->clients[socketId].renameFromFileWd, 0, &data->clients[socketId].memoryTable);
                 cleanDynamicStringDataType(&data->clients[socketId].renameToFile, 0, &data->clients[socketId].memoryTable);
                 returnCode = socketPrintf(data, socketId, "s", "550 Error Renaming the file no permissions\r\n");
                 if (returnCode <= 0) 
@@ -2197,6 +2197,7 @@ int parseCommandRnto(ftpDataType *data, int socketId)
     }
 
     cleanDynamicStringDataType(&data->clients[socketId].renameFromFile, 0, &data->clients[socketId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[socketId].renameFromFileWd, 0, &data->clients[socketId].memoryTable);
     cleanDynamicStringDataType(&data->clients[socketId].renameToFile, 0, &data->clients[socketId].memoryTable);
 
     if (returnCode <= 0) 
@@ -2337,8 +2338,6 @@ long long int writeRetrFile(ftpDataType *data, int theSocketId, long long int st
     retrFP = NULL;
     return toReturn;
 }
-
-
 
 char *getFtpCommandArg(char *theCommand, char *theCommandString, int skipArgs)
 {

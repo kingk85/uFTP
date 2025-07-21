@@ -827,6 +827,7 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     
     //Rename from and to data init
     cleanDynamicStringDataType(&data->clients[clientId].renameFromFile, isInitialization, &data->clients[clientId].memoryTable);
+    cleanDynamicStringDataType(&data->clients[clientId].renameFromFileWd, isInitialization, &data->clients[clientId].memoryTable);
     cleanDynamicStringDataType(&data->clients[clientId].renameToFile, isInitialization, &data->clients[clientId].memoryTable);
     cleanDynamicStringDataType(&data->clients[clientId].fileToStor, isInitialization, &data->clients[clientId].memoryTable);
     cleanDynamicStringDataType(&data->clients[clientId].fileToRetr, isInitialization, &data->clients[clientId].memoryTable);
