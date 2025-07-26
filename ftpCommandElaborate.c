@@ -53,6 +53,7 @@
 #include "library/log.h"
 
 static int parse_eprt(const char *eprt_str, int *address_type, char *address, int *port);
+static int ftpReplyOrError(ftpDataType *ftpData, int clientId, const char *formatSpecifier, const char *message);
 
 /* Elaborate the User login command */
 int parseCommandUser(ftpDataType * data, int socketId)
@@ -2642,4 +2643,18 @@ static int parse_eprt(const char *eprt_str, int *address_type, char *address, in
 
 
   return 0; // Success
+}
+
+
+static int ftpReplyOrError(ftpDataType *ftpData, int clientId, const char *formatSpecifier, const char *message)
+{
+    int returnCode = socketPrintf(ftpData, clientId, formatSpecifier, message);
+
+    if (returnCode <= 0)
+    {
+        LOG_ERROR("socketPrintfError");
+        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
+    }
+
+    return FTP_COMMAND_PROCESSED_OK;
 }
