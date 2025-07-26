@@ -489,12 +489,7 @@ int parseCommandCcc(ftpDataType *data, int socketId)
 
 #ifdef OPENSSL_ENABLED
     if (!data->clients[socketId].tlsIsEnabled) {
-        returnCode = socketPrintf(data, socketId, "s", "533 Control connection not encrypted\r\n");
-        if (returnCode <= 0) {
-            LOG_ERROR("socketPrintfError");
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-        }
-        return FTP_COMMAND_PROCESSED;
+        return ftpReplyOrError(data, socketId, "s", "533 Control connection not encrypted\r\n");
     }
 
     returnCode = socketPrintf(data, socketId, "s", "200 Control connection switched to plaintext\r\n");
@@ -509,12 +504,7 @@ int parseCommandCcc(ftpDataType *data, int socketId)
 #endif
 
 #ifndef OPENSSL_ENABLED
-    returnCode = socketPrintf(data, socketId, "s", "502 Command not supported\r\n");
-    if (returnCode <= 0) 
-    {
-        LOG_ERROR("socketPrintfError");
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-    }
+    return ftpReplyOrError(data, socketId, "s", "502 Command not supported\r\n");
 #endif
 
     return FTP_COMMAND_PROCESSED;
@@ -528,87 +518,39 @@ int parseCommandPbsz(ftpDataType *data, int socketId)
     // PBSZ requires TLS session active
     if (data->clients[socketId].tlsIsEnabled == 0) 
     {
-        returnCode = socketPrintf(data, socketId, "s", "503 PBSZ requires an active TLS session\r\n");
-        if (returnCode <= 0) {
-            LOG_ERROR("socketPrintfError");
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-        }
-        return FTP_COMMAND_PROCESSED;
+        return ftpReplyOrError(data, socketId, "s", "503 PBSZ requires an active TLS session\r\n");
     }
 
     // Only PBSZ 0 is supported
     if (!thePbszSize || strcmp(thePbszSize, "0") != 0) 
     {
-        returnCode = socketPrintf(data, socketId, "s", "501 Only PBSZ 0 is supported\r\n");
-        if (returnCode <= 0) {
-            LOG_ERROR("socketPrintfError");
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-        }
-        return FTP_COMMAND_PROCESSED;
+        return ftpReplyOrError(data, socketId, "s", "501 Only PBSZ 0 is supported\r\n");
     }
 
-    // Successful PBSZ negotiation
-    returnCode = socketPrintf(data, socketId, "s", "200 PBSZ=0\r\n");
-    if (returnCode <= 0) {
-        LOG_ERROR("socketPrintfError");
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-    }
-    
     data->clients[socketId].pbszIsSet = 1;
 
-    return FTP_COMMAND_PROCESSED;
+    // Successful PBSZ negotiation
+    return ftpReplyOrError(data, socketId, "s", "200 PBSZ=0\r\n");
 }
 
 int parseCommandTypeA(ftpDataType *data, int socketId)
 {
-    int returnCode;
-    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
-
-    if (returnCode <= 0)
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-
-    return FTP_COMMAND_PROCESSED;
+    return ftpReplyOrError(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
 }
 
 int parseCommandTypeI(ftpDataType *data, int socketId)
 {
-    int returnCode;
-    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
-
-    if (returnCode <= 0) 
-    {
-        LOG_ERROR("socketPrintfError");
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-    }
-
-    return FTP_COMMAND_PROCESSED;
+    return ftpReplyOrError(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
 }
 
 int parseCommandStruF(ftpDataType *data, int socketId)
 {
-    int returnCode;
-    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
-    if (returnCode <= 0) 
-    {
-        LOG_ERROR("socketPrintfError");
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-    }
-
-    return FTP_COMMAND_PROCESSED;
+    return ftpReplyOrError(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
 }
 
 int parseCommandModeS(ftpDataType *data, int socketId)
 {
-    int returnCode;
-    returnCode = socketPrintf(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
-
-    if (returnCode <= 0) 
-    {
-        LOG_ERROR("socketPrintfError");
-        return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-    }
-
-    return FTP_COMMAND_PROCESSED;
+    return ftpReplyOrError(data, socketId, "s", "200 TYPE is now 8-bit binary\r\n");
 }
 
 int parseCommandPasv(ftpDataType *data, int socketId)
@@ -619,15 +561,7 @@ int parseCommandPasv(ftpDataType *data, int socketId)
 
     if(data->clients[socketId].isIpV6 == 1)
     {
-		returnCode = socketPrintf(data, socketId, "s", "500 Server use IPV6, use EPSV instead.\r\n");
-
-        if (returnCode <= 0) 
-        {
-            LOG_ERROR("socketPrintfError");
-            return FTP_COMMAND_PROCESSED_WRITE_ERROR;
-        }
-
-        return FTP_COMMAND_PROCESSED;
+		return ftpReplyOrError(data, socketId, "s", "500 Server use IPV6, use EPSV instead.\r\n");
     }
 
     handleThreadReuse(data, socketId);
@@ -2593,7 +2527,7 @@ int parseCommandEprt(ftpDataType *data, int socketId)
     data->clients[socketId].workerData.extendedPassiveModeOn = 0;
     data->clients[socketId].workerData.activeModeOn = 1;
     
-cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-4");
+    cleanUpWorkerArgs *workerArgs = DYNMEM_malloc(sizeof(cleanUpWorkerArgs), &data->clients[socketId].workerData.memoryTable, "worker-args-4");
 
     if (!workerArgs) {
         LOG_ERROR("Failed to allocate memory for workerArgs");
