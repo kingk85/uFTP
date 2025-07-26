@@ -2656,5 +2656,5 @@ static int ftpReplyOrError(ftpDataType *ftpData, int clientId, const char *forma
         return FTP_COMMAND_PROCESSED_WRITE_ERROR;
     }
 
-    return FTP_COMMAND_PROCESSED_OK;
+    return FTP_COMMAND_PROCESSED;
 }
