@@ -80,6 +80,8 @@
     int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid);
     uid_t FILE_getUID(const char *user_name);
     gid_t FILE_getGID(const char *group_name);
+    int FILE_lookupUID(const char *user_name, uid_t *uid);
+    int FILE_lookupGID(const char *group_name, gid_t *gid);
     void FILE_checkAllOpenedFD(void);
     int fd_is_valid(int fd);
     int checkUserFilePermissions(char *fileName, int uid, int gid);

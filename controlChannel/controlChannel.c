@@ -67,11 +67,20 @@ void evaluateControlChannel(ftpDataType *ftpData)
     //debug memory usage
     memoryDebug(ftpData);
 
-    /* waits for socket activity, if no activity then checks for client socket timeouts */
-    if (selectWait(ftpData) == 0)
+    /* waits for socket activity */
+    selectWait(ftpData);
+
+    /* Timeouts must be checked regardless of socket activity: checking them only
+       when select() times out lets a single busy client prevent every other idle
+       client from ever being disconnected. Run the check at most once per second. */
+    static time_t lastTimeoutCheck = 0;
+    time_t now = time(NULL);
+    if (now != lastTimeoutCheck)
     {
+        lastTimeoutCheck = now;
         checkClientConnectionTimeout(ftpData);
         flushLoginWrongTriesData(ftpData);
+        logFlushRepeated();
     }
 
     /*Main loop handle client commands */
@@ -112,10 +121,20 @@ void evaluateControlChannel(ftpDataType *ftpData)
                     ftpData->clients[processingSock].tlsIsEnabled = 0;
                     ftpData->clients[processingSock].tlsIsNegotiating = 1;
 
-                    if ( ((int)time(NULL) - ftpData->clients[processingSock].tlsNegotiatingTimeStart) > TLS_NEGOTIATING_TIMEOUT )
+                    /* Only WANT_READ/WANT_WRITE mean the handshake is still in progress.
+                       Any other error (EOF, SSL_ERROR_SYSCALL, protocol error) is fatal:
+                       keeping the client would make select() return immediately forever
+                       on the readable-at-EOF socket and spin the CPU. */
+                    int sslError = SSL_get_error(ftpData->clients[processingSock].ssl, returnCode);
+                    if (sslError != SSL_ERROR_WANT_READ && sslError != SSL_ERROR_WANT_WRITE)
                     {
-                        ftpData->clients[processingSock].closeTheClient = 1;
-                        LOGF("%sTLS timeout closing the client time:%lld, start time: %lld..", LOG_DEBUG_PREFIX, (int)time(NULL), ftpData->clients[processingSock].tlsNegotiatingTimeStart); 
+                        ftpData->clients[processingSock].tlsIsNegotiating = 0;
+                        logTlsHandshakeFailure(ftpData, processingSock, sslError);
+                        markClientForClosing(ftpData, processingSock, "TLS handshake failed");
+                    }
+                    else if ( ((int)time(NULL) - ftpData->clients[processingSock].tlsNegotiatingTimeStart) > TLS_NEGOTIATING_TIMEOUT )
+                    {
+                        markClientForClosing(ftpData, processingSock, "TLS handshake not completed in time");
                         //my_printf("\nTLS timeout closing the client time:%lld, start time: %lld..", (int)time(NULL), ftpData->clients[processingSock].tlsNegotiatingTimeStart);
                     }
                 }
@@ -124,16 +143,69 @@ void evaluateControlChannel(ftpDataType *ftpData)
                     //my_printf("\nSSL ACCEPTED");
                     ftpData->clients[processingSock].tlsIsEnabled = 1;
                     ftpData->clients[processingSock].tlsIsNegotiating = 0;
+                    LOG_ACCESS(ftpData, processingSock, "TLS established (%s)", SSL_get_version(ftpData->clients[processingSock].ssl));
                 }
 
                 continue;
             }
         #endif
 
+        #ifdef OPENSSL_ENABLED
+        /* After CCC: read the TLS closure alert of the client (RFC 4217 12.3) before
+           reading clear text. A TLS record starts with a content type byte 0x14-0x17;
+           anything else means the client went on in clear text without closing TLS.
+           The first byte is looked at only until the record has started to be read
+           (CCC_SHUTDOWN_READING): the rest of a record that arrives in more than one
+           TCP segment does not start with a content type byte. */
+        if (ftpData->clients[processingSock].cccShutdownPending != CCC_SHUTDOWN_DONE)
+        {
+            unsigned char firstByte = 0;
+            ssize_t peeked = 1;
+
+            if (ftpData->clients[processingSock].cccShutdownPending == CCC_SHUTDOWN_WAITING)
+            {
+                peeked = recv(ftpData->clients[processingSock].socketDescriptor, &firstByte, 1, MSG_PEEK);
+            }
+
+            if (ftpData->clients[processingSock].cccShutdownPending == CCC_SHUTDOWN_READING ||
+                (peeked == 1 && firstByte >= 0x14 && firstByte <= 0x17))
+            {
+                pthread_mutex_lock(&ftpData->clients[processingSock].writeMutex);
+                int shutdownReturn = SSL_shutdown(ftpData->clients[processingSock].ssl);
+                int shutdownError = (shutdownReturn < 0) ? SSL_get_error(ftpData->clients[processingSock].ssl, shutdownReturn) : SSL_ERROR_NONE;
+                pthread_mutex_unlock(&ftpData->clients[processingSock].writeMutex);
+
+                /* finished (1), or anything but "record not complete yet" (WANT_READ /
+                   WANT_WRITE: try again at the next read event): stop waiting. 0 is
+                   included so that a readable socket can never make the loop spin. */
+                if (shutdownReturn >= 0 ||
+                    (shutdownError != SSL_ERROR_WANT_READ && shutdownError != SSL_ERROR_WANT_WRITE))
+                {
+                    ftpData->clients[processingSock].cccShutdownPending = CCC_SHUTDOWN_DONE;
+                }
+                else
+                {
+                    ftpData->clients[processingSock].cccShutdownPending = CCC_SHUTDOWN_READING;
+                }
+
+                continue;
+            }
+
+            if (peeked != 0)
+            {
+                ftpData->clients[processingSock].cccShutdownPending = CCC_SHUTDOWN_DONE;
+            }
+            /* peeked == 0: the client closed, the read below sees it */
+        }
+        #endif
+
             if (ftpData->clients[processingSock].tlsIsEnabled == 1)
             {
                 #ifdef OPENSSL_ENABLED
+                /* the worker may be writing a reply on the same SSL object */
+                pthread_mutex_lock(&ftpData->clients[processingSock].writeMutex);
                 ftpData->clients[processingSock].bufferIndex = SSL_read(ftpData->clients[processingSock].ssl, ftpData->clients[processingSock].buffer, CLIENT_BUFFER_STRING_SIZE);
+                pthread_mutex_unlock(&ftpData->clients[processingSock].writeMutex);
                 #endif
             }
             else
@@ -144,7 +216,43 @@ void evaluateControlChannel(ftpDataType *ftpData)
         //The client is not connected anymore
         if ((ftpData->clients[processingSock].bufferIndex) == 0)
         {
+            setCloseReason(ftpData, processingSock, "closed by the client");
             closeClient(ftpData, processingSock);
+        }
+        else if (ftpData->clients[processingSock].bufferIndex < 0)
+        {
+            /* A failed read is final unless it only means "try again later". Otherwise
+               (TLS protocol error, connection reset...) the unread bytes stay on the
+               socket, select() reports it readable forever and the loop spins the CPU
+               until the idle timeout. */
+            int readErrorIsFatal = 1;
+
+            if (ftpData->clients[processingSock].tlsIsEnabled == 1)
+            {
+                #ifdef OPENSSL_ENABLED
+                int sslReadError = SSL_get_error(ftpData->clients[processingSock].ssl, ftpData->clients[processingSock].bufferIndex);
+                if (sslReadError == SSL_ERROR_WANT_READ || sslReadError == SSL_ERROR_WANT_WRITE)
+                    readErrorIsFatal = 0;
+                #endif
+            }
+            else if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+            {
+                readErrorIsFatal = 0;
+            }
+
+            if (readErrorIsFatal == 1)
+            {
+                /* A peer that resets, times out or breaks the TLS stream is the client's doing:
+                   [ERROR] stays for problems of the server. */
+                int clientCaused = ftpData->clients[processingSock].tlsIsEnabled == 1 ||
+                                   errno == ECONNRESET || errno == ECONNABORTED || errno == ETIMEDOUT ||
+                                   errno == EPIPE || errno == EHOSTUNREACH || errno == ENETUNREACH;
+
+                LOG_CLIENT(ftpData, processingSock, clientCaused ? LOG_DEBUG_PREFIX : LOG_ERROR_PREFIX,
+                           "control connection read error: %s",
+                           ftpData->clients[processingSock].tlsIsEnabled == 1 ? "TLS protocol error" : strerror(errno));
+                markClientForClosing(ftpData, processingSock, "control connection read error");
+            }
         }
 
 
@@ -175,7 +283,6 @@ void evaluateControlChannel(ftpDataType *ftpData)
                                 if (returnCode < 0)
                                 {
                                     ftpData->clients[processingSock].closeTheClient = 1;
-                                    LOG_ERROR("socketPrintf"); 
                                 }
                                 my_printf("\n COMMAND NOT SUPPORTED ********* %s", ftpData->clients[processingSock].buffer);
                                 LOGF("%sCommand not supported: %s", LOG_DEBUG_PREFIX, ftpData->clients[processingSock].buffer);
@@ -187,7 +294,6 @@ void evaluateControlChannel(ftpDataType *ftpData)
                             else if (commandProcessStatus == FTP_COMMAND_PROCESSED_WRITE_ERROR)
                             {
                                 ftpData->clients[processingSock].closeTheClient = 1;
-                                LOG_ERROR("ftp command processed error"); 
                                 my_printf("\n Write error WARNING!");
                             }
                         }
@@ -202,7 +308,6 @@ void evaluateControlChannel(ftpDataType *ftpData)
                     if (returnCode <= 0) 
                     {
                         ftpData->clients[processingSock].closeTheClient = 1;
-                        LOG_ERROR("socketPrintf"); 
                     }
                     my_printf("\n Command too long closing the client.");
                     break;
@@ -241,9 +346,7 @@ static int isTransferCommand(int processingElement, ftpDataType *ftpData)
     if (IS_CMD(ftpData->clients[processingElement].theCommandReceived, "RETR") ||
         IS_CMD(ftpData->clients[processingElement].theCommandReceived, "STOR") ||
         IS_CMD(ftpData->clients[processingElement].theCommandReceived, "PASV") ||
-        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE I") ||
-        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE A") ||
-        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE F") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE") ||
         IS_CMD(ftpData->clients[processingElement].theCommandReceived, "APPE"))
     {
         return 1;
@@ -259,7 +362,7 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
         {"USER", parseCommandUser},
         {"PASS", parseCommandPass},
         {"SITE", parseCommandSite},
-        {"AUTH TLS", parseCommandAuth},
+        {"AUTH", parseCommandAuth},
         {"PROT", parseCommandProt},
         {"PBSZ", parseCommandPbsz},
         {"CCC", parseCommandCcc},
@@ -267,10 +370,9 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
         {"XPWD", parseCommandPwd},
         {"SYST", parseCommandSyst},
         {"FEAT", parseCommandFeat},
-        {"TYPE I", parseCommandTypeI},
-        {"TYPE A", parseCommandTypeI},
-        {"STRU F", parseCommandStruF},
-        {"MODE S", parseCommandModeS},
+        {"TYPE", parseCommandType},
+        {"STRU", parseCommandStru},
+        {"MODE", parseCommandMode},
         {"EPSV", parseCommandEpsv},
         {"PASV", parseCommandPasv},
         {"PORT", parseCommandPort},
@@ -299,7 +401,12 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
         {"SIZE", parseCommandSize},
         {"APPE", parseCommandAppe},
         {"NOOP", parseCommandNoop},
-        {"ACCT", parseCommandAcct}
+        {"ACCT", parseCommandAcct},
+        {"HELP", parseCommandHelp},
+        {"ALLO", parseCommandAllo},
+        {"REIN", parseCommandNotImplemented},
+        {"STOU", parseCommandNotImplemented},
+        {"SMNT", parseCommandNotImplemented}
     };
 
     #define COMMAND_MAP_SIZE (sizeof(commandMap) / sizeof(CommandMapEntry))
@@ -343,7 +450,13 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
          IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "QUIT") &&
 		 IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "PBSZ") &&
 		 IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "PROT") &&
-         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "AUTH TLS")))
+         /* FEAT, SYST, HELP and NOOP carry no user data: clients use them before
+            logging in (e.g. FEAT to discover AUTH TLS, RFC 2389 / RFC 4217) */
+         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "FEAT") &&
+         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "SYST") &&
+         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "HELP") &&
+         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "NOOP") &&
+         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "AUTH")))
     {
         toReturn = notLoggedInMessage(ftpData, processingElement);
         ftpData->clients[processingElement].commandIndex = 0;

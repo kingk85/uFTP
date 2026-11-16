@@ -27,6 +27,9 @@
 #define CONNECTION_H
 
 #include "../ftpData.h"
+#include "log.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +38,36 @@ extern "C" {
 int getMaximumSocketFd(int mainSocket, ftpDataType * data);
 int createSocket(ftpDataType * ftpData);
 int createPassiveSocket(int port);
+int ipAddressToBinary(const char *theAddress, struct in6_addr *binary);
+int isSameIpAddress(const char *firstAddress, const char *secondAddress);
+int isPeerFromAddress(const struct sockaddr *peer, const char *theAddress);
+int dataWriteTimeoutMs(ftpDataType *ftpData);
+
+/* Time allowed to write a reply on the control connection, TLS and clear text. The
+   control thread serves every client, so the wait must stay short; it is long enough
+   for a slow link. A reply that can not be written in this time means that the client
+   is not reading: it is closed. 250 ms (release candidate) closed live clients in
+   production, and in clear text there was no wait at all. */
+#define CONTROL_WRITE_TIMEOUT_MS    2000
+
+/* Log lines about one client: "[<slot> <address> <user>] message". isAccessRecord = 1
+   for the actions of a logged in user (see logMessageRecord() in log.c). */
+void logClientf(ftpDataType *ftpData, int clientId, int isAccessRecord, const char *file, int line,
+                const char *function, const char *prefix, const char *fmt, ...);
+#define LOG_CLIENT(data, id, prefix, fmt, ...) \
+    logClientf(data, id, 0, __FILE__, __LINE__, __func__, prefix, fmt, ##__VA_ARGS__)
+/* an action of the client: access record if the client is logged in */
+#define LOG_ACCESS(data, id, fmt, ...) \
+    logClientf(data, id, (data)->clients[id].login.userLoggedIn == 1, __FILE__, __LINE__, __func__, LOG_ACCESS_PREFIX, fmt, ##__VA_ARGS__)
+
+/* Close the client at the next loop, saying why in the log (the first reason given wins) */
+void markClientForClosing(ftpDataType *ftpData, int clientId, const char *reason);
+void setCloseReason(ftpDataType *ftpData, int clientId, const char *reason);
+#ifdef OPENSSL_ENABLED
+/* Log why the TLS handshake of the control connection failed (OpenSSL error queue or
+   system error) */
+void logTlsHandshakeFailure(ftpDataType *ftpData, int clientId, int sslError);
+#endif
 int createActiveSocket(int port, char *ipAddress);
 
 #ifdef IPV6_ENABLED

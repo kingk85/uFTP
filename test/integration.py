@@ -9,10 +9,11 @@ import ftplib
 import re
 
 
-FTP_HOST = '127.0.0.1'
-FTP_PORT = 21
-FTP_USER = 'username'
-FTP_PASS = 'password'
+# Overridable from the environment (test/run_tests.sh sets them for its own server)
+FTP_HOST = os.environ.get('FTP_HOST', '127.0.0.1')
+FTP_PORT = int(os.environ.get('FTP_PORT', '21'))
+FTP_USER = os.environ.get('FTP_USER', 'username')
+FTP_PASS = os.environ.get('FTP_PASS', 'password')
 
 TEST_FILENAME = 'test.txt'
 TEST_CONTENT = b'1234567890'  # 10 bytes known content
@@ -21,7 +22,19 @@ UPLOAD_FILENAME = 'upload_test.txt'
 RESUME_FILENAME = 'resume_test.txt'
 
 
+def server_has_tls():
+    """True if the server under test was built with OpenSSL (AUTH TLS answers 234)."""
+    with socket.create_connection((FTP_HOST, FTP_PORT), timeout=5) as sock:
+        sock.recv(1024)
+        sock.sendall(b'AUTH TLS\r\n')
+        return sock.recv(1024).startswith(b'234')
+
+
 class FTPServerRFCComplianceTests(unittest.TestCase):
+    def require_tls(self):
+        if not server_has_tls():
+            self.skipTest("uFTP was built without OpenSSL support")
+
     
     def setUp(self):
         # Create local test file first
@@ -175,7 +188,7 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
             
         
     def test_utf8_mkd(self):
-        test_dirs = ["директория", "データ", "résumé"]
+        test_dirs = ["Café", "测试", "директория", "データ", "résumé"]
 
         with ftplib.FTP() as ftp:
             ftp.connect(FTP_HOST, FTP_PORT, timeout=5)
@@ -353,8 +366,9 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
                         self.fail(f"Exception for directory '{dir_name_utf8}': {e}")
 
     def test_pbsz_prot_violations(self):
-        HOST = '127.0.0.1'
-        PORT = 21
+        self.require_tls()
+        HOST = FTP_HOST
+        PORT = FTP_PORT
 
         print("\n--- 12-15. Verifying Rules: PBSZ/PROT Command Sequences and Validation ---")
 
@@ -406,10 +420,10 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
         """
         Verify whether each feature in the FEAT response correctly starts with a single space.
         """
-        HOST = '127.0.0.1'
-        PORT = 21
-        USER = 'username'
-        PASS = 'password'
+        HOST = FTP_HOST
+        PORT = FTP_PORT
+        USER = FTP_USER
+        PASS = FTP_PASS
         
         print("\n--- 8. Verifying Rule: Missing Space Before FEAT Features ---")
         
@@ -660,6 +674,7 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
         Verify if the server returns the correct 533 response code
         when CCC is sent over an unprotected connection.
         """
+        self.require_tls()
         try:
             with FTP() as ftp:
                 ftp.connect(FTP_HOST, FTP_PORT, timeout=5)
@@ -720,6 +735,7 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
         """
         Verify whether the server enforces re-authentication after re-issuing the AUTH command.
         """
+        self.require_tls()
         HOST = FTP_HOST
         PORT = FTP_PORT
         USER = FTP_USER
@@ -794,6 +810,11 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
                 ssock.close()
             elif sock:
                 sock.close()
+
+    def test_opts_utf8(self):
+        """OPTS UTF8 ON must be accepted with a 2xx reply (formerly test6.py)."""
+        resp = self.ftp.sendcmd('OPTS UTF8 ON')
+        self.assertTrue(resp.startswith('2'), f"OPTS UTF8 ON should be accepted, got: {resp}")
 
     def test_quit(self):
         resp = self.ftp.quit()

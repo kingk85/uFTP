@@ -35,11 +35,14 @@
 #include <unistd.h>
 #define _REENTRANT
 #include <pthread.h>
+#include <time.h>
+#include <poll.h>
 #include <stdarg.h>
 
 #include "../debugHelper.h"
 #include "../ftpData.h"
 #include "connection.h"
+#include "openSsl.h"
 #include "log.h"
 
 #include "debug_defines.h"
@@ -60,6 +63,232 @@ int is_ipv4_mapped_ipv6(const char *ip) {
 }
 #endif
 
+void logClientf(ftpDataType *ftpData, int clientId, int isAccessRecord, const char *file, int line,
+                const char *function, const char *prefix, const char *fmt, ...)
+{
+    char message[2048];
+    int used;
+    va_list args;
+    clientDataType *client = &ftpData->clients[clientId];
+
+    used = snprintf(message, sizeof(message), "%s[%d %s %s] ", prefix, clientId,
+                    client->clientIpAddress[0] != '\0' ? client->clientIpAddress : "-",
+                    (client->login.userLoggedIn == 1 && client->logUserName[0] != '\0') ? client->logUserName : "-");
+    if (used < 0 || used >= (int)sizeof(message))
+        return;
+
+    va_start(args, fmt);
+    vsnprintf(message + used, sizeof(message) - used, fmt, args);
+    va_end(args);
+
+    logMessageRecord(message, file, line, function, isAccessRecord);
+}
+
+#ifdef OPENSSL_ENABLED
+/* Why a TLS handshake on the control connection failed: the OpenSSL error queue, or
+   the system error (connection closed or reset by the client) */
+void logTlsHandshakeFailure(ftpDataType *ftpData, int clientId, int sslError)
+{
+    char reason[200] = "";
+    unsigned long queued = ERR_get_error();
+
+    if (queued != 0)
+        ERR_error_string_n(queued, reason, sizeof(reason));
+    else if (sslError == SSL_ERROR_SYSCALL)
+        snprintf(reason, sizeof(reason), "%s", errno != 0 ? strerror(errno) : "connection closed by the client");
+    else if (sslError == SSL_ERROR_ZERO_RETURN)
+        snprintf(reason, sizeof(reason), "connection closed by the client");
+    else
+        snprintf(reason, sizeof(reason), "TLS error %d", sslError);
+
+    ERR_clear_error();
+    LOG_CLIENT(ftpData, clientId, LOG_ERROR_PREFIX, "TLS handshake failed: %s", reason);
+}
+#endif
+
+void setCloseReason(ftpDataType *ftpData, int clientId, const char *reason)
+{
+    if (ftpData->clients[clientId].closeReason == NULL)
+        ftpData->clients[clientId].closeReason = reason;
+}
+
+void markClientForClosing(ftpDataType *ftpData, int clientId, const char *reason)
+{
+    setCloseReason(ftpData, clientId, reason);
+    ftpData->clients[clientId].closeTheClient = 1;
+}
+
+/* Text address (ipv4 or ipv6) to ipv6 binary form, ipv4 becomes ipv4-mapped
+   (::ffff:a.b.c.d): addresses can then be compared whatever the socket family.
+   Returns 1, or 0 if theAddress is not an address. */
+int ipAddressToBinary(const char *theAddress, struct in6_addr *binary)
+{
+    struct in_addr ipv4;
+
+    if (theAddress == NULL)
+        return 0;
+
+    if (inet_pton(AF_INET, theAddress, &ipv4) == 1)
+    {
+        memset(binary, 0, sizeof(struct in6_addr));
+        binary->s6_addr[10] = 0xff;
+        binary->s6_addr[11] = 0xff;
+        memcpy(&binary->s6_addr[12], &ipv4, sizeof(ipv4));
+        return 1;
+    }
+
+    return inet_pton(AF_INET6, theAddress, binary) == 1;
+}
+
+/* 1 if two text addresses are the same host (an ipv4 address and its ipv4-mapped
+   ipv6 form are the same) */
+int isSameIpAddress(const char *firstAddress, const char *secondAddress)
+{
+    struct in6_addr first, second;
+
+    if (ipAddressToBinary(firstAddress, &first) == 0 || ipAddressToBinary(secondAddress, &second) == 0)
+        return 0;
+
+    return memcmp(&first, &second, sizeof(struct in6_addr)) == 0;
+}
+
+/* 1 if the peer of a socket (sockaddr_in or sockaddr_in6) is the host theAddress
+   (text form), so a dual stack socket and an ipv4 control connection match. */
+int isPeerFromAddress(const struct sockaddr *peer, const char *theAddress)
+{
+    char peerText[INET6_ADDRSTRLEN];
+
+    if (peer == NULL)
+        return 0;
+
+    if (peer->sa_family == AF_INET)
+    {
+        if (inet_ntop(AF_INET, &((const struct sockaddr_in *)peer)->sin_addr, peerText, sizeof(peerText)) == NULL)
+            return 0;
+    }
+    else if (peer->sa_family == AF_INET6)
+    {
+        if (inet_ntop(AF_INET6, &((const struct sockaddr_in6 *)peer)->sin6_addr, peerText, sizeof(peerText)) == NULL)
+            return 0;
+    }
+    else
+    {
+        return 0;
+    }
+
+    return isSameIpAddress(peerText, theAddress);
+}
+
+/* One item of the format string of socketPrintf() / socketWorkerPrintf():
+   d = int, c = char, f = double, l = long long, s = string.
+
+   Returns the bytes to copy and sets *length. Numbers are written into buffer; a
+   string is returned as it is, with its real length (it used to be copied
+   through snprintf into buffer, and the value returned by snprintf, the length the
+   string WOULD have had, was then used to read from buffer: with a longer string the
+   copy ran past the buffer and sent stack memory to the client). */
+static const char *formatReplyItem(char theFormat, va_list *args, char *buffer, size_t bufferSize, int *length)
+{
+	int written = 0;
+
+	switch (theFormat)
+	{
+		case 'd':
+		case 'D':
+			written = snprintf(buffer, bufferSize, "%d", va_arg(*args, int));
+			break;
+
+		case 'c':
+		case 'C':
+			written = snprintf(buffer, bufferSize, "%c", va_arg(*args, int));
+			break;
+
+		case 'f':
+		case 'F':
+			written = snprintf(buffer, bufferSize, "%f", (float)va_arg(*args, double));
+			break;
+
+		case 'l':
+		case 'L':
+			written = snprintf(buffer, bufferSize, "%lld", va_arg(*args, long long int));
+			break;
+
+		case 's':
+		case 'S':
+		{
+			const char *theString = va_arg(*args, char *);
+
+			if (theString == NULL)
+				theString = "(null)";
+
+			*length = (int)strlen(theString);
+			return theString;
+		}
+
+		default:
+			my_printf("\n Switch is default (%c)", theFormat);
+			buffer[0] = '\0';
+			break;
+	}
+
+	/* snprintf returns the untruncated length, or a negative value on error */
+	if (written < 0)
+		written = 0;
+	if ((size_t)written > bufferSize - 1)
+		written = (int)(bufferSize - 1);
+
+	*length = written;
+	return buffer;
+}
+
+/* write() of a whole reply on the control socket, which is non-blocking. A single
+   write() used to be enough: a full send buffer (EAGAIN, the client not reading for a
+   moment) closed the client at once, and a partial write lost the rest of the reply
+   without an error. Now it waits for the socket, like the TLS replies, up to
+   CONTROL_WRITE_TIMEOUT_MS. Returns the bytes written (all) or -1 with errno set. */
+static ssize_t writeControlBounded(int fd, const char *buffer, size_t length, int timeoutMs)
+{
+    size_t written = 0;
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    long long int deadline = (long long int)now.tv_sec * 1000 + now.tv_nsec / 1000000 + timeoutMs;
+
+    while (written < length)
+    {
+        ssize_t result = write(fd, buffer + written, length - written);
+
+        if (result > 0)
+        {
+            written += (size_t)result;
+            continue;
+        }
+
+        if (result < 0 && errno == EINTR)
+            continue;
+
+        if (result < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        {
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            long long int remaining = deadline - ((long long int)now.tv_sec * 1000 + now.tv_nsec / 1000000);
+            struct pollfd descriptor = { .fd = fd, .events = POLLOUT, .revents = 0 };
+
+            if (remaining <= 0)
+            {
+                errno = ETIMEDOUT;
+                return -1;
+            }
+
+            if (poll(&descriptor, 1, (int)remaining) < 0 && errno != EINTR)
+                return -1;
+            continue;
+        }
+
+        return -1;
+    }
+
+    return (ssize_t)written;
+}
+
 int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
 {
 	#define COMMAND_BUFFER								9600
@@ -72,7 +301,8 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	memset(&commandBuffer, 0, COMMAND_BUFFER+1);
 	//my_printf("\nWriting to socket id %d, TLS %d: ", clientId, ftpData->clients[clientId].tlsIsEnabled);
 
-	//pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
+	/* bytes of the current item to copy, see formatReplyItem() */
+	const char *theSource = theBuffer;
 
 	va_list args;
 	va_start(args, __fmt);
@@ -80,65 +310,13 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	{
 		int i = 0;
 		theStringSize = 0;
-		switch(*__fmt)
-		{
-			case 'd':
-			case 'D':
-			{
-				int theInteger = va_arg(args, int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%d", theInteger);
-			}
-			break;
-
-			case 'c':
-			case 'C':
-			{
-				int theCharInteger = va_arg(args, int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%c", theCharInteger);
-			}
-			break;
-
-			case 'f':
-			case 'F':
-			{
-				float theDouble = va_arg(args, double);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%f", theDouble);
-			}
-			break;
-
-			case 's':
-			case 'S':
-			{
-				char * theString = va_arg(args, char *);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%s", theString);
-			}
-			break;
-
-			case 'l':
-			case 'L':
-			{
-				long long int theLongLongInt = va_arg(args, long long int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER, "%lld",  theLongLongInt);
-			}
-			break;
-
-			default:
-			{
-				my_printf("\n Switch is default (%c)", *__fmt);
-			}
-			break;
-		}
+		theSource = formatReplyItem(*__fmt, &args, theBuffer, sizeof(theBuffer), &theStringSize);
 
 		for (i = 0; i <theStringSize; i++)
 		{
 			if (theCommandSize < COMMAND_BUFFER)
 			{
-				commandBuffer[theCommandSize++] = theBuffer[i];
+				commandBuffer[theCommandSize++] = theSource[i];
 			}
 		}
 
@@ -153,24 +331,122 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 		return -1;
 	}
 
+	/* The control thread and the data worker (227/229/200/226/550 replies) both write
+	   here: one reply at a time, and never two SSL calls on the same SSL object at once
+	   (OpenSSL objects are not thread safe). Cancellation is disabled while the mutex
+	   is held: a worker cancelled inside write() would leave it locked for ever. */
+	int previousCancelState;
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
+	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
+
 	if (ftpData->clients[clientId].tlsIsEnabled != 1)
 	{
-		//my_printf("\nwriting[%d] %s",theCommandSize, commandBuffer);
-		//fflush(0);
-		bytesWritten = write(ftpData->clients[clientId].socketDescriptor, commandBuffer, theCommandSize);
+		bytesWritten = writeControlBounded(ftpData->clients[clientId].socketDescriptor, commandBuffer,
+		                                   (size_t)theCommandSize, CONTROL_WRITE_TIMEOUT_MS);
 	}
 	else if (ftpData->clients[clientId].tlsIsEnabled == 1)
 	{
 		#ifdef OPENSSL_ENABLED
-		bytesWritten = SSL_write(ftpData->clients[clientId].ssl, commandBuffer, theCommandSize);
+		/* The control socket is non-blocking: under load (many parallel
+		   transfers, as FileZilla does) SSL_write() can return
+		   WANT_READ/WANT_WRITE. It used to be a fatal error and the client
+		   was closed ("reply could not be sent: TLS error 3"). */
+		bytesWritten = tlsWriteBounded(ftpData->clients[clientId].ssl,
+		                               ftpData->clients[clientId].socketDescriptor,
+		                               commandBuffer, theCommandSize,
+		                               CONTROL_WRITE_TIMEOUT_MS);
 		#endif
 	}
 
-	//my_printf("\n%s", commandBuffer);
+	/* the cause, before anything else can change errno or the OpenSSL error queue */
+	char failureCause[160] = "";
+	if (bytesWritten <= 0)
+	{
+		if (ftpData->clients[clientId].tlsIsEnabled == 1)
+		{
+			#ifdef OPENSSL_ENABLED
+			snprintf(failureCause, sizeof(failureCause), "TLS write: %s", strerror(errno));
+			#endif
+		}
+		else
+		{
+			snprintf(failureCause, sizeof(failureCause), "%s", bytesWritten < 0 ? strerror(errno) : "nothing written");
+		}
+	}
 
-	//pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
+	pthread_mutex_unlock(&ftpData->clients[clientId].writeMutex);
+	pthread_setcancelstate(previousCancelState, NULL);
+
+	/* Every caller closes the client after a failed reply: say it once, here, with the
+	   client and the cause (it used to be "socketPrintfError" in dozens of places) */
+	if (bytesWritten <= 0)
+	{
+		setCloseReason(ftpData, clientId, "the reply could not be sent");
+		LOG_CLIENT(ftpData, clientId, LOG_ERROR_PREFIX, "reply could not be sent: %s", failureCause);
+	}
 
 	return bytesWritten;
+}
+
+/* How long a TLS data block may wait for the client to take it: the idle timeout of
+   the server (one hour if it is disabled). A client that reads nothing for that long
+   is closed by the idle timeout anyway; a shorter limit failed the downloads of
+   clients that pause for a few seconds (slow disk, slow link, throttling). The limit
+   starts again at every block. */
+int dataWriteTimeoutMs(ftpDataType *ftpData)
+{
+    int seconds = ftpData->ftpParameters.maximumIdleInactivity;
+
+    if (seconds <= 0 || seconds > 86400)
+        seconds = 3600;
+
+    return seconds * 1000;
+}
+
+/* Writes a block on the data channel, plain or TLS. Plain write() can be
+   partial; SSL_write() on a non-blocking socket can return WANT_READ/WANT_WRITE
+   and the old code ignored both cases. Returns the bytes written (the whole
+   block) or -1. */
+static ssize_t writeDataChannelBuffer(ftpDataType *ftpData, int clientId, const char *buffer, int length)
+{
+    if (ftpData->clients[clientId].dataChannelIsTls != 1)
+    {
+        ssize_t total = 0;
+
+        while (total < length)
+        {
+            ssize_t written = write(ftpData->clients[clientId].workerData.socketConnection,
+                                    buffer + total, length - total);
+            if (written > 0)
+            {
+                total += written;
+                continue;
+            }
+            if (written < 0 && errno == EINTR)
+                continue;
+            return -1;
+        }
+        return total;
+    }
+
+#ifdef OPENSSL_ENABLED
+    {
+        SSL *dataSsl = NULL;
+
+        if (ftpData->clients[clientId].workerData.passiveModeOn == 1)
+            dataSsl = ftpData->clients[clientId].workerData.serverSsl;
+        else if (ftpData->clients[clientId].workerData.activeModeOn == 1)
+            dataSsl = ftpData->clients[clientId].workerData.clientSsl;
+
+        if (dataSsl == NULL)
+            return -1;
+
+        return tlsWriteBounded(dataSsl, ftpData->clients[clientId].workerData.socketConnection,
+                               buffer, length, dataWriteTimeoutMs(ftpData));
+    }
+#else
+    return -1;
+#endif
 }
 
 int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __fmt, ...)
@@ -186,65 +462,16 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 	memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2+1);
 	memset(&writeBuffer, 0, COMMAND_BUFFER+1);
 
+	/* bytes of the current item to copy, see formatReplyItem() */
+	const char *theSource = theBuffer;
+
 	va_list args;
 	va_start(args, __fmt);
 	while (*__fmt != '\0')
 	{
 		theStringSize = 0;
 
-		switch(*__fmt)
-		{
-			case 'd':
-			case 'D':
-			{
-				int theInteger = va_arg(args, int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%d", theInteger);
-			}
-			break;
-
-			case 'c':
-			case 'C':
-			{
-				int theCharInteger = va_arg(args, int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%c", theCharInteger);
-			}
-			break;
-
-			case 'f':
-			case 'F':
-			{
-				float theDouble = va_arg(args, double);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%f", theDouble);
-			}
-			break;
-
-			case 's':
-			case 'S':
-			{
-				char * theString = va_arg(args, char *);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%s", theString);
-			}
-			break;
-
-			case 'l':
-			case 'L':
-			{
-				long long int theLongLongInt = va_arg(args, long long int);
-				memset(&theBuffer, 0, SOCKET_PRINTF_BUFFER2+1);
-				theStringSize = snprintf(theBuffer, SOCKET_PRINTF_BUFFER2, "%lld",  theLongLongInt);
-			}
-			break;
-
-			default:
-			{
-				my_printf("\n Switch is default (%c)", *__fmt);
-			}
-			break;
-		}
+		theSource = formatReplyItem(*__fmt, &args, theBuffer, sizeof(theBuffer), &theStringSize);
 		++__fmt;
 
 
@@ -255,24 +482,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 			{
 				my_printf("\nwriting:\n%s", writeBuffer);
 
-				ssize_t theReturnCode = 0;
-				if (ftpData->clients[clientId].dataChannelIsTls != 1)
-				{
-					theReturnCode = write(ftpData->clients[clientId].workerData.socketConnection, writeBuffer, theStringToWriteSize);
-				}
-				else if (ftpData->clients[clientId].dataChannelIsTls == 1)
-				{
-					#ifdef OPENSSL_ENABLED
-					if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
-						theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, writeBuffer, theStringToWriteSize);
-						//my_printf("%s", writeBuffer);
-					}
-					else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
-						theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, writeBuffer, theStringToWriteSize);
-						//my_printf("%s", writeBuffer);
-					}
-					#endif
-				}
+				ssize_t theReturnCode = writeDataChannelBuffer(ftpData, clientId, writeBuffer, theStringToWriteSize);
 
 				if (theReturnCode > 0)
 				{
@@ -292,7 +502,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 
 			if (theStringToWriteSize < COMMAND_BUFFER)
 			{
-				writeBuffer[theStringToWriteSize++] = theBuffer[i];
+				writeBuffer[theStringToWriteSize++] = theSource[i];
 			}
 		}
 	}
@@ -306,25 +516,7 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 
 		my_printf("\nwriting:\n%s", writeBuffer);
 		//my_printf("\nwriting data size %d", theStringToWriteSize);
-		int theReturnCode = 0;
-
-		if (ftpData->clients[clientId].dataChannelIsTls != 1)
-		{
-			theReturnCode = write(ftpData->clients[clientId].workerData.socketConnection, writeBuffer, theStringToWriteSize);
-		}
-		else if (ftpData->clients[clientId].dataChannelIsTls == 1)
-		{
-			#ifdef OPENSSL_ENABLED
-			if (ftpData->clients[clientId].workerData.passiveModeOn == 1){
-				theReturnCode = SSL_write(ftpData->clients[clientId].workerData.serverSsl, writeBuffer, theStringToWriteSize);
-				//my_printf("%s", writeBuffer);
-			}
-			else if (ftpData->clients[clientId].workerData.activeModeOn == 1){
-				theReturnCode = SSL_write(ftpData->clients[clientId].workerData.clientSsl, writeBuffer, theStringToWriteSize);
-				//my_printf("%s", writeBuffer);
-			}
-			#endif
-		}
+		ssize_t theReturnCode = writeDataChannelBuffer(ftpData, clientId, writeBuffer, theStringToWriteSize);
 
 		if (theReturnCode > 0)
 		{
@@ -396,6 +588,7 @@ int isPortInUse(int port) {
 }
 
 
+/* The listening socket of the control connections, or -1 with errno set (the caller logs it) */
 int createSocket(ftpDataType * ftpData)
 {
   //my_printf("\nCreating main socket on port %d", ftpData->ftpParameters.port);
@@ -442,9 +635,10 @@ reuse = 1;
 
 	if (bind(sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0)
 	{
+		int bindError = errno;
 		close(sock);
 		perror("bind() failed");
-		LOG_ERROR("bind failed");
+		errno = bindError;
 		return -1;
 	}
 
@@ -452,11 +646,9 @@ reuse = 1;
   errorCode = listen(sock, ftpData->ftpParameters.maxClients + 1);
   if (errorCode < 0)
   {
-	  LOG_ERROR("listen error");	
-	  if (sock != -1)
-	  {
-		close(sock);
-	  }
+	  int listenError = errno;
+	  close(sock);
+	  errno = listenError;
 	  return -1;
   }
  
@@ -582,6 +774,7 @@ int isPortInUse(int port) {
     }
 }
 
+/* The listening socket of the control connections, or -1 with errno set (the caller logs it) */
 int createSocket(ftpDataType * ftpData)
 {
   //my_printf("\nCreating main socket on port %d", ftpData->ftpParameters.port);
@@ -625,10 +818,9 @@ int createSocket(ftpDataType * ftpData)
   errorCode = bind(sock,(struct sockaddr*) &temp,sizeof(temp));
   if (errorCode == -1)
   {
-	  if (sock != -1)
-	  {
-		close(sock);
-	  }
+	  int bindError = errno;
+	  close(sock);
+	  errno = bindError;
 	  return -1;
   }
 
@@ -636,10 +828,9 @@ int createSocket(ftpDataType * ftpData)
   errorCode = listen(sock, ftpData->ftpParameters.maxClients + 1);
   if (errorCode == -1)
   {
-	  if (sock != -1)
-	  {
-		close(sock);
-	  }
+	  int listenError = errno;
+	  close(sock);
+	  errno = listenError;
 	  return -1;
   }
  
@@ -776,15 +967,18 @@ int createActiveSocketV6(int port, char *ipAddress)
 	else 
 	{
 		my_printfError("Invalid ip address");
-		LOG_ERROR("Invalid ip address");
+		close(sockfd);
+		errno = EINVAL;
         return -1;
     }
 
-    // Connect to server
+    // Connect to server (errno is kept for the caller, which logs it with the client)
     if (connect(sockfd, serv_addr_any, sizeof(serv_addr6)) < 0) 
 	{
+		int connectError = errno;
 		my_printfError("Connection failed");
-		LOG_ERROR("Connection failed");
+		close(sockfd);
+		errno = connectError;
 		return -1;
     }
 
@@ -888,31 +1082,19 @@ void closeSocket(ftpDataType * ftpData, int processingSocket)
 {
 
 #ifdef OPENSSL_ENABLED
-
-	if (ftpData->clients[processingSocket].dataChannelIsTls == 1)
+	/* The condition used to be dataChannelIsTls (the protection of the data
+	   channel) and the shutdown was attempted only in passive mode. Whenever
+	   the control connection uses TLS, close it properly (see
+	   tlsShutdownBounded()). */
+	if (ftpData->clients[processingSocket].tlsIsEnabled == 1 &&
+	    ftpData->clients[processingSocket].ssl != NULL)
 	{
-		if(ftpData->clients[processingSocket].workerData.passiveModeOn == 1)
-		{
-			my_printf("\nSSL worker Shutdown 1");
-			int theReturnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
-			my_printf("\nnSSL worker Shutdown 1 return code : %d", theReturnCode);
-
-			if (theReturnCode < 0)
-			{
-				my_printf("SSL_shutdown failed return code %d", theReturnCode);
-			}
-			else if (theReturnCode == 0)
-			{
-				my_printf("\nSSL worker Shutdown 2");
-				theReturnCode = SSL_shutdown(ftpData->clients[processingSocket].ssl);
-				my_printf("\nnSSL worker Shutdown 2 return code : %d", theReturnCode);
-
-				if (theReturnCode <= 0)
-				{
-					my_printf("SSL_shutdown (2nd time) failed");
-				}
-			}
-		}
+		/* Our close_notify is sent, the one of the client is not waited for (it is
+		   not required, RFC 8446 6.1, and many clients never send it). This runs in
+		   the control thread: waiting here, even for a short time, let any client
+		   that stays connected after QUIT slow down everybody else. */
+		tlsShutdownBounded(ftpData->clients[processingSocket].ssl,
+		                   ftpData->clients[processingSocket].socketDescriptor, 0, 0, NULL);
 	}
 #endif
 
@@ -937,7 +1119,15 @@ void closeSocket(ftpDataType * ftpData, int processingSocket)
 
 void closeClient(ftpDataType * ftpData, int processingSocket)
 {
-   // my_printf("\nQUIT FLAG SET!\n");
+    clientDataType *client = &ftpData->clients[processingSocket];
+
+    /* refused connections (too many from an address) are not logged one by one */
+    if (client->accessLogged == 1)
+    {
+        LOG_ACCESS(ftpData, processingSocket, "connection closed: %s (after %d s)",
+                   client->closeReason != NULL ? client->closeReason : "closed by the server",
+                   (int)time(NULL) - (int)client->connectionTimeStamp);
+    }
 
     if (ftpData->clients[processingSocket].workerData.threadIsAlive == 1)
     {
@@ -958,8 +1148,12 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
 void checkClientConnectionTimeout(ftpDataType * ftpData)
 {
     int processingSock;
+    int now = (int)time(NULL);
+
     for (processingSock = 0; processingSock < ftpData->ftpParameters.maxClients; processingSock++)
     {
+        const char *theReason = NULL;
+
         /* No connection active*/
         if (ftpData->clients[processingSock].socketDescriptor < 0 ||
             ftpData->clients[processingSock].socketIsConnected == 0) 
@@ -969,11 +1163,32 @@ void checkClientConnectionTimeout(ftpDataType * ftpData)
 
         /* Max idle time check, close the connection if time is elapsed */
         if (ftpData->ftpParameters.maximumIdleInactivity != 0 &&
-            (int)time(NULL) - ftpData->clients[processingSock].lastActivityTimeStamp > ftpData->ftpParameters.maximumIdleInactivity)
+            now - (int)ftpData->clients[processingSock].lastActivityTimeStamp > ftpData->ftpParameters.maximumIdleInactivity)
+        {
+            theReason = "421 Timeout, closing control connection.\r\n";
+            setCloseReason(ftpData, processingSock, "idle timeout (IDLE_MAX_TIMEOUT)");
+        }
+        /* Login time check: activity does not extend it, otherwise a client could hold a
+           slot forever without authenticating by sending NOOP (or USER, AUTH...) */
+        else if (ftpData->ftpParameters.loginTimeout != 0 &&
+                 ftpData->clients[processingSock].login.userLoggedIn == 0 &&
+                 now - (int)ftpData->clients[processingSock].loginTimerStart > ftpData->ftpParameters.loginTimeout)
+        {
+            theReason = "421 Login timeout, closing control connection.\r\n";
+            setCloseReason(ftpData, processingSock, "login not completed in time (LOGIN_TIMEOUT)");
+        }
+
+        if (theReason != NULL && ftpData->clients[processingSock].closeTheClient == 0)
+        {
+            /* RFC 959: 421 when the server closes the control connection. Not sent in
+               the middle of a TLS handshake, where it would only corrupt it. */
+            if (ftpData->clients[processingSock].tlsIsNegotiating == 0)
             {
-                ftpData->clients[processingSock].closeTheClient = 1;
-				LOG_DEBUG("timeout, closing the connection for inactivity"); 
+                socketPrintf(ftpData, processingSock, "s", theReason);
             }
+
+            ftpData->clients[processingSock].closeTheClient = 1;
+        }
     }
 }
 
@@ -1096,6 +1311,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
 
                 ftpData->clients[availableSocketIndex].connectionTimeStamp = (int)time(NULL);
                 ftpData->clients[availableSocketIndex].lastActivityTimeStamp = (int)time(NULL);
+                ftpData->clients[availableSocketIndex].loginTimerStart = (int)time(NULL);
                 
                 for (i = 0; i <ftpData->ftpParameters.maxClients; i++)
                 {
@@ -1112,16 +1328,18 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                     numberOfConnectionFromSameIp >= ftpData->ftpParameters.maximumConnectionsPerIp)
                 {
                 	socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
-                    ftpData->clients[availableSocketIndex].closeTheClient = 1;
+                    markClientForClosing(ftpData, availableSocketIndex, "too many connections from the address");
 					LOGF("%stoo many connection from ip address: %s maximum allowed: %d", LOG_SECURITY_PREFIX, ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionsPerIp); 
                 }
                 else
                 {
+                    ftpData->clients[availableSocketIndex].accessLogged = 1;
+                    LOG_CLIENT(ftpData, availableSocketIndex, LOG_ACCESS_PREFIX, "connection opened");
+
                 	int returnCode = socketPrintf(ftpData, availableSocketIndex, "s", ftpData->welcomeMessage);
                 	if (returnCode <= 0)
                 	{
                 		ftpData->clients[availableSocketIndex].closeTheClient = 1;
-						LOG_ERROR("socketPrintf"); 
                 	}
                 }
                 
@@ -1130,8 +1348,8 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             else
             {
                 //Errors while accepting, socket will be closed
+                LOGF("%sCan not accept a connection: %s", LOG_ERROR_PREFIX, strerror(errno));
                 ftpData->clients[availableSocketIndex].closeTheClient = 1;
-				LOG_ERROR("Errors while accepting, socket will be closed"); 
                 //my_printf("\n2 Errno = %d", errno);
                 return 1;
             }
@@ -1202,6 +1420,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
 
                 ftpData->clients[availableSocketIndex].connectionTimeStamp = (int)time(NULL);
                 ftpData->clients[availableSocketIndex].lastActivityTimeStamp = (int)time(NULL);
+                ftpData->clients[availableSocketIndex].loginTimerStart = (int)time(NULL);
                 
                 for (i = 0; i <ftpData->ftpParameters.maxClients; i++)
                 {
@@ -1218,16 +1437,18 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                     numberOfConnectionFromSameIp >= ftpData->ftpParameters.maximumConnectionsPerIp)
                 {
                 	socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
-                    ftpData->clients[availableSocketIndex].closeTheClient = 1;
-					LOGF("%sToo many connection from %s max per ip is %d", LOG_SECURITY_PREFIX, ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionsPerIp); 
+                    markClientForClosing(ftpData, availableSocketIndex, "too many connections from the address");
+					LOGF("%stoo many connection from ip address: %s maximum allowed: %d", LOG_SECURITY_PREFIX, ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionsPerIp);
                 }
                 else
                 {
+                    ftpData->clients[availableSocketIndex].accessLogged = 1;
+                    LOG_CLIENT(ftpData, availableSocketIndex, LOG_ACCESS_PREFIX, "connection opened");
+
                 	int returnCode = socketPrintf(ftpData, availableSocketIndex, "s", ftpData->welcomeMessage);
                 	if (returnCode <= 0)
                 	{
                 		ftpData->clients[availableSocketIndex].closeTheClient = 1;
-						LOG_ERROR("socketPrintf"); 
                 	}
                 }
                 
@@ -1236,8 +1457,8 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             else
             {
                 //Errors while accepting, socket will be closed
+                LOGF("%sCan not accept a connection: %s", LOG_ERROR_PREFIX, strerror(errno));
                 ftpData->clients[availableSocketIndex].closeTheClient = 1;
-				LOG_ERROR("Errors while accepting, socket will be closed"); 
                 //my_printf("\n2 Errno = %d", errno);
                 return 1;
             }
@@ -1268,6 +1489,37 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
 #endif
 
 #ifdef OPENSSL_ENABLED
+/* The data connection of a client can not be used any more (the client closed it during
+   the TLS handshake, or never started TLS). Only the data connection is closed, by the
+   worker; the session stays and the client can open a new data connection.
+
+   If a transfer command had already been accepted (150 sent), it gets its final reply
+   (426): the client used to wait for it for ever. The flag is changed under the mutex
+   used to give commands to the worker, so a command arriving right now is either seen
+   here or refused with 425. */
+static void abandonDataConnection(ftpDataType *ftpData, int theSocketId, const char *reason)
+{
+    pthread_mutex_lock(&ftpData->clients[theSocketId].conditionMutex);
+    ftpData->clients[theSocketId].workerData.socketIsReadyForConnection = 0;
+    int commandAccepted = ftpData->clients[theSocketId].workerData.commandReceived;
+    pthread_mutex_unlock(&ftpData->clients[theSocketId].conditionMutex);
+
+    if (commandAccepted == 1)
+    {
+        LOG_ACCESS(ftpData, theSocketId, "transfer aborted: %s", reason);
+        ftpData->clients[theSocketId].workerData.commandProcessed = 1;
+        snprintf(ftpData->clients[theSocketId].workerData.theCommandResponse, STRING_SZ_SMALL,
+                 "426 Connection closed; transfer aborted\r\n");
+    }
+}
+
+static long long int monotonicMs(void)
+{
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (long long int)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
 int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
 {
     SSL *ssl = ftpData->clients[theSocketId].workerData.serverSsl;
@@ -1279,8 +1531,7 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
     if (rc == 0)
     {
         my_printf("\nSSL ERRORS ON SSL_set_fd");
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        LOG_ERROR("Closing client SSL_set_fd");
+        markClientForClosing(ftpData, theSocketId, "TLS setup of the data connection failed (SSL_set_fd)");
         return -1;
     }
     my_printf("\nSSL SSL_set_fd end");
@@ -1302,35 +1553,24 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
 
     my_printf("\nSSL accept start");
 
-    // Reuse the session from control connection
-    SSL_SESSION *session = SSL_get_session(ftpData->clients[theSocketId].ssl);
-
-    if (session != NULL) 
-    {
-        #ifdef ENABLE_PRINTF
-        unsigned int len;
-        const unsigned char *id = SSL_SESSION_get_id(session, &len);
-
-        my_printf("Trying to reuse SSL Session ID: ");
-        for (unsigned int i = 0; i < len; i++) {
-            my_printf("\n%02X", id[i]);
-        }
-        my_printf("\n");
-        #else
-        my_printf("Trying to reuse SSL Session from control connection\n");
-        #endif
-
-        SSL_set_session(ssl, session);
-    } else {
-        my_printf("\nNo session available for reuse. Accepting fresh handshake.\n");
-    }
-
-
+    /* The server side of a handshake never calls SSL_set_session(): that is a client
+       API and it corrupts the ServerHello (clients abort with "unsolicited extension").
+       A client that wants to resume the session of the control connection offers it
+       in its ClientHello and the session cache of the SSL_CTX takes care of it. */
 
     SSL_set_accept_state(ssl);
 
-    int max_attempts = 500; // 500*10ms = 5 sec timeout
-    while (max_attempts--)
+    /* The error queue is thread-local: start the handshake with it empty so
+       that the reason of a failure below is the one of this handshake. */
+    ERR_clear_error();
+
+    /* Some clients start TLS only after the 150 reply, which needs the transfer
+       command: TLS_DATA_HANDSHAKE_TIMEOUT_MS leaves room for that and for slow links.
+       The wait is in the data worker and delays nobody else; usleep() is a
+       cancellation point, so a new PASV or ABOR still stops the worker at once. */
+    long long int deadline = monotonicMs() + TLS_DATA_HANDSHAKE_TIMEOUT_MS;
+
+    while (1)
     {
         rc = SSL_accept(ssl);
 
@@ -1341,30 +1581,56 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
         }
 
         int err = SSL_get_error(ssl, rc);
-        //my_printf("\nSSL_accept err: %d\n", err);
 
         if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
         {
+            if (monotonicMs() >= deadline)
+            {
+                /* It used to close the whole session, after 5 seconds */
+                LOG_CLIENT(ftpData, theSocketId, LOG_DEBUG_PREFIX,
+                           "TLS handshake of the data connection not completed in %d s, data connection closed",
+                           TLS_DATA_HANDSHAKE_TIMEOUT_MS / 1000);
+                ERR_clear_error();
+                abandonDataConnection(ftpData, theSocketId, "TLS handshake of the data connection not completed in time");
+                return -1;
+            }
+
             usleep(10000); // 10 ms
-            //my_printf("\nSSL_accept waiting ...");
             continue;
         }
         else
         {
+            unsigned long tlsErrorCode = ERR_peek_last_error();
+            int clientAbort = 0;
+
+            /* A client that closes the data connection before or during the
+               handshake (for example after a transfer command was refused) is
+               not a reason to close the control connection too. */
+            #ifdef SSL_R_UNEXPECTED_EOF_WHILE_READING
+            if (ERR_GET_REASON(tlsErrorCode) == SSL_R_UNEXPECTED_EOF_WHILE_READING)
+                clientAbort = 1;
+            #endif
+            if (err == SSL_ERROR_ZERO_RETURN ||
+                (err == SSL_ERROR_SYSCALL && tlsErrorCode == 0))
+                clientAbort = 1;
+
+            if (clientAbort)
+            {
+                LOG_CLIENT(ftpData, theSocketId, LOG_DEBUG_PREFIX,
+                           "TLS handshake of the data connection aborted by the client");
+                ERR_clear_error();
+                abandonDataConnection(ftpData, theSocketId, "data connection closed by the client before the TLS handshake");
+                return -1;
+            }
+
             my_printf("\n-------------------------------------------SSL_accept failed:");
+            char tlsError[160] = "";
+            ERR_error_string_n(tlsErrorCode, tlsError, sizeof(tlsError));
+            LOG_CLIENT(ftpData, theSocketId, LOG_ERROR_PREFIX, "TLS handshake of the data connection failed: %s", tlsError);
             ERR_print_errors_fp(stderr);
-            ftpData->clients[theSocketId].closeTheClient = 1;
-            LOG_ERROR("Closing client SSL_accept");
+            markClientForClosing(ftpData, theSocketId, "TLS handshake of the data connection failed");
             return -1;
         }
-
-    }
-
-    if (max_attempts <= 0)
-    {
-        my_printf("\nSSL_accept timeout");
-        ftpData->clients[theSocketId].closeTheClient = 1;
-        return -1;
     }
 
     if (SSL_session_reused(ssl)) {

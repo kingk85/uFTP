@@ -31,6 +31,7 @@
 #include "../ftpData.h"
 #include "dynamicVectors.h"
 #include "../debugHelper.h"
+#include "log.h"
 
 #ifdef OPENSSL_ENABLED
 	#include "openSsl.h"
@@ -102,7 +103,9 @@ void configurationRead(ftpParameters_DataType *ftpParameters, DYNMEM_MemoryTable
     }
     else
     {
-        my_printf("\nError: could not read the configuration file located at: \n -> %s or at \n -> %s", DEFAULT_CONFIGURATION_FILENAME, LOCAL_CONFIGURATION_FILENAME);
+        /* the log is not configured yet: stderr is the only place (my_printf is off in
+           the normal build, so nothing at all was printed) */
+        fprintf(stderr, "uFTP: could not read the configuration file %s or %s\n", DEFAULT_CONFIGURATION_FILENAME, LOCAL_CONFIGURATION_FILENAME);
         exit(1);
     }
 
@@ -127,6 +130,7 @@ void applyConfiguration(ftpParameters_DataType *ftpParameters)
         if (returnCode == 1)
         {
             my_printf("\nThe process is already running..");
+            LOGF_NOW("%sAnother uFTP is already running (SINGLE_INSTANCE = true), exiting", LOG_ERROR_PREFIX);
             exit(0);
         }
     }
@@ -498,6 +502,24 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
        // my_printf("\nSINGLE_INSTANCE parameter not found in the configuration file, using the default value: %d", ftpParameters->singleInstanceModeOn);
     }
 
+    /* RESPAWN_PROCESS: a supervisor parent restarts the server if it dies (default true) */
+    ftpParameters->respawnProcessOn = 1;
+    searchIndex = searchParameter("RESPAWN_PROCESS", parametersVector);
+    if (searchIndex != -1)
+    {
+        if(compareStringCaseInsensitive(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "false", strlen("false")) == 1)
+            ftpParameters->respawnProcessOn = 0;
+    }
+
+    /* PASV_PROMISCUOUS: accept passive data connections from any address (default false) */
+    ftpParameters->pasvPromiscuous = 0;
+    searchIndex = searchParameter("PASV_PROMISCUOUS", parametersVector);
+    if (searchIndex != -1)
+    {
+        if(compareStringCaseInsensitive(((parameter_DataType *) parametersVector->Data[searchIndex])->value, "true", strlen("true")) == 1)
+            ftpParameters->pasvPromiscuous = 1;
+    }
+
     ftpParameters->pamAuthEnabled = 0;
     searchIndex = searchParameter("ENABLE_PAM_AUTH", parametersVector);
     if (searchIndex != -1)
@@ -534,6 +556,16 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         my_printf("\n SERVER_IP parameter not found in the configuration file, using the server IP.");
     }
 
+
+    /* LOGIN_TIMEOUT: time allowed to complete the login, 0 = no limit (default 60) */
+    ftpParameters->loginTimeout = 60;
+    searchIndex = searchParameter("LOGIN_TIMEOUT", parametersVector);
+    if (searchIndex != -1)
+    {
+        ftpParameters->loginTimeout = atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value);
+        if (ftpParameters->loginTimeout < 0)
+            ftpParameters->loginTimeout = 0;
+    }
 
     ftpParameters->maximumIdleInactivity = 3600;
     searchIndex = searchParameter("IDLE_MAX_TIMEOUT", parametersVector);
@@ -688,8 +720,18 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
             userData.ownerShip.groupOwnerString[strlen(((parameter_DataType *) parametersVector->Data[searchGroupOwnerIndex])->value)] = '\0';
             userData.ownerShip.userOwnerString[strlen(((parameter_DataType *) parametersVector->Data[searchUserOwnerIndex])->value)] = '\0';
             
-            userData.ownerShip.gid = FILE_getGID(userData.ownerShip.groupOwnerString);
-            userData.ownerShip.uid = FILE_getUID(userData.ownerShip.userOwnerString);
+            /* An owner that does not exist on the system means root (uid/gid 0), by
+               design. It used to be the content of a struct never filled: root or a
+               random id. Now it is always root, and it is logged at startup. */
+            userData.ownerShip.uid = 0;
+            userData.ownerShip.gid = 0;
+            userData.ownerShip.ownerNotFound = 0;
+
+            if (FILE_lookupUID(userData.ownerShip.userOwnerString, &userData.ownerShip.uid) == 0)
+                userData.ownerShip.ownerNotFound |= OWNER_USER_NOT_FOUND;
+
+            if (FILE_lookupGID(userData.ownerShip.groupOwnerString, &userData.ownerShip.gid) == 0)
+                userData.ownerShip.ownerNotFound |= OWNER_GROUP_NOT_FOUND;
 
 
             if (userData.ownerShip.gid != -1 &&
@@ -707,6 +749,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         else
         {
             userData.ownerShip.ownerShipSet = 0;
+            userData.ownerShip.ownerNotFound = 0;
             userData.ownerShip.gid = 0;
             userData.ownerShip.uid = 0;
             userData.ownerShip.groupOwnerString = NULL;

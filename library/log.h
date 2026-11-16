@@ -29,6 +29,7 @@
 #define LOG_DEBUG_PREFIX "[DEBUG] "
 #define LOG_ERROR_PREFIX "[ERROR] "
 #define LOG_SECURITY_PREFIX "[SECURITY] "
+#define LOG_ACCESS_PREFIX "[ACCESS] "
 
 #define LOG(msg) logMessage(msg, __FILE__, __LINE__, __func__)
 #define LOG_INFO(msg) logMessage(LOG_INFO_PREFIX msg, __FILE__, __LINE__, __func__)
@@ -36,8 +37,25 @@
 #define LOG_ERROR(msg) logMessage(LOG_ERROR_PREFIX msg, __FILE__, __LINE__, __func__)
 #define LOG_SECURITY(msg) logMessage(LOG_SECURITY_PREFIX msg, __FILE__, __LINE__, __func__)
 #define LOGF(fmt, ...) logMessagef(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define LOG_FATAL_PREFIX "[FATAL] "
+/* written at once, before returning: for events after which the process may stop */
+#define LOGF_NOW(fmt, ...) logMessageNowf(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+
+#include <stddef.h>
 
 int logInit(const char* folder, int numberOfLogFiles);
+int logConfigure(const char* folder, int numberOfLogFiles);
+int logStartWriter(void);
+void logFlush(void);
+void logFlushRepeated(void);
+void logMessageNowf(const char* file, int line, const char* function, const char* fmt, ...);
+void logMessageRecord(const char* message, const char* file, int line, const char* function, int isAccessRecord);
+
+/* for signal handlers (async-signal-safe) */
+size_t logSignalSafePrefix(char *buffer, size_t size);
+size_t logSignalSafeAppend(char *buffer, size_t used, size_t size, const char *text);
+size_t logSignalSafeAppendNumber(char *buffer, size_t used, size_t size, unsigned long long number);
+int logSignalSafeOpen(void);
 void logMessage(const char* message, const char* file, int line, const char* function);
 void logMessagef(const char* file, int line, const char* function, const char* fmt, ...);
 

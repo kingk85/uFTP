@@ -3,5 +3,7 @@
 
 #Ignore binary 
 build/uFTP
-test
 test.c
+
+# Python cache of the test suite
+__pycache__/

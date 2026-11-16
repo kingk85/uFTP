@@ -205,8 +205,14 @@ int FILE_IsLink( char* path)
 int FILE_IsFile(const char *TheFileName, int checkExist)
 {
     FILE *TheFile;
+    struct stat fileStat;
 
     if(checkExist && FILE_CheckIfLinkExist(TheFileName) == 0)
+        return 0;
+
+    /* Regular files only (links are followed): fopen() also succeeds on a directory
+       and blocks on a FIFO without a writer. */
+    if (TheFileName == NULL || stat(TheFileName, &fileStat) != 0 || !S_ISREG(fileStat.st_mode))
         return 0;
 
     #ifdef LARGE_FILE_SUPPORT_ENABLED
@@ -263,9 +269,18 @@ void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, i
                 char thePathToCheck[PATH_MAX];
                 memset(thePathToCheck, 0, PATH_MAX);
 
-                strcpy(thePathToCheck, DirectoryInodeName);
-                strcat(thePathToCheck, "/");
-                strcat(thePathToCheck, dir->d_name);
+                /* Directory + "/" + entry name used to be joined with strcpy/strcat
+                   into this PATH_MAX stack buffer with no length check. A directory whose
+                   path is close to PATH_MAX (paths are accepted up to PATH_MAX - 1) overflowed
+                   it, already with the "." and ".." entries of "LIST -a" / "STAT -a".
+                   An entry whose full path does not fit can not be opened by the system
+                   either (ENAMETOOLONG): it is skipped. */
+                int thePathLength = snprintf(thePathToCheck, PATH_MAX, "%s/%s", DirectoryInodeName, dir->d_name);
+                if (thePathLength < 0 || thePathLength >= PATH_MAX)
+                {
+                    my_printf("\nSkipping %s: path too long", dir->d_name);
+                    continue;
+                }
 
 
                 if (checkIfInodeExist == 1 && FILE_CheckIfLinkExist(thePathToCheck) == 0)
@@ -697,50 +712,58 @@ int checkUserFilePermissions(char *fileName, int uid, int gid)
     return filePermissions;
 }
 
+/* Name of a user or group id for the listings, or the id itself when the system does
+   not know it (like ls). getpwuid_r/getgrgid_r return 0 with a null result when the id
+   is not in /etc/passwd or /etc/group: the name used to be copied from the struct
+   anyway, which had never been filled, and LIST crashed the server (files from
+   containers, NFS, archives extracted with their owners, deleted users). */
+static char *ownerNameOrId(const char *theName, unsigned long theId, DYNMEM_MemoryTable_DataType **memoryTable)
+{
+    char idText[24];
+    char *toReturn;
+
+    if (theName == NULL)
+    {
+        snprintf(idText, sizeof(idText), "%lu", theId);
+        theName = idText;
+    }
+
+    toReturn = (char *) DYNMEM_malloc (strlen(theName) + 1, memoryTable, "getowner");
+    strcpy(toReturn, theName);
+    return toReturn;
+}
+
 char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
 {
-    int returnCode = 0;
-    char *toReturn;
     struct stat info;
-
     struct passwd pd;
-    struct passwd* pwdptr=&pd;
-    struct passwd* tempPwdPtr;
-    char pwdbuffer[200];
-    int  pwdlinelen = sizeof(pwdbuffer);
+    struct passwd *result = NULL;
+    char pwdbuffer[1024];
 
-    if ((returnCode = stat(fileName, &info)) == -1)
+    if (stat(fileName, &info) == -1)
         return NULL;
 
-    if ((getpwuid_r(info.st_uid, pwdptr, pwdbuffer, pwdlinelen, &tempPwdPtr))!=0)
-        return NULL;
+    /* an error (ERANGE for a very long entry, ...) is shown as the id too */
+    if (getpwuid_r(info.st_uid, &pd, pwdbuffer, sizeof(pwdbuffer), &result) != 0)
+        result = NULL;
 
-    toReturn = (char *) DYNMEM_malloc (strlen(pd.pw_name) + 1, memoryTable, "getowner");
-    strcpy(toReturn, pd.pw_name);
-
-    return toReturn;
+    return ownerNameOrId(result != NULL ? result->pw_name : NULL, (unsigned long)info.st_uid, memoryTable);
 }
 
 char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
 {
-    char *toReturn;
     struct stat info;
     struct group grp;
-    struct group * grpptr=&grp;
-    struct group * tempGrpPtr;
-    char grpbuffer[200];
-    int  grplinelen = sizeof(grpbuffer);
+    struct group *result = NULL;
+    char grpbuffer[1024];
 
-    if (stat(fileName, &info) == -1 )
+    if (stat(fileName, &info) == -1)
         return NULL;
 
-    if ((getgrgid_r(info.st_gid,grpptr,grpbuffer,grplinelen,&tempGrpPtr))!=0)
-        return NULL;
-    
-    toReturn = (char *) DYNMEM_malloc (strlen(grp.gr_name) + 1, memoryTable, "getowner");
-    strcpy(toReturn, grp.gr_name);
-    
-    return toReturn;
+    if (getgrgid_r(info.st_gid, &grp, grpbuffer, sizeof(grpbuffer), &result) != 0)
+        result = NULL;
+
+    return ownerNameOrId(result != NULL ? result->gr_name : NULL, (unsigned long)info.st_gid, memoryTable);
 }
 
 void FILE_AppendStringToFile(char *fileName, char *theString)
@@ -748,7 +771,10 @@ void FILE_AppendStringToFile(char *fileName, char *theString)
     FILE *fp = fopen(fileName, "a");
     if (fp == NULL)
     {
+        /* the line is lost, but the server goes on: it used to write on the null
+           pointer and crash (log folder not writable, no descriptors left...) */
         my_printfError("\nError while opening file %s.", fileName);
+        return;
     }
 
     fprintf(fp, "\n%s", theString);
@@ -857,34 +883,75 @@ int FILE_doChownFromUidGidString (  const char *file_path,
     return 1;
 }
 
-uid_t FILE_getUID(const char *user_name)
+/* Buffer for getpwnam_r/getgrnam_r: the size suggested by the system, at least 16 KB.
+   It used to be 200 bytes: a longer entry (ERANGE) made a valid owner become root. */
+static size_t lookupBufferSize(int name)
 {
-    struct passwd pd;
-    struct passwd* pwdptr=&pd;
-    struct passwd* tempPwdPtr;
-    char pwdbuffer[200];
-    int  pwdlinelen = sizeof(pwdbuffer);
-
-    if ((getpwnam_r(user_name, pwdptr, pwdbuffer, pwdlinelen, &tempPwdPtr))!=0)
-        return 0;
-    else
-        return pd.pw_uid;
-
+    long suggested = sysconf(name);
+    return (suggested > 16384) ? (size_t)suggested : 16384;
 }
 
-gid_t FILE_getGID(const char *group_name)
+/* uid of a user name. Returns 1 if the user exists, 0 otherwise (*uid untouched). */
+int FILE_lookupUID(const char *user_name, uid_t *uid)
+{
+    struct passwd pd;
+    struct passwd *result = NULL;
+    size_t size = lookupBufferSize(_SC_GETPW_R_SIZE_MAX);
+    char *buffer = malloc(size);
+
+    if (buffer == NULL || user_name == NULL)
+    {
+        free(buffer);
+        return 0;
+    }
+
+    /* a user that does not exist is not an error: 0 is returned with a null result,
+       and the struct is not filled */
+    int found = (getpwnam_r(user_name, &pd, buffer, size, &result) == 0 && result != NULL);
+    if (found)
+        *uid = pd.pw_uid;
+
+    free(buffer);
+    return found;
+}
+
+/* gid of a group name. Returns 1 if the group exists, 0 otherwise (*gid untouched). */
+int FILE_lookupGID(const char *group_name, gid_t *gid)
 {
     struct group grp;
-    struct group * grpptr=&grp;
-    struct group * tempGrpPtr;
+    struct group *result = NULL;
+    size_t size = lookupBufferSize(_SC_GETGR_R_SIZE_MAX);
+    char *buffer = malloc(size);
 
-    char grpbuffer[200];
-    int  grplinelen = sizeof(grpbuffer);
-
-    if ((getgrnam_r(group_name, grpptr, grpbuffer, grplinelen, &tempGrpPtr))!=0)
+    if (buffer == NULL || group_name == NULL)
+    {
+        free(buffer);
         return 0;
-    else
-        return grp.gr_gid;
+    }
+
+    int found = (getgrnam_r(group_name, &grp, buffer, size, &result) == 0 && result != NULL);
+    if (found)
+        *gid = grp.gr_gid;
+
+    free(buffer);
+    return found;
+}
+
+/* uid of a user name; 0 (root) if the user does not exist. It used to return the
+   uid field of a struct that had never been filled: root or a random uid. */
+uid_t FILE_getUID(const char *user_name)
+{
+    uid_t uid = 0;
+    FILE_lookupUID(user_name, &uid);
+    return uid;
+}
+
+/* gid of a group name; 0 (root) if the group does not exist. */
+gid_t FILE_getGID(const char *group_name)
+{
+    gid_t gid = 0;
+    FILE_lookupGID(group_name, &gid);
+    return gid;
 }
 
 

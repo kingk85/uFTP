@@ -38,6 +38,11 @@
 
 #include "fileManagement.h"
 #include "../debugHelper.h"
+/* syslog.h defines LOG_INFO and LOG_DEBUG as priorities; here they are the uFTP log
+   macros (only LOG_ERR of syslog is used in this file) */
+#undef LOG_INFO
+#undef LOG_DEBUG
+#include "log.h"
 
 #define LOCKFILE "/var/run/uFTP.pid"
 #define LOCKMODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
@@ -141,39 +146,69 @@ void daemonize(const char *cmd)
     }
 
 void respawnProcess(void)
-	{
-	  pid_t spawnedProcess;
+{
+    pid_t spawnedProcess;
 
-	  //Respawn
-	  while(1)
-			{
-			spawnedProcess = fork();
+    /* SIGCHLD is ignored by the server: the supervisor needs it, otherwise the child is
+       reaped by the system and waitpid() can not tell how it ended */
+    signal(SIGCHLD, SIG_DFL);
 
-			if (spawnedProcess == 0)
-				{
-				//is child, exit from the loop
-				my_printf("\nRespawn mode is active");
-				break;
-				}
-			else
-				{
-				int returnStatus;
-				waitpid(spawnedProcess, &returnStatus, 0);
-				my_printf("\nwaitpid done with status: %d", returnStatus);
+    LOGF_NOW("%sSupervisor started, it restarts the server if it stops (RESPAWN_PROCESS)", LOG_INFO_PREFIX);
 
-				if (WIFEXITED(returnStatus))
-					{
-					if (WEXITSTATUS(returnStatus) == 99)
-						{
-						my_printf("\nWIFEXITED verified the respawn is now disabled with return code %d.", WEXITSTATUS(returnStatus));
-						exit(3);
-						}
-					}
-				sleep(1);
-				}
-			}
-		return;
-	}
+    while(1)
+    {
+        spawnedProcess = fork();
+
+        if (spawnedProcess == 0)
+        {
+            //is child, exit from the loop
+            signal(SIGCHLD, SIG_IGN);
+            my_printf("\nRespawn mode is active");
+            break;
+        }
+
+        if (spawnedProcess < 0)
+        {
+            LOGF_NOW("%sSupervisor: fork failed: %s, retrying in 1 second", LOG_ERROR_PREFIX, strerror(errno));
+            sleep(1);
+            continue;
+        }
+
+        int returnStatus = 0;
+        pid_t waited;
+
+        do {
+            waited = waitpid(spawnedProcess, &returnStatus, 0);
+        } while (waited < 0 && errno == EINTR);
+
+        if (waited < 0)
+        {
+            LOGF_NOW("%sSupervisor: server process %d lost (waitpid: %s), restarting in 1 second", LOG_ERROR_PREFIX, (int)spawnedProcess, strerror(errno));
+        }
+        else if (WIFEXITED(returnStatus))
+        {
+            if (WEXITSTATUS(returnStatus) == 99)
+            {
+                LOGF_NOW("%sSupervisor: server process %d exited with code 99, not restarting it", LOG_INFO_PREFIX, (int)spawnedProcess);
+                exit(3);
+            }
+
+            LOGF_NOW("%sSupervisor: server process %d exited with code %d%s, restarting in 1 second",
+                     WEXITSTATUS(returnStatus) == 0 ? LOG_INFO_PREFIX : LOG_ERROR_PREFIX,
+                     (int)spawnedProcess, WEXITSTATUS(returnStatus),
+                     WEXITSTATUS(returnStatus) == 98 ? " (watchdog: control loop blocked)" : "");
+        }
+        else if (WIFSIGNALED(returnStatus))
+        {
+            LOGF_NOW("%sSupervisor: server process %d killed by signal %d (%s)%s, restarting in 1 second", LOG_ERROR_PREFIX,
+                     (int)spawnedProcess, WTERMSIG(returnStatus), strsignal(WTERMSIG(returnStatus)),
+                     WCOREDUMP(returnStatus) ? ", core dumped" : "");
+        }
+
+        sleep(1);
+    }
+    return;
+}
 
 void *watchDog(void * arg)
 {
@@ -185,6 +220,7 @@ void *watchDog(void * arg)
 		if ((int)time(NULL) - WatchDogTime > WatchDogTimerTimeOut)
 		{
 			my_printf("\nWatchDog Time Expired");
+			LOGF_NOW("%sWatchdog: the control loop has been blocked for more than %d seconds, exiting with code 98", LOG_FATAL_PREFIX, WatchDogTimerTimeOut);
 			exit(98);
 		}
 

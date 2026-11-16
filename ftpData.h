@@ -69,9 +69,15 @@ struct parameter
     char* value;
 } typedef parameter_DataType;
 
+#define OWNER_USER_NOT_FOUND    1
+#define OWNER_GROUP_NOT_FOUND   2
+
 struct ownerShip
 {
     int ownerShipSet;
+    /* OWNER_USER_NOT_FOUND / OWNER_GROUP_NOT_FOUND: the configured owner does not exist
+       on the system, root is used in its place (logged at startup) */
+    int ownerNotFound;
     char* userOwnerString;
     char* groupOwnerString;
     uid_t uid;
@@ -96,6 +102,13 @@ struct ftpParameters
     int maxClients;
     int daemonModeOn;
     int singleInstanceModeOn;
+    int respawnProcessOn;
+    /* PASV_PROMISCUOUS = true: accept passive data connections from any address
+       (default false: only from the address of the control connection, RFC 2577) */
+    int pasvPromiscuous;
+    /* LOGIN_TIMEOUT: seconds a client may stay connected without completing the login
+       (0 = no limit). Measured from the moment it entered the not-logged-in state. */
+    int loginTimeout;
     DYNV_VectorGenericDataType usersVector;
     DYNV_VectorString_DataType blockedUsersVector;
     int maximumIdleInactivity;
@@ -152,6 +165,9 @@ struct workerData
 	#endif
 
     int threadIsAlive;
+    /* set by the control thread when it wants this worker to end (new PASV/PORT, ABOR,
+       client closed): the worker must not keep it waiting, see workerCleanup() */
+    volatile int stopRequested;
     int threadHasBeenCreated;
     int connectionPort;
     int addressType;    
@@ -186,6 +202,10 @@ struct workerData
     DYNMEM_MemoryTable_DataType *memoryTable;
 } typedef workerDataType;
 
+#define CCC_SHUTDOWN_DONE     0   /* no closure alert expected */
+#define CCC_SHUTDOWN_WAITING  1   /* CCC accepted, nothing received from the client yet */
+#define CCC_SHUTDOWN_READING  2   /* the closure alert is being read (record not complete) */
+
 struct clientData
 {
 	#ifdef OPENSSL_ENABLED
@@ -196,6 +216,13 @@ struct clientData
     int tlsIsEnabled;
     int tlsIsNegotiating;
     int pbszIsSet;
+    /* 1 after an accepted CCC: PBSZ and PROT are refused until a new AUTH (RFC 4217
+       section 5), the data protection chosen before CCC stays in force */
+    int controlChannelCleared;
+    /* After CCC, until the TLS closure alert of the client has been read (or the
+       client turned out to send clear text right away): CCC_SHUTDOWN_*, see
+       controlChannel.c */
+    int cccShutdownPending;
     unsigned long long int tlsNegotiatingTimeStart;
     int dataChannelIsTls;
     pthread_mutex_t writeMutex;
@@ -241,8 +268,21 @@ struct clientData
     int serverIpV4AddressInteger[4];
     ftpCommandDataType    ftpCommand;
     int closeTheClient;
+    /* why the connection is being closed, for the log (static string, NULL = not said) */
+    const char *closeReason;
+    /* 1 once "connection opened" has been logged: refused connections log nothing more */
+    int accessLogged;
+    /* copy of the name of the logged in user for the log lines, also read by the data
+       worker: a fixed array, never freed (login.name is freed by USER and AUTH) */
+    char logUserName[64];
+    /* 1 between the start of a data channel worker and the moment it has sent its
+       reply (227, 229 or 200), see replaceDataWorker() */
+    int dataReplyPending;
 
     unsigned long long int connectionTimeStamp;
+    /* when the client entered the not-logged-in state (connection, USER from a logged
+       in user, accepted AUTH): LOGIN_TIMEOUT is counted from here */
+    unsigned long long int loginTimerStart;
     unsigned long long int lastActivityTimeStamp;
 
     pthread_mutex_t conditionMutex;
@@ -253,7 +293,10 @@ struct clientData
 
 struct loginFails
 {
-    char ipAddress[INET_ADDRSTRLEN];
+    /* Same size as clientIpAddress. With INET_ADDRSTRLEN (16) an ipv4-mapped
+       address ("::ffff:127.0.0.1", 16 characters) had no room for the terminator, the
+       comparison ran into failTimeStamp and failed attempts were never counted. */
+    char ipAddress[INET6_ADDRSTRLEN];
     unsigned long long int failTimeStamp;
     int failureNumbers;
 } typedef loginFailsDataType;
@@ -305,12 +348,14 @@ void cleanDynamicStringDataType(dynamicStringDataType *dynamicString, int init, 
 
 void setDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable);
 int getSafePath(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *theHomePath, DYNMEM_MemoryTable_DataType **memoryTable);
+int getSafePathNoFollow(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *theHomePath, DYNMEM_MemoryTable_DataType **memoryTable);
+int getSafePathWithReason(dynamicStringDataType *safePath, char *theDirectoryName, loginDataType *theHomePath, DYNMEM_MemoryTable_DataType **memoryTable, int *failureReason);
 void appendToDynamicStringDataType(dynamicStringDataType *dynamicString, char *theString, int stringLen, DYNMEM_MemoryTable_DataType **memoryTable);
 
 
 void setRandomicPort(ftpDataType *data, int socketPosition);
 void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, DYNMEM_MemoryTable_DataType **memoryTable);
-int writeListDataInfoToSocket(ftpDataType *data, int clientId, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable);
+int writeListDataInfoToSocket(ftpDataType *data, int clientId, char *thePath, char *theOptions, int *filesNumber, int commandType, DYNMEM_MemoryTable_DataType **memoryTable);
 
 int searchInLoginFailsVector(void *loginFailsVector, void *element);
 void deleteLoginFailsData(void *element);

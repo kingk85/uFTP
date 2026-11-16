@@ -37,6 +37,7 @@
 #define FTP_CHMODE_COMMAND_RETURN_CODE_NO_FILE          2
 #define FTP_CHMODE_COMMAND_RETURN_CODE_NO_PERMISSIONS   3
 #define FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG         4
+#define FTP_CHMODE_COMMAND_RETURN_CODE_SYNTAX_ERROR     5
 
 #ifdef OPENSSL_ENABLED
 	#include <openssl/ssl.h>
@@ -61,10 +62,12 @@ int parseCommandFeat(ftpDataType * data, int socketId);
 int parseCommandProt(ftpDataType * data, int socketId);
 int parseCommandCcc(ftpDataType * data, int socketId);
 int parseCommandPbsz(ftpDataType * data, int socketId);
-int parseCommandStruF(ftpDataType * data, int socketId);
-int parseCommandTypeI(ftpDataType * data, int socketId);
-int parseCommandModeS(ftpDataType * data, int socketId);
-int parseCommandTypeA(ftpDataType * data, int socketId);
+int parseCommandStru(ftpDataType * data, int socketId);
+int parseCommandType(ftpDataType * data, int socketId);
+int parseCommandMode(ftpDataType * data, int socketId);
+int parseCommandHelp(ftpDataType * data, int socketId);
+int parseCommandAllo(ftpDataType * data, int socketId);
+int parseCommandNotImplemented(ftpDataType * data, int socketId);
 int parseCommandAbor(ftpDataType * data, int socketId);
 int parseCommandPasv(ftpDataType * data, int socketId);
 int parseCommandEpsv(ftpDataType * data, int socketId);
@@ -93,10 +96,13 @@ int parseCommandRnto(ftpDataType * data, int socketId);
 int parseCommandAcct(ftpDataType * data, int socketId);
 int parseCommandEprt(ftpDataType *data, int socketId);
 
+/* bytes sent, -1 if the file can not be opened, RETR_TRANSFER_FAILED (errno set) if the
+   data connection failed while sending */
+#define RETR_TRANSFER_FAILED    -2
 long long int writeRetrFile(ftpDataType * data, int theSocketId, long long int startFrom, FILE *retrFP);
 char *getFtpCommandArg(char * theCommand, char *theCommandString, int skipArgs);
 int getFtpCommandArgWithOptions(char * theCommand, char *theCommandString, ftpCommandDataType *ftpCommand, DYNMEM_MemoryTable_DataType **memoryTable);
-int setPermissions(char * permissionsCommand, char * basePath, ownerShip_DataType ownerShip);
+int setPermissions(char * permissionsCommand, loginDataType *login, DYNMEM_MemoryTable_DataType **memoryTable);
 
 #ifdef __cplusplus
 }

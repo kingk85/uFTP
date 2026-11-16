@@ -27,5 +27,7 @@
 
 void handleThreadReuse(ftpDataType *data, int socketId);
 void cancelWorker(ftpDataType *data, int clientId);
+int startDataWorker(ftpDataType *data, int socketId, char *label);
+int replaceDataWorker(ftpDataType *data, int socketId);
 
 #endif
