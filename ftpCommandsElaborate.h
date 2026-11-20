@@ -28,6 +28,10 @@
 
 #define FTP_COMMAND_ELABORATE_CHAR_BUFFER       1024
 #define FTP_COMMAND_ELABORATE_CHAR_BUFFER_BIG   4096
+/* block of the data transfers (RETR, STOR, APPE), allocated in the memory table of the worker while it transfers */
+#define TRANSFER_BLOCK_SIZE                     65536
+/* bytes asked to one sendfile() call */
+#define TRANSFER_SENDFILE_BLOCK_SIZE            (1 << 20)
 #define FTP_COMMAND_NOT_RECONIZED               0
 #define FTP_COMMAND_PROCESSED                   1
 #define FTP_COMMAND_PROCESSED_WRITE_ERROR       2
@@ -38,6 +42,7 @@
 #define FTP_CHMODE_COMMAND_RETURN_CODE_NO_PERMISSIONS   3
 #define FTP_CHMODE_COMMAND_RETURN_NAME_TOO_LONG         4
 #define FTP_CHMODE_COMMAND_RETURN_CODE_SYNTAX_ERROR     5
+#define FTP_CHMODE_COMMAND_RETURN_CODE_SPECIAL_BITS     6
 
 #ifdef OPENSSL_ENABLED
 	#include <openssl/ssl.h>
@@ -75,6 +80,14 @@ int parseCommandPort(ftpDataType * data, int socketId);
 int parseCommandList(ftpDataType * data, int socketId);
 int parseCommandStat(ftpDataType *data, int socketId);
 int parseCommandNlst(ftpDataType * data, int socketId);
+int parseCommandMlsd(ftpDataType * data, int socketId);
+int parseCommandMlst(ftpDataType * data, int socketId);
+int parseCommandLang(ftpDataType * data, int socketId);
+int parseCommandHost(ftpDataType * data, int socketId);
+
+/* STRU R: see ftpCommandElaborate.c */
+int recordEncode(const char *in, int length, char *out);
+int recordDecode(char *buffer, int length, int *pendingEscape, int *ended);
 int parseCommandRetr(ftpDataType * data, int socketId);
 int parseCommandMkd(ftpDataType * data, int socketId);
 int parseCommandNoop(ftpDataType * data, int socketId);

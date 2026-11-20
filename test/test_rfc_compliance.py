@@ -23,6 +23,9 @@ import calendar
 import ftplib
 import grp
 import io
+import base64
+import hashlib
+import subprocess
 import os
 import pwd
 import re
@@ -36,7 +39,7 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from uftp_test_server import UFTPTestServer, HOST  # noqa: E402
+from uftp_test_server import UFTPTestServer, HOST, DEFAULT_BIN  # noqa: E402
 from ftp_test_client import (FtpControl, empty_directory, listening_socket,  # noqa: E402
                              port_argument, tls_client_context)
 
@@ -229,7 +232,7 @@ class CommandSyntaxTests(RFCTestCase):
 
     def test_stru(self):
         c = self.connect()
-        for command, code in (("STRU F", 200), ("stru f", 200), ("STRU R", 504), ("STRU P", 504),
+        for command, code in (("STRU F", 200), ("stru f", 200), ("STRU R", 200), ("STRU P", 504),
                               ("STRU", 501), ("STRU X", 501), ("STRU FF", 501)):
             self.assertReply(c, command, code)
 
@@ -255,6 +258,37 @@ class CommandSyntaxTests(RFCTestCase):
         c = self.connect()
         self.assertReply(c, "NOOP", 200)
         self.assertReply(c, "ABOR", 226)
+
+    def test_telnet_commands_before_a_command_are_ignored(self):
+        """RFC 959 section 4.1.3 and RFC 1123 section 4.1.2.12: a client that aborts a
+        transfer sends IAC IP IAC DM (the Telnet synch) and then ABOR. It was "500 Unknown
+        command": the bytes were taken as part of the command."""
+        c = self.connect()
+        c.sock.sendall(b"\xff\xf4\xff\xf2ABOR\r\n")                 # IAC IP IAC DM ABOR
+        self.assertEqual(c.read_reply()[0], 226)
+        c.sock.sendall(b"\xff\xf1NOOP\r\n")                          # IAC NOP
+        self.assertEqual(c.read_reply()[0], 200)
+        c.sock.sendall(b"\xff\xfd\x01\xff\xfb\x18NOOP\r\n")          # IAC DO ECHO, IAC WILL TTYPE
+        self.assertEqual(c.read_reply()[0], 200)
+        c.sock.sendall(b"\xff\xfa\x18\x00VT100\xff\xf0NOOP\r\n")      # a subnegotiation, IAC SE
+        self.assertEqual(c.read_reply()[0], 200)
+        self.assertReply(c, "NOOP", 200)
+
+    def test_a_telnet_sequence_split_between_two_reads(self):
+        c = self.connect()
+        for part in (b"\xff", b"\xf4\xff", b"\xf2AB", b"OR\r\n"):
+            c.sock.sendall(part)
+            time.sleep(0.1)
+        self.assertEqual(c.read_reply()[0], 226)
+
+    def test_a_ff_byte_inside_a_command_is_left_alone(self):
+        """Only the bytes before the first character of a command are Telnet: a name that
+        contains the byte 0xFF (latin-1 "y" with diaeresis) still reaches the file system."""
+        with open(os.path.join(server.home.encode(), b"caf\xff.txt"), "wb") as f:
+            f.write(b"12345")
+        c = self.connect()
+        c.sock.sendall(b"SIZE caf\xff.txt\r\n")
+        self.assertEqual(c.read_reply(), (213, "213 5\r\n"))
 
     def test_stat_without_argument(self):
         text = self.assertReply(self.connect(), "STAT", 211)
@@ -292,6 +326,78 @@ class RestTests(RFCTestCase):
         data = c.pasv()
         self.assertReply(c, "REST 4", 350)
         self.assertEqual(c.download("RETR data.bin", data), (226, b"456789"))
+
+
+    def test_rest_is_dropped_when_the_retr_that_follows_fails_without_data_connection(self):
+        """RFC 959 4.1.3: REST is followed at once by the command it is for. A RETR that fails (425)
+        must not leave the offset for a later, unrelated RETR."""
+        self.make_file("data.bin", b"0123456789")
+        c = self.connect()
+        self.assertReply(c, "REST 4", 350)
+        self.assertReply(c, "RETR no_such_file.txt", 425)
+        self.assertEqual(c.download("RETR data.bin", c.pasv()), (226, b"0123456789"))
+
+    def test_rest_is_dropped_when_the_retr_that_follows_names_a_missing_file(self):
+        self.make_file("data.bin", b"0123456789")
+        c = self.connect()
+        data = c.pasv()
+        self.assertReply(c, "REST 4", 350)
+        self.assertReply(c, "RETR no_such_file.txt", 550)
+        data.close()
+        self.assertEqual(c.download("RETR data.bin", c.pasv()), (226, b"0123456789"))
+
+    def test_rest_is_used_by_the_next_retr_only(self):
+        self.make_file("data.bin", b"0123456789")
+        c = self.connect()
+        data = c.pasv()
+        self.assertReply(c, "REST 4", 350)
+        self.assertEqual(c.download("RETR data.bin", data), (226, b"456789"))
+        self.assertEqual(c.download("RETR data.bin", c.pasv()), (226, b"0123456789"))
+
+    def test_rest_is_dropped_when_the_stor_that_follows_fails(self):
+        """The same offset is read by STOR: a refused STOR must not make a later STOR write at that position."""
+        self.make_file("old.bin", b"0123456789")
+        c = self.connect()
+        self.assertReply(c, "REST 4", 350)
+        self.assertReply(c, "STOR new.bin", 425)
+        self.assertEqual(c.upload("STOR old.bin", c.pasv(), b"NEW"), 226)
+        with open(os.path.join(server.home, "old.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"NEW")
+
+    def test_rest_still_works_after_pasv_and_type(self):
+        """PASV and TYPE between REST and RETR (clients do it) keep the offset."""
+        self.make_file("data.bin", b"0123456789")
+        c = self.connect()
+        self.assertReply(c, "REST 4", 350)
+        data = c.pasv()
+        self.assertReply(c, "TYPE I", 200)
+        self.assertEqual(c.download("RETR data.bin", data), (226, b"456789"))
+
+    def test_rest_still_works_after_epsv(self):
+        """EPSV, PORT and EPRT set up the data connection like PASV does: the offset must survive them. It was
+        dropped silently and the client, expecting the tail of the file, received the whole file."""
+        self.make_file("data.bin", b"0123456789")
+        c = self.connect()
+        self.assertReply(c, "REST 4", 350)
+        self.assertEqual(c.download("RETR data.bin", c.epsv()), (226, b"456789"))
+
+    def test_rest_still_works_after_port(self):
+        self.make_file("data.bin", b"0123456789")
+        listener, port = listening_socket()
+        self.addCleanup(listener.close)
+        c = self.connect()
+        self.assertReply(c, "REST 4", 350)
+        self.assertReply(c, "PORT " + port_argument(HOST, port), 200)
+        data, _ = listener.accept()
+        self.assertEqual(c.download("RETR data.bin", data), (226, b"456789"))
+
+    def test_a_new_rest_replaces_the_previous_one(self):
+        self.make_file("data.bin", b"0123456789")
+        c = self.connect()
+        data = c.pasv()
+        self.assertReply(c, "REST 4", 350)
+        self.assertReply(c, "REST 7", 350)
+        self.assertEqual(c.download("RETR data.bin", data), (226, b"789"))
 
 
 class FileInformationTests(RFCTestCase):
@@ -727,6 +833,519 @@ class PasvPromiscuousTests(unittest.TestCase):
         self.assertEqual(received, b"PROMISCUOUS")
 
 
+def pbkdf2_hash(password, iterations=1000, salt=b"0123456789abcdef"):
+    """A password hash made here, with the standard library: it checks the format and the
+    calculation of the server independently of its own code."""
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
+
+    def ab64(data):
+        return base64.b64encode(data).decode().rstrip("=").replace("+", ".")
+
+    return "$pbkdf2-sha256$%d$%s$%s" % (iterations, ab64(salt), ab64(digest))
+
+
+def server_has_openssl():
+    """The password hashes need OpenSSL: the tool says so when the build has none."""
+    result = subprocess.run([DEFAULT_BIN, "--hash-password"], input=b"x\n",
+                            capture_output=True, timeout=20)
+    return result.returncode == 0
+
+
+class HashedPasswordTests(unittest.TestCase):
+    """PASSWORD_n in uftpd.cfg can be a PBKDF2-SHA256 hash instead of the password."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.openssl = server_has_openssl()
+
+    def make_server(self, users, extra=None):
+        server = UFTPTestServer(port=PORT + 6, idle_timeout=60, users=users, extra_config=extra or {})
+        self.addCleanup(server.stop)
+        return server
+
+    def login(self, user, password):
+        c = FtpControl(PORT + 6, login=False)
+        self.addCleanup(c.close)
+        self.assertEqual(c.cmd("USER " + user)[0], 331)
+        return c.cmd("PASS " + password)[0]
+
+    def test_the_hash_is_accepted_and_the_wrong_passwords_are_not(self):
+        if not self.openssl:
+            self.skipTest("uFTP was built without OpenSSL support")
+        self.make_server([("alice", pbkdf2_hash("s3cret")), ("plain", "plainpw")]).start()
+        self.assertEqual(self.login("alice", "s3cret"), 230)
+        for wrong in ("s3cre", "s3cretX", "S3CRET", "wrong"):
+            self.assertEqual(self.login("alice", wrong), 530, wrong)
+
+    def test_the_hash_itself_is_not_a_password(self):
+        """Whoever reads the file must not be able to log in with what it says."""
+        if not self.openssl:
+            self.skipTest("uFTP was built without OpenSSL support")
+        stored = pbkdf2_hash("s3cret")
+        self.make_server([("alice", stored)]).start()
+        self.assertEqual(self.login("alice", stored), 530)
+
+    def test_plain_passwords_go_on_working_next_to_hashes(self):
+        if not self.openssl:
+            self.skipTest("uFTP was built without OpenSSL support")
+        self.make_server([("alice", pbkdf2_hash("s3cret")), ("plain", "plainpw")]).start()
+        self.assertEqual(self.login("plain", "plainpw"), 230)
+        self.assertEqual(self.login("plain", "other"), 530)
+
+    def test_any_number_of_iterations_is_checked(self):
+        if not self.openssl:
+            self.skipTest("uFTP was built without OpenSSL support")
+        self.make_server([("one", pbkdf2_hash("pw1", 1)), ("many", pbkdf2_hash("pw2", 100000)),
+                          ("salted", pbkdf2_hash("pw3", 2000, b"another salt 123"))]).start()
+        self.assertEqual(self.login("one", "pw1"), 230)
+        self.assertEqual(self.login("many", "pw2"), 230)
+        self.assertEqual(self.login("salted", "pw3"), 230)
+        self.assertEqual(self.login("many", "pw1"), 530)
+
+    def hash_with_the_tool(self, password, *options):
+        result = subprocess.run([DEFAULT_BIN, "--hash-password", *options],
+                                input=(password + "\n").encode(), capture_output=True, timeout=20)
+        return result
+
+    def test_the_tool_makes_hashes_the_server_accepts(self):
+        if not self.openssl:
+            self.skipTest("uFTP was built without OpenSSL support")
+        for options, iterations in (((), 100000), (("--iterations", "2000"), 2000)):
+            result = self.hash_with_the_tool("made by the tool", *options)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            line = result.stdout.decode().strip()
+            prefix, algorithm, count, salt, digest = line.split("$")[0], *line.split("$")[1:]
+            self.assertEqual((prefix, algorithm, int(count)), ("", "pbkdf2-sha256", iterations))
+            # the same calculation, made here with the salt that the tool chose
+            padded = salt.replace(".", "+") + "=" * (-len(salt) % 4)
+            expected = hashlib.pbkdf2_hmac("sha256", b"made by the tool", base64.b64decode(padded), iterations)
+            self.assertEqual(digest, base64.b64encode(expected).decode().rstrip("=").replace("+", "."))
+            server = self.make_server([("tool", line)])
+            server.start()
+            self.assertEqual(self.login("tool", "made by the tool"), 230)
+            self.assertEqual(self.login("tool", "made by the tool "), 530)
+            server.stop()
+
+    def test_the_tool_uses_a_new_salt_every_time(self):
+        if not self.openssl:
+            self.skipTest("uFTP was built without OpenSSL support")
+        first = self.hash_with_the_tool("same").stdout
+        second = self.hash_with_the_tool("same").stdout
+        self.assertNotEqual(first, second)
+
+    def test_the_tool_refuses_an_empty_password_and_a_bad_iteration_count(self):
+        if not self.openssl:
+            self.skipTest("uFTP was built without OpenSSL support")
+        self.assertNotEqual(self.hash_with_the_tool("").returncode, 0)
+        for count in ("0", "-5", "abc", "99999999999"):
+            self.assertNotEqual(self.hash_with_the_tool("pw", "--iterations", count).returncode, 0, count)
+
+    def test_a_hash_that_is_not_valid_stops_the_server(self):
+        """A mistyped hash would lock the user out without a word: the server does not start."""
+        for broken in ("$pbkdf2-sha256$100000$tooshort$alsoshort", "$pbkdf2-sha256$0$AAAAAAAAAAAAAAAAAAAAAA$" + "A" * 43,
+                       "$pbkdf2-sha256$100000$AAAAAAAAAAAAAAAAAAAAAA", "$pbkdf2-sha256$abc$AAAA$AAAA"):
+            server = self.make_server([("alice", broken)])
+            self.assertNotEqual(server.run_until_exit(timeout=10), 0, broken)
+            self.assertIn("PASSWORD_0", server.read_log(), broken)
+            server.stop()
+
+    def test_without_openssl_a_hash_stops_the_server(self):
+        if self.openssl:
+            self.skipTest("this build has OpenSSL: the hashes are accepted")
+        server = self.make_server([("alice", pbkdf2_hash("s3cret"))])
+        self.assertNotEqual(server.run_until_exit(timeout=10), 0)
+        self.assertIn("PASSWORD_0", server.read_log())
+
+
+class AccountLimitTests(unittest.TestCase):
+    """MAX_CONNECTION_PER_ACCOUNT: the sessions of one user, from any address. Users 0 and 1
+    follow the global limit (3); user 1 has a limit of its own (1), user 2 has none (0)."""
+
+    USERS = [("alice", "pw-alice"), ("bob", "pw-bob"), ("carol", "pw-carol")]
+
+    def setUp(self):
+        self.server = UFTPTestServer(port=PORT + 7, idle_timeout=60, users=self.USERS,
+                                     extra_config={"MAX_CONNECTION_PER_ACCOUNT": 3,
+                                                   "MAX_CONNECTION_PER_ACCOUNT_1": 1,
+                                                   "MAX_CONNECTION_PER_ACCOUNT_2": 0})
+        self.server.start()
+        self.addCleanup(self.server.stop)
+        self.sessions = []
+
+    def open(self, user, password=None, port=PORT + 7):
+        c = FtpControl(port, login=False)
+        self.sessions.append(c)
+        self.addCleanup(c.close)
+        self.assertEqual(c.cmd("USER " + user)[0], 331)
+        return c, c.cmd("PASS " + (password or "pw-" + user))
+
+    def test_the_global_limit_refuses_the_next_login_and_closes_the_connection(self):
+        for _ in range(3):
+            c, (code, _) = self.open("alice")
+            self.assertEqual(code, 230)
+        c, (code, text) = self.open("alice")
+        self.assertEqual(code, 530, text)
+        self.assertIn("Too many connections for this account", text)
+        with self.assertRaises(EOFError):                       # the refused connection is closed
+            c.cmd("NOOP")
+
+    def test_the_sessions_already_open_are_not_touched(self):
+        first = [self.open("alice")[0] for _ in range(3)]
+        self.open("alice")
+        for c in first:
+            self.assertEqual(c.cmd("NOOP")[0], 200)
+
+    def test_a_limit_of_a_single_user_replaces_the_global_one(self):
+        self.assertEqual(self.open("bob")[1][0], 230)
+        code, text = self.open("bob")[1]
+        self.assertEqual(code, 530, text)
+        self.assertIn("Too many connections for this account", text)
+
+    def test_zero_for_a_user_means_no_limit(self):
+        for _ in range(6):
+            self.assertEqual(self.open("carol")[1][0], 230)
+
+    def test_other_accounts_are_not_affected(self):
+        for _ in range(3):
+            self.assertEqual(self.open("alice")[1][0], 230)
+        self.assertEqual(self.open("alice")[1][0], 530)
+        self.assertEqual(self.open("bob")[1][0], 230)
+
+    def test_a_wrong_password_is_still_a_wrong_password(self):
+        """The limit must not tell who does not know the password that the account is full."""
+        for _ in range(3):
+            self.assertEqual(self.open("alice")[1][0], 230)
+        code, text = self.open("alice", "wrong")[1]
+        self.assertEqual(code, 530)
+        self.assertIn("Invalid username or password", text)
+
+    def test_a_closed_session_gives_its_place_back(self):
+        first = self.open("alice")[0]
+        for _ in range(2):
+            self.open("alice")
+        self.assertEqual(self.open("alice")[1][0], 530)
+        first.close()
+        for _ in range(25):                                    # the server notices the close at its next loop
+            code = self.open("alice")[1][0]
+            if code == 230:
+                break
+            time.sleep(0.2)
+        self.assertEqual(code, 230)
+
+
+class AccountLimitOffByDefaultTests(unittest.TestCase):
+    def test_without_the_parameter_there_is_no_limit(self):
+        server = UFTPTestServer(port=PORT + 7, idle_timeout=60, users=[("alice", "pw-alice")])
+        server.start()
+        self.addCleanup(server.stop)
+        for _ in range(8):
+            c = FtpControl(PORT + 7, login=False)
+            self.addCleanup(c.close)
+            self.assertEqual(c.cmd("USER alice")[0], 331)
+            self.assertEqual(c.cmd("PASS pw-alice")[0], 230)
+
+
+class LoginTimingTests(unittest.TestCase):
+    """A wrong password must cost the same time whatever the name: otherwise the time of the
+    reply tells which names exist (a name with a hashed password takes about 20 ms, a name
+    that does not exist took almost nothing). Only when the file has a hashed password."""
+
+    ATTEMPTS = 12
+
+    def medians(self, users):
+        server = UFTPTestServer(port=PORT + 8, idle_timeout=60, users=users,
+                                extra_config={"MAX_CONNECTION_TRY_PER_IP": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT + 8, login=False)
+        self.addCleanup(c.close)
+        result = {}
+        for label, name in (("hashed", "alice"), ("plain", "plain"), ("unknown", "nobody-here")):
+            times = []
+            for _ in range(self.ATTEMPTS):
+                self.assertEqual(c.cmd("USER " + name)[0], 331)
+                start = time.perf_counter()
+                self.assertEqual(c.cmd("PASS wrong password")[0], 530)
+                times.append(time.perf_counter() - start)
+            times.sort()
+            result[label] = times[len(times) // 2]
+        return result
+
+    def test_with_a_hashed_password_every_name_costs_the_same(self):
+        if not server_has_openssl():
+            self.skipTest("uFTP was built without OpenSSL support")
+        t = self.medians([("alice", pbkdf2_hash("s3cret", 100000)), ("plain", "plainpw")])
+        self.assertGreater(t["hashed"], 0.005, "the hash was too quick to compare: %r" % t)
+        self.assertGreater(t["unknown"], 0.5 * t["hashed"], t)
+        self.assertGreater(t["plain"], 0.5 * t["hashed"], t)
+
+    def test_with_more_iterations_than_the_default_every_name_still_costs_the_same(self):
+        """The calculation that is done for a name that does not exist (or has a plain password) used the
+        default 100,000 iterations: with a hash of 1,000,000 a wrong password of a real user took about
+        0.23 s and an unknown name 0.03 s, so the time of the reply showed which names exist."""
+        if not server_has_openssl():
+            self.skipTest("uFTP was built without OpenSSL support")
+        t = self.medians([("alice", pbkdf2_hash("s3cret", 1000000)), ("plain", "plainpw")])
+        self.assertGreater(t["hashed"], 0.05, "the hash was too quick to compare: %r" % t)
+        self.assertGreater(t["unknown"], 0.6 * t["hashed"], t)
+        self.assertGreater(t["plain"], 0.6 * t["hashed"], t)
+
+    def test_without_hashed_passwords_nothing_is_wasted(self):
+        t = self.medians([("alice", "plain-alice"), ("plain", "plainpw")])
+        self.assertLess(t["unknown"], 0.005, t)
+        self.assertLess(t["plain"], 0.005, t)
+
+
+class ConnectionRateTests(unittest.TestCase):
+    """MAX_CONNECTION_RATE_PER_IP: new connections per minute from one address. A flood from one
+    address (a thousand a second) fills the slots and makes the single thread of the control channel
+    start TLS handshakes; the connections over the limit are refused at once (421)."""
+
+    LIMIT = 5
+
+    def setUp(self):
+        self.server = UFTPTestServer(port=PORT + 10, idle_timeout=60,
+                                     extra_config={"MAX_CONNECTION_RATE_PER_IP": self.LIMIT, "MAXIMUM_LOG_FILES": 1})
+        self.server.start()
+        self.addCleanup(self.server.stop)
+
+    def connect(self, source=FOREIGN_ADDRESS):
+        """A new connection from a loopback address: (socket, banner). The count of the tests is
+        the one of 127.0.0.2: 127.0.0.1 is also the address with which the test server checks that
+        it has started, and that connection counts."""
+        sock = PassiveSourceAddressTests.connect_from(source, PORT + 10)
+        self.addCleanup(sock.close)
+        return sock, sock.recv(1024).decode()
+
+    def test_the_connections_over_the_limit_are_refused_and_closed(self):
+        for _ in range(self.LIMIT):
+            self.assertTrue(self.connect()[1].startswith("220"))
+        sock, banner = self.connect()
+        self.assertRegex(banner, r"^421 Too many connections from your address")
+        self.assertEqual(sock.recv(1024), b"")                  # and the connection is closed
+
+    def test_another_address_has_its_own_count(self):
+        for _ in range(self.LIMIT + 1):
+            self.connect()
+        self.assertTrue(self.connect(HOST)[1].startswith("220"))     # 127.0.0.1 has its own count
+
+    def test_a_user_that_is_in_is_not_touched_by_the_refusals(self):
+        c = Control(login=True, port=PORT + 10)                 # one of the connections of the minute
+        self.addCleanup(c.close)
+        for _ in range(self.LIMIT + 3):
+            self.connect()
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        self.assertEqual(c.cmd("PWD")[0], 257)
+
+    def test_the_refusals_are_in_the_log(self):
+        for _ in range(self.LIMIT + 2):
+            self.connect()
+        deadline = time.monotonic() + 5
+        log = ""
+        while time.monotonic() < deadline and "in the last minute" not in log:
+            time.sleep(0.2)
+            log = self.server.log_folder_text()
+        self.assertIn("opened more than %d connections in the last minute" % self.LIMIT, log)
+        # the line says WHO: a firewall rule or fail2ban has nothing to work on without the address
+        line = next(l for l in log.splitlines() if "in the last minute" in l)
+        self.assertRegex(line, r"Connection refused: (::ffff:)?%s opened more than" % re.escape(FOREIGN_ADDRESS), line)
+
+    def test_the_count_starts_again_after_a_minute(self):
+        """Slow: it waits for the end of the minute (63 seconds)."""
+        for _ in range(self.LIMIT + 1):
+            self.connect()
+        self.assertTrue(self.connect()[1].startswith("421 "))
+        time.sleep(63)
+        self.assertTrue(self.connect()[1].startswith("220"))
+
+
+class ConnectionRateAndAddressLimitTests(unittest.TestCase):
+    """Every connection counts for MAX_CONNECTION_RATE_PER_IP, also the ones refused because the address is
+    already at MAX_CONNECTION_NUMBER_PER_IP: they were not counted, so a client at its limit could knock
+    without ever using up the budget of the minute."""
+
+    def test_connections_refused_for_the_limit_per_address_count_for_the_rate(self):
+        server = UFTPTestServer(port=PORT + 10, idle_timeout=60, max_per_ip=1,
+                                extra_config={"MAX_CONNECTION_RATE_PER_IP": 4, "MAXIMUM_LOG_FILES": 1})
+        server.start()
+        self.addCleanup(server.stop)
+
+        def connect():
+            sock = PassiveSourceAddressTests.connect_from(FOREIGN_ADDRESS, PORT + 10)
+            self.addCleanup(sock.close)
+            return sock, sock.recv(1024).decode()
+
+        held, banner = connect()
+        self.assertTrue(banner.startswith("220"), banner)
+        for _ in range(4):
+            self.assertTrue(connect()[1].startswith("530 too many connection"), "the limit per address")
+        held.sendall(b"QUIT\r\n")
+        held.recv(1024)
+        deadline = time.monotonic() + 5
+        banner = "530"
+        while banner.startswith("530") and time.monotonic() < deadline:
+            time.sleep(0.2)
+            banner = connect()[1]
+        self.assertTrue(banner.startswith("421 Too many connections"), "1 held + 4 refused + this one are over 4 a minute: %r" % banner)
+
+
+class ConnectionRateOffByDefaultTests(unittest.TestCase):
+    def test_without_the_parameter_there_is_no_limit(self):
+        server = UFTPTestServer(port=PORT + 10, idle_timeout=60)
+        server.start()
+        self.addCleanup(server.stop)
+        for _ in range(30):
+            sock = socket.create_connection((HOST, PORT + 10), timeout=5)
+            self.addCleanup(sock.close)
+            self.assertTrue(sock.recv(1024).startswith(b"220"))
+
+
+class ServerFullTests(unittest.TestCase):
+    """RFC 959: a server that can not take another client says so with 421 and closes the
+    connection. It used to send "10068 ...", which is not a reply code. When the clients
+    that fill the server are logged in there is nobody to send away: the new one is refused."""
+
+    def setUp(self):
+        self.server = UFTPTestServer(port=PORT + 5, idle_timeout=60, max_connections=2)
+        self.server.start()
+        self.addCleanup(self.server.stop)
+
+    def logged_in(self):
+        c = Control(login=True, port=PORT + 5)
+        self.addCleanup(c.close)
+        return c
+
+    def banner(self):
+        sock = socket.create_connection((HOST, PORT + 5), timeout=5)
+        self.addCleanup(sock.close)
+        return sock, sock.recv(1024).decode()
+
+    def test_a_client_over_the_limit_gets_421_and_is_closed(self):
+        first, second = self.logged_in(), self.logged_in()
+
+        sock, banner = self.banner()
+        self.assertRegex(banner, r"^421 .*maximum number of connections.*\r\n$")
+        self.assertEqual(sock.recv(1024), b"")                 # and the connection is closed
+        self.assertEqual(first.cmd("NOOP")[0], 200)            # the clients that are in are not disturbed
+        self.assertEqual(second.cmd("NOOP")[0], 200)
+
+    def test_a_slot_that_is_freed_is_used_again(self):
+        first, second = self.logged_in(), self.logged_in()
+        self.assertTrue(self.banner()[1].startswith("421 "))
+        first.close()
+        for _ in range(20):                                    # the server notices the close at its next loop
+            sock, banner = self.banner()
+            if banner.startswith("220"):
+                break
+            time.sleep(0.2)
+        self.assertTrue(banner.startswith("220"), banner)
+        self.assertEqual(second.cmd("NOOP")[0], 200)
+
+
+class ServerFullEvictionTests(unittest.TestCase):
+    """The server is full: the connection that has not logged in for the longest time is sent
+    away to make room (421), so that connections that stay idle can not keep out the users.
+    A client that is logged in is never sent away."""
+
+    SLOTS = 4
+
+    def setUp(self):
+        self.server = UFTPTestServer(port=PORT + 5, idle_timeout=60, max_connections=self.SLOTS,
+                                     extra_config={"MAXIMUM_LOG_FILES": 1})
+        self.server.start()
+        self.addCleanup(self.server.stop)
+
+    def idle(self):
+        """A connection that does not log in: (socket, banner)."""
+        sock = socket.create_connection((HOST, PORT + 5), timeout=5)
+        self.addCleanup(sock.close)
+        return sock, sock.recv(1024).decode()
+
+    def logged_in(self):
+        c = Control(login=True, port=PORT + 5)
+        self.addCleanup(c.close)
+        return c
+
+    def closed_with(self, sock):
+        """What the server sent before it closed the connection, and whether it closed it."""
+        received = b""
+        try:
+            while True:
+                chunk = sock.recv(1024)
+                if not chunk:
+                    return received.decode(), True
+                received += chunk
+        except OSError:
+            return received.decode(), False
+
+    def test_the_oldest_connection_without_login_makes_room(self):
+        idle = [self.idle()[0] for _ in range(self.SLOTS)]
+        sock, banner = self.idle()                              # the server is full: this one comes in
+        self.assertTrue(banner.startswith("220"), banner)
+        text, closed = self.closed_with(idle[0])                # and the first one is sent away
+        self.assertTrue(closed)
+        self.assertRegex(text, r"^421 .*full")
+        for other in idle[1:]:                                  # the others are still there
+            other.sendall(b"NOOP\r\n")
+            self.assertTrue(other.recv(1024).startswith(b"200"))   # NOOP works before the login
+
+    def test_a_user_gets_in_while_the_server_is_full_of_idle_connections(self):
+        idle = [self.idle()[0] for _ in range(self.SLOTS)]
+        for _ in range(self.SLOTS + 2):                         # more logins than slots, one after the other
+            c = self.logged_in()
+            self.assertEqual(c.cmd("NOOP")[0], 200)
+            c.close()
+            time.sleep(0.1)
+
+    def test_a_client_that_is_logged_in_is_never_sent_away(self):
+        users = [self.logged_in() for _ in range(self.SLOTS - 1)]    # the oldest connections
+        idle, _ = self.idle()                                         # the youngest, no login
+        sock, banner = self.idle()                                    # full: the only one to go is the idle one
+        self.assertTrue(banner.startswith("220"), banner)
+        self.assertTrue(self.closed_with(idle)[1])
+        for c in users:
+            self.assertEqual(c.cmd("NOOP")[0], 200)
+
+    def test_when_everybody_is_logged_in_the_new_connection_is_refused(self):
+        users = [self.logged_in() for _ in range(self.SLOTS)]
+        sock, banner = self.idle()
+        self.assertRegex(banner, r"^421 .*maximum number of connections")
+        for c in users:
+            self.assertEqual(c.cmd("NOOP")[0], 200)
+
+    def test_a_flood_of_connections_does_not_break_the_server(self):
+        """Hundreds of connections that never log in, one after the other: every one sends
+        away an older one. The server stays up and a user still gets in at the end."""
+        for _ in range(400):
+            try:
+                sock = socket.create_connection((HOST, PORT + 5), timeout=5)
+            except OSError:
+                continue
+            sock.close() if _ % 2 else self.addCleanup(sock.close)
+        self.assertTrue(self.server.is_running(), "the server crashed")
+        c = None
+        for _ in range(20):                                     # the flood may still be being closed
+            try:
+                c = self.logged_in()
+                break
+            except (AssertionError, EOFError, OSError):
+                time.sleep(0.2)
+        self.assertIsNotNone(c)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+
+    def test_the_evicted_connection_is_written_in_the_log(self):
+        [self.idle() for _ in range(self.SLOTS)]
+        self.idle()
+        deadline = time.monotonic() + 5
+        log = ""
+        while time.monotonic() < deadline:
+            log = self.server.log_folder_text()
+            if "connection closed: sent away" in log:
+                break
+            time.sleep(0.2)
+        self.assertIn("connection closed: sent away to make room: the server is full", log)
+
+
 class ActiveModeTests(RFCTestCase):
     """PORT / EPRT: syntax validation and FTP bounce protection (RFC 2577 section 3)."""
 
@@ -738,6 +1357,29 @@ class ActiveModeTests(RFCTestCase):
         self.assertReply(c, "PORT " + port_argument(HOST, port), 200)
         data, _ = listener.accept()
         self.assertEqual(c.download("RETR active.txt", data), (226, b"active mode"))
+
+    def test_port_to_a_port_nobody_listens_on_is_425_and_the_session_goes_on(self):
+        """RFC 959: 425 when the data connection can not be opened. The client used to be
+        disconnected, with no reply."""
+        self.make_file("again.txt", b"second try")
+        closed, port = listening_socket()
+        closed.close()
+        c = self.connect()
+        self.assertReply(c, "PORT " + port_argument(HOST, port), 425)
+        self.assertReply(c, "LIST", 425)          # no data connection is left over
+        self.assertReply(c, "NOOP", 200)          # and the session is alive
+        listener, port = listening_socket()
+        self.addCleanup(listener.close)
+        self.assertReply(c, "PORT " + port_argument(HOST, port), 200)
+        data, _ = listener.accept()
+        self.assertEqual(c.download("RETR again.txt", data), (226, b"second try"))
+
+    def test_eprt_to_a_port_nobody_listens_on_is_425(self):
+        closed, port = listening_socket()
+        closed.close()
+        c = self.connect()
+        self.assertReply(c, "EPRT |1|%s|%d|" % (HOST, port), 425)
+        self.assertReply(c, "NOOP", 200)
 
     def test_port_syntax_errors_are_501(self):
         """A malformed PORT used to be executed with uninitialized values, without any reply."""
@@ -882,6 +1524,25 @@ class SiteChmodTests(RFCTestCase):
         self.assertReply(c, "SITE CHMOD 777 ../outside.txt", 550)
         self.assertReply(c, "SITE CHMOD 777 ../../../../../../" + outside.lstrip("/"), 550)
         self.assertEqual(stat.S_IMODE(os.stat(outside).st_mode), 0o644)
+
+    def test_setuid_and_setgid_bits_are_refused(self):
+        """A user could make an uploaded file run with the owner of the server (root)."""
+        path = os.path.join(server.home, "tool.sh")
+        self.make_file("tool.sh")
+        os.chmod(path, 0o644)
+        c = self.connect()
+        for mode in ("4755", "2755", "6755", "7777", "4000", "2000"):
+            text = self.assertReply(c, "SITE CHMOD %s tool.sh" % mode, 550)
+            self.assertIn("setuid", text)
+        self.assertEqual(self.mode("tool.sh"), 0o644)
+        self.assertReply(c, "SITE CHMOD 0755 tool.sh", 200)       # the ordinary modes still work
+        self.assertEqual(self.mode("tool.sh"), 0o755)
+
+    def test_the_sticky_bit_of_a_directory_is_allowed(self):
+        os.mkdir(os.path.join(server.home, "shared"))
+        c = self.connect()
+        self.assertReply(c, "SITE CHMOD 1777 shared", 200)
+        self.assertEqual(self.mode("shared"), 0o1777)
 
     def test_chmod_missing_file_is_550(self):
         self.assertReply(self.connect(), "SITE CHMOD 644 no_such_file", 550)
@@ -1720,23 +2381,40 @@ class ServerConfigurationTests(unittest.TestCase):
         self.addCleanup(connection.close)
         return connection
 
-    def test_blocked_user_is_530(self):
+    def test_blocked_user_gets_the_same_answers_as_a_name_that_does_not_exist(self):
+        """A blocked name must not tell that it is in the list: the same replies of any other
+        name (it was an immediate 530 at USER)."""
         c = self.connect()
-        code, text = c.cmd("USER tester2")
-        self.assertEqual(code, 530, text)
-        code, text = c.cmd("PASS tester2Password")
-        self.assertNotEqual(code, 230, text)
-        code, text = c.cmd("PWD")
-        self.assertEqual(code, 530, text)
+        self.assertEqual(c.cmd("USER tester2")[0], 331)
+        blocked = c.cmd("PASS tester2Password")
+        self.assertEqual(c.cmd("USER nobody-here")[0], 331)
+        unknown = c.cmd("PASS whatever")
+        self.assertEqual(blocked[0], 530, blocked)
+        self.assertEqual(blocked, unknown)
+        self.assertIn("Invalid username or password", blocked[1])
+        self.assertEqual(c.cmd("PWD")[0], 530)                  # not logged in
 
     def test_blocked_user_makes_the_server_forget_the_previous_user(self):
         """USER a, USER <blocked>, PASS <password of a> used to log user a in."""
         c = self.connect()
         self.assertEqual(c.cmd(f"USER {self.server.user}")[0], 331)
-        self.assertEqual(c.cmd("USER tester2")[0], 530)
+        self.assertEqual(c.cmd("USER tester2")[0], 331)
         code, text = c.cmd(f"PASS {self.server.password}")
-        self.assertEqual(code, 503, text)
+        self.assertEqual(code, 530, text)
+        self.assertIn("Invalid username or password", text)
         self.assertEqual(c.cmd("PWD")[0], 530)
+
+    def test_blocked_attempts_count_as_failed_logins(self):
+        """Two attempts are allowed per address (the setUp): blocked names use them up."""
+        for _ in range(2):
+            c = self.connect()
+            self.assertEqual(c.cmd("USER tester2")[0], 331)
+            self.assertEqual(c.cmd("PASS tester2Password")[0], 530)
+        c = self.connect()
+        self.assertEqual(c.cmd(f"USER {self.server.user}")[0], 331)
+        code, text = c.cmd(f"PASS {self.server.password}")
+        self.assertEqual(code, 530, text)
+        self.assertIn("Too many login failure", text)
 
     def test_login_failures_are_always_530(self):
         """Wrong password and "too many failures" both answer 530 (it was 430)."""
@@ -1795,6 +2473,144 @@ class ServerConfigurationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("openssl"), "the openssl CLI is needed to create the test certificate")
+class EpsvAllTests(RFCTestCase):
+    """RFC 2428 section 3: EPSV ALL promises that no other data connection command will be
+    used (it is for firewalls and NATs), and EPSV <protocol> asks for a protocol."""
+
+    def refused_commands(self):
+        listener, port = listening_socket()
+        listener.close()
+        return ("PASV", "PORT " + port_argument(HOST, port), "EPRT |1|%s|%d|" % (HOST, port))
+
+    def test_epsv_all_is_accepted_and_opens_no_data_connection(self):
+        c = self.connect()
+        self.assertReply(c, "EPSV ALL", 200)
+        self.assertReply(c, "LIST", 425)          # nothing was set up
+        self.assertReply(c, "epsv all", 200)      # case-insensitive, and repeating it is harmless
+
+    def test_data_connection_commands_are_refused_after_epsv_all(self):
+        c = self.connect()
+        self.assertReply(c, "EPSV ALL", 200)
+        for command in self.refused_commands():
+            self.assertReply(c, command, 501)
+        self.assertReply(c, "LIST", 425)          # the refused PORT/EPRT did not set up anything
+        self.assertReply(c, "NOOP", 200)
+
+    def test_epsv_still_works_after_epsv_all(self):
+        self.make_file("after-all.txt", b"through EPSV")
+        c = self.connect()
+        self.assertReply(c, "EPSV ALL", 200)
+        self.assertEqual(c.download("RETR after-all.txt", c.epsv()), (226, b"through EPSV"))
+
+    def test_epsv_all_belongs_to_the_connection(self):
+        first = self.connect()
+        self.assertReply(first, "EPSV ALL", 200)
+        second = self.connect()
+        data = second.pasv()                      # a new connection is free to use PASV
+        data.close()
+        for command in self.refused_commands():
+            self.assertReply(first, command, 501)
+
+    def test_epsv_protocol_of_the_control_connection_is_served(self):
+        c = self.connect()
+        reply = self.assertReply(c, "EPSV 1", 229)       # the test connects over IPv4
+        self.assertIn("(|||", reply)
+
+    def test_epsv_with_another_protocol_is_522(self):
+        c = self.connect()
+        for argument in ("2", "3", "0", "99"):
+            reply = self.assertReply(c, "EPSV " + argument, 522)
+            self.assertIn("use (1)", reply)
+        self.assertReply(c, "LIST", 425)          # no data connection was opened
+        self.assertReply(c, "NOOP", 200)
+
+    def test_epsv_with_a_bad_argument_is_501(self):
+        c = self.connect()
+        for argument in ("foo", "1 2", "ALL 1", "-1", "1x"):
+            self.assertReply(c, "EPSV " + argument, 501)
+        self.assertReply(c, "NOOP", 200)
+
+
+class ActiveModeTlsTests(RFCTestCase):
+    """RFC 4217 section 7: with a protected data connection the FTP client is the TLS
+    client and the FTP server is the TLS server, also in active mode, where the server
+    is the one that opens the TCP connection (PORT / EPRT)."""
+
+    @classmethod
+    def setUpClass(cls):
+        probe = Control(login=False)
+        try:
+            code, _ = probe.cmd("AUTH TLS")
+        finally:
+            probe.close()
+        if code == 502:
+            raise unittest.SkipTest("uFTP was built without OpenSSL support")
+
+    def protected_session(self):
+        c = self.connect(login=False)
+        c.start_tls()
+        c.login()
+        self.assertReply(c, "PBSZ 0", 200)
+        self.assertReply(c, "PROT P", 200)
+        return c
+
+    def open_active(self, c, command="PORT"):
+        """Announce a listening port and accept the connection of the server."""
+        listener, port = listening_socket()
+        self.addCleanup(listener.close)
+        if command == "PORT":
+            self.assertReply(c, "PORT " + port_argument(HOST, port), 200)
+        else:
+            self.assertReply(c, "EPRT |1|%s|%d|" % (HOST, port), 200)
+        connection, _ = listener.accept()
+        connection.settimeout(10)
+        return connection
+
+    def test_protected_download_handshake_before_the_command(self):
+        self.make_file("active-tls.txt", b"protected, active mode")
+        c = self.protected_session()
+        data = tls_client_context().wrap_socket(self.open_active(c), server_hostname=HOST)
+        self.assertEqual(c.download("RETR active-tls.txt", data), (226, b"protected, active mode"))
+
+    def test_protected_download_handshake_after_the_150(self):
+        """Some clients start TLS on the data connection only after the 150 reply."""
+        self.make_file("late.txt", b"late handshake")
+        c = self.protected_session()
+        connection = self.open_active(c)
+        self.assertEqual(c.cmd("RETR late.txt")[0], 150)
+        data = tls_client_context().wrap_socket(connection, server_hostname=HOST)
+        received = b""
+        while True:
+            chunk = data.recv(65536)
+            if not chunk:
+                break
+            received += chunk
+        data.close()
+        self.assertEqual(received, b"late handshake")
+        self.assertEqual(c.read_reply()[0], 226)
+
+    def test_protected_upload_with_eprt(self):
+        c = self.protected_session()
+        data = tls_client_context().wrap_socket(self.open_active(c, "EPRT"), server_hostname=HOST)
+        self.assertEqual(c.cmd("STOR uploaded.txt")[0], 150)
+        data.sendall(b"uploaded in active mode")
+        data.unwrap().close()
+        self.assertEqual(c.read_reply()[0], 226)
+        with open(os.path.join(server.home, "uploaded.txt"), "rb") as f:
+            self.assertEqual(f.read(), b"uploaded in active mode")
+
+    def test_protected_listing_and_a_second_transfer_on_the_same_session(self):
+        self.make_file("one.txt", b"1")
+        c = self.protected_session()
+        data = tls_client_context().wrap_socket(self.open_active(c), server_hostname=HOST)
+        code, listing = c.download("LIST", data)
+        self.assertEqual(code, 226)
+        self.assertIn(b"one.txt", listing)
+        data = tls_client_context().wrap_socket(self.open_active(c), server_hostname=HOST)
+        self.assertEqual(c.download("RETR one.txt", data), (226, b"1"))
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+
+
 class TlsTests(RFCTestCase):
     """AUTH / PBSZ / PROT (RFC 2228, RFC 4217)."""
 
@@ -2172,11 +2988,514 @@ class TlsTests(RFCTestCase):
         self.assertEqual(received.getvalue(), payload)
         self.assertEqual(ftps.nlst(), ["secret.bin"])
 
+    def test_certificate_chain_is_sent_to_the_client(self):
+        """CERTIFICATE_PATH with a chain (the certificate and its intermediate, as in fullchain.pem): the
+        server sends both, so a client that knows only the root can verify the certificate. It used to send
+        the first one only (unable to verify the first certificate)."""
+        if shutil.which("openssl") is None:
+            self.skipTest("openssl is needed to make the certificates")
+        work = tempfile.mkdtemp(prefix="uftp-chain-")
+        self.addCleanup(shutil.rmtree, work, True)
+
+        def openssl(*args, **kwargs):
+            subprocess.run(("openssl",) + args, cwd=work, check=True, capture_output=True, **kwargs)
+
+        open(os.path.join(work, "ca.ext"), "w").write("basicConstraints=critical,CA:TRUE\nkeyUsage=keyCertSign,cRLSign\n")
+        openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", "ca.key", "-out", "ca.pem", "-days", "2", "-subj", "/CN=Test Root")
+        openssl("req", "-newkey", "rsa:2048", "-nodes", "-keyout", "ica.key", "-out", "ica.csr", "-subj", "/CN=Test Intermediate")
+        openssl("x509", "-req", "-in", "ica.csr", "-CA", "ca.pem", "-CAkey", "ca.key", "-CAcreateserial", "-out", "ica.pem",
+                "-days", "2", "-extfile", "ca.ext")
+        openssl("req", "-newkey", "rsa:2048", "-nodes", "-keyout", "key.pem", "-out", "leaf.csr", "-subj", "/CN=localhost")
+        openssl("x509", "-req", "-in", "leaf.csr", "-CA", "ica.pem", "-CAkey", "ica.key", "-CAcreateserial", "-out", "leaf.pem", "-days", "2")
+        with open(os.path.join(work, "fullchain.pem"), "wb") as chain:
+            for part in ("leaf.pem", "ica.pem"):
+                chain.write(open(os.path.join(work, part), "rb").read())
+
+        chain_server = UFTPTestServer(port=PORT + 9, idle_timeout=60, extra_config={
+            "CERTIFICATE_PATH": os.path.join(work, "fullchain.pem"),
+            "PRIVATE_CERTIFICATE_PATH": os.path.join(work, "key.pem")})
+        self.addCleanup(chain_server.stop)
+        chain_server.start()
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(os.path.join(work, "ca.pem"))     # the root only: the intermediate must come from the server
+        context.check_hostname = False
+        c = FtpControl(PORT + 9, login=False)
+        self.addCleanup(c.close)
+        self.assertEqual(c.cmd("AUTH TLS")[0], 234)
+        c.sock = context.wrap_socket(c.sock)                             # raises if the chain does not verify
+        self.assertEqual(c.sock.getpeercert()["subject"][0][0][1], "localhost")
+
+    def test_data_connection_sends_no_session_ticket(self):
+        """Over a link with some latency a GnuTLS client (lftp, FileZilla) starts to send the
+        file right after its Finished; a TLS 1.3 session ticket from the server crosses with
+        it and the client resets the connection (426 and a file cut at 16384 bytes). The
+        data connection must not carry anything the client did not ask for."""
+        c, context = self.protected_session()
+        data = c.pasv()
+        self.assertReply(c, "STOR ticket.bin", 150)
+        data = context.wrap_socket(data)
+        if data.version() != "TLSv1.3":
+            data.close()
+            self.skipTest("session tickets after the handshake are a TLS 1.3 matter")
+        time.sleep(0.5)
+        data.settimeout(0.0)
+        try:
+            unsolicited = socket.socket.recv(data, 4096, socket.MSG_PEEK | socket.MSG_DONTWAIT)
+        except (BlockingIOError, ssl.SSLWantReadError, socket.timeout):
+            unsolicited = b""
+        self.assertEqual(len(unsolicited), 0, "the server sent %d bytes on the data connection before any data" % len(unsolicited))
+        data.settimeout(10)
+        data.sendall(b"x" * 30000)
+        try:
+            data.unwrap()
+        except (ssl.SSLError, OSError):
+            pass
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+
     def test_prot_c_after_prot_p_sends_clear_data(self):
         self.make_file("clear.txt", b"clear text")
         c, _ = self.protected_session()
         self.assertReply(c, "PROT C", 200)
         self.assertEqual(c.download("RETR clear.txt", c.pasv()), (226, b"clear text"))
+
+
+    def test_mlsd_and_record_structure_over_a_protected_data_connection(self):
+        """The same listing and record markers when the data connection is TLS."""
+        self.make_file("plain.bin", b"a\xffb")
+        c, context = self.protected_session()
+        data = c.pasv()
+        self.assertReply(c, "MLSD", 150)
+        data = context.wrap_socket(data)
+        received = b""
+        while True:
+            try:
+                part = data.recv(65536)
+            except ssl.SSLError:
+                break
+            if not part:
+                break
+            received += part
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        facts, name = parse_facts(received.decode().splitlines()[0])
+        self.assertEqual((name, facts["type"], facts["size"]), ("plain.bin", "file", "3"))
+        self.assertReply(c, "STRU R", 200)
+        data = c.pasv()
+        self.assertReply(c, "RETR plain.bin", 150)
+        data = context.wrap_socket(data)
+        received = b""
+        while True:
+            try:
+                part = data.recv(65536)
+            except ssl.SSLError:
+                break
+            if not part:
+                break
+            received += part
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        self.assertEqual(received, b"a\xff\xffb\xff\x03")
+
+
+def parse_facts(line):
+    """'type=file;size=3; name' -> ({'type': 'file', 'size': '3'}, 'name')"""
+    facts, name = line.split(" ", 1)
+    return dict(item.split("=", 1) for item in facts.rstrip(";").split(";") if item), name
+
+
+class MlsxTests(RFCTestCase):
+    """RFC 3659: MLST (listing of one path on the control connection) and MLSD (listing of a directory on the data connection)."""
+
+    def mlsd(self, c, argument=""):
+        code, data = c.download(("MLSD " + argument).strip(), c.pasv())
+        return code, [parse_facts(line) for line in data.decode().splitlines()]
+
+    def test_mlsd_lists_files_and_directories(self):
+        self.make_file("one.txt", b"12345")
+        os.mkdir(os.path.join(server.home, "folder"))
+        self.make_file(".hidden", b"h")
+        os.utime(os.path.join(server.home, "one.txt"), (1700000000, 1700000000))
+        c = self.connect()
+        code, entries = self.mlsd(c)
+        self.assertEqual(code, 226)
+        by_name = {name: facts for facts, name in entries}
+        self.assertEqual(sorted(by_name), [".hidden", "folder", "one.txt"])      # hidden files yes, . and .. no
+        self.assertEqual(by_name["one.txt"]["type"], "file")
+        self.assertEqual(by_name["one.txt"]["size"], "5")
+        self.assertEqual(by_name["folder"]["type"], "dir")
+        # modify is in UTC whatever the time zone of the server (the suite runs it in Asia/Tokyo)
+        self.assertEqual(by_name["one.txt"]["modify"], "20231114221320")
+        self.assertRegex(by_name["one.txt"]["unix.mode"], r"^0[0-7]{3}$")
+        self.assertIn("perm", by_name["one.txt"])
+
+    def test_mlsd_of_a_subdirectory_and_errors(self):
+        os.mkdir(os.path.join(server.home, "sub"))
+        self.make_file("sub/inner.txt", b"x")
+        self.make_file("plain.txt")
+        c = self.connect()
+        code, entries = self.mlsd(c, "sub")
+        self.assertEqual((code, [name for _, name in entries]), (226, ["inner.txt"]))
+        self.assertEqual(c.download("MLSD plain.txt", c.pasv())[0], 501)           # not a directory
+        self.assertEqual(c.download("MLSD nosuchdir", c.pasv())[0], 550)
+        self.assertEqual(c.download("MLSD ../../../etc", c.pasv())[0], 550)        # the home is not left
+        self.assertReply(self.connect(), "MLSD", 425)                               # no data connection set up
+        self.assertReply(c, "NOOP", 200)
+
+    def test_mlsd_needs_login(self):
+        c = self.connect(login=False)
+        self.assertReply(c, "MLSD", 530)
+        self.assertReply(c, "MLST", 530)
+
+    def test_mlst_of_a_file_and_a_directory(self):
+        self.make_file("one.txt", b"12345")
+        os.mkdir(os.path.join(server.home, "folder"))
+        c = self.connect()
+        text = self.assertReply(c, "MLST one.txt", 250)
+        lines = text.splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[0].startswith("250-"))
+        self.assertTrue(lines[1].startswith(" "))                                  # the fact line starts with a space
+        facts, name = parse_facts(lines[1][1:])
+        self.assertEqual((facts["type"], facts["size"], name), ("file", "5", "one.txt"))
+        self.assertTrue(lines[2].startswith("250 "))
+        facts, _ = parse_facts(self.assertReply(c, "MLST folder", 250).splitlines()[1][1:])
+        self.assertEqual(facts["type"], "dir")
+        self.assertReply(c, "MLST nosuchfile", 550)
+        self.assertReply(c, "MLST ../../etc/passwd", 550)
+        self.assertReply(c, "MLST", 250)                                           # the current directory
+
+    def test_mlst_works_during_a_transfer(self):
+        self.make_file("big.bin", b"b" * (8 << 20))
+        c = self.connect()
+        data = c.pasv()
+        self.assertReply(c, "RETR big.bin", 150)
+        self.assertReply(c, "MLST big.bin", 250)
+        while data.recv(1 << 20):
+            pass
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+
+    def test_feat_announces_mlst_and_opts_chooses_the_facts(self):
+        self.make_file("one.txt", b"12345")
+        c = self.connect()
+        features = [line.strip() for line in self.assertReply(c, "FEAT", 211).splitlines()]
+        announced = [f for f in features if f.startswith("MLST ")]
+        self.assertEqual(len(announced), 1)
+        for fact in ("type*", "size*", "modify*", "perm*"):
+            self.assertIn(fact, announced[0])
+        self.assertEqual(self.assertReply(c, "OPTS MLST type;size;", 200).strip(), "200 MLST OPTS type;size;")
+        facts, name = parse_facts(self.assertReply(c, "MLST one.txt", 250).splitlines()[1][1:])
+        self.assertEqual(sorted(facts), ["size", "type"])
+        code, entries = self.mlsd(c)
+        self.assertEqual(sorted(entries[0][0]), ["size", "type"])
+        self.assertReply(c, "OPTS MLST bogus;type;", 200)                           # unknown facts are ignored
+        self.assertReply(c, "OPTS MLST", 200)                                       # no facts at all
+        facts, _ = parse_facts(self.assertReply(c, "MLST one.txt", 250).splitlines()[1][1:])
+        self.assertEqual(facts, {})
+
+    def test_the_facts_belong_to_the_connection(self):
+        self.make_file("one.txt")
+        first, second = self.connect(), self.connect()
+        self.assertReply(first, "OPTS MLST type;", 200)
+        facts, _ = parse_facts(self.assertReply(second, "MLST one.txt", 250).splitlines()[1][1:])
+        self.assertIn("size", facts)
+
+    def test_mlsd_skips_names_with_line_breaks_and_dead_links(self):
+        self.make_file("good.txt")
+        self.make_file("bad\nname.txt")
+        os.symlink("/nonexistent/target", os.path.join(server.home, "dead"))
+        os.symlink("good.txt", os.path.join(server.home, "alias.txt"))
+        c = self.connect()
+        code, entries = self.mlsd(c)
+        self.assertEqual(code, 226)
+        self.assertEqual(sorted(name for _, name in entries), ["alias.txt", "good.txt"])
+
+    def test_mlsd_perm_fact_follows_the_permissions(self):
+        self.make_file("readonly.txt")
+        os.chmod(os.path.join(server.home, "readonly.txt"), 0o444)
+        c = self.connect()
+        facts, _ = parse_facts(self.assertReply(c, "MLST readonly.txt", 250).splitlines()[1][1:])
+        self.assertEqual(facts["unix.mode"], "0444")
+        self.assertIn("r", facts["perm"])
+
+    def test_python_ftplib_reads_the_listing(self):
+        """A real client library: ftplib.FTP.mlsd() parses the lines and the facts."""
+        self.make_file("lib.txt", b"12345678")
+        os.mkdir(os.path.join(server.home, "libdir"))
+        ftp = ftplib.FTP()
+        ftp.connect(HOST, PORT, timeout=10)
+        ftp.login(server.user, server.password)
+        try:
+            entries = dict(ftp.mlsd())
+            self.assertEqual(entries["lib.txt"]["type"], "file")
+            self.assertEqual(entries["lib.txt"]["size"], "8")
+            self.assertEqual(entries["libdir"]["type"], "dir")
+            self.assertEqual(dict(ftp.mlsd(facts=["size"]))["lib.txt"], {"size": "8"})   # OPTS MLST size;
+            self.assertEqual(ftp.sendcmd("NOOP")[:3], "200")
+        finally:
+            ftp.close()
+
+    def test_a_big_directory_and_a_long_name(self):
+        for n in range(3000):
+            open(os.path.join(server.home, "file-%04d.dat" % n), "w").close()
+        long_name = "n" * 250
+        self.make_file(long_name)
+        c = self.connect()
+        code, entries = self.mlsd(c)
+        self.assertEqual(code, 226)
+        names = [name for _, name in entries]
+        self.assertEqual(len(names), 3001)
+        self.assertIn(long_name, names)
+
+    def test_mlsd_in_active_mode(self):
+        self.make_file("active.txt", b"abc")
+        c = self.connect()
+        listener, port = listening_socket()
+        self.addCleanup(listener.close)
+        self.assertReply(c, "PORT " + port_argument(HOST, port), 200)
+        self.assertReply(c, "MLSD", 150)
+        connection, _ = listener.accept()
+        data = b""
+        while True:
+            part = connection.recv(65536)
+            if not part:
+                break
+            data += part
+        connection.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        self.assertEqual(parse_facts(data.decode().strip())[1], "active.txt")
+
+
+class LangHostTests(RFCTestCase):
+    """RFC 2640 LANG and RFC 7151 HOST."""
+
+    def test_lang(self):
+        c = self.connect()
+        for command, code in (("LANG", 200), ("LANG EN", 200), ("lang en-US", 200), ("LANG en-gb", 200),
+                              ("LANG IT", 504), ("LANG fr-FR", 504), ("LANG x", 504), ("LANG EN XX", 501)):
+            self.assertReply(c, command, code)
+
+    def test_lang_and_host_are_allowed_before_login(self):
+        c = self.connect(login=False)
+        self.assertReply(c, "LANG EN", 200)
+        self.assertReply(c, "HOST example.com", 220)
+        self.assertReply(c, "PWD", 530)
+
+    def test_lang_is_in_feat(self):
+        features = [line.strip() for line in self.assertReply(self.connect(), "FEAT", 211).splitlines()]
+        self.assertIn("LANG EN*", features)
+        self.assertIn("HOST", features)
+
+    def test_host_before_login(self):
+        c = self.connect(login=False)
+        self.assertReply(c, "HOST ftp.example.com", 220)
+        self.assertReply(c, "HOST other.example.org", 220)                           # again: fine until USER
+        self.assertReply(c, "HOST 192.0.2.1", 220)
+        self.assertReply(c, "HOST [2001:db8::1]", 220)
+        self.assertReply(c, "USER " + server.user, 331)
+        self.assertReply(c, "HOST ftp.example.com", 503)                             # not after USER
+        self.assertReply(c, "PASS " + server.password, 230)
+        self.assertReply(c, "HOST ftp.example.com", 503)                             # nor after the login
+        self.assertReply(c, "PWD", 257)
+
+    def test_host_syntax(self):
+        c = self.connect(login=False)
+        for command in ("HOST", "HOST bad name", "HOST a/b", "HOST " + "a" * 300, "HOST ;rm -rf"):
+            self.assertReply(c, command, 501)
+        self.assertReply(c, "HOST good-name.example.com", 220)
+
+
+class ReviewFixesTests(RFCTestCase):
+    """Defects found by the review of the changes of 4.3.0."""
+
+    def test_auth_resets_stru_r_and_the_mlst_facts(self):
+        """RFC 4217 section 4.2: AUTH resets the transfer parameters. STRU R (records, 0xFF doubled) and the facts
+        chosen with OPTS MLST stayed as they were."""
+        if "AUTH TLS" not in self.connect(login=False).cmd("FEAT")[1]:
+            self.skipTest("uFTP was built without OpenSSL support")
+        self.make_file("reset.bin", b"a\xffb")
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        self.assertReply(c, "OPTS MLST type;", 200)
+        c.start_tls()
+        c.login()
+        self.assertEqual(c.download("RETR reset.bin", c.pasv()), (226, b"a\xffb"))        # file structure again
+        facts, _ = parse_facts(self.assertReply(c, "MLST reset.bin", 250).splitlines()[1][1:])
+        self.assertIn("size", facts)                                                       # all the facts again
+
+    def test_a_ccc_while_the_worker_writes_its_reply_does_not_hurt_the_server(self):
+        """CCC called SSL_shutdown() without the write lock, while a data worker could write its 226 on the same TLS
+        object. A race: the test repeats it, and checks that the server lives and answers."""
+        if "AUTH TLS" not in self.connect(login=False).cmd("FEAT")[1]:
+            self.skipTest("uFTP was built without OpenSSL support")
+        self.make_file("race.bin", b"r" * (2 << 20))
+        for attempt in range(15):
+            c = self.connect(login=False)
+            c.start_tls()
+            c.login()
+            self.assertReply(c, "PBSZ 0", 200)
+            self.assertReply(c, "PROT C", 200)
+            data = c.pasv()
+            c.sock.sendall(b"")                                     # nothing pending
+            c.send("RETR race.bin")
+            c.send("CCC")
+            received = 0
+            while True:
+                part = data.recv(1 << 20)
+                if not part:
+                    break
+                received += len(part)
+            data.close()
+            self.assertEqual(received, 2 << 20)
+            c.close()
+        self.assertReply(self.connect(), "NOOP", 200)               # the server is alive
+
+    def test_size_of_things_that_are_not_readable_files(self):
+        self.make_file("secret.txt", b"x")
+        os.chmod(os.path.join(server.home, "secret.txt"), 0)
+        os.symlink("/nonexistent/target", os.path.join(server.home, "dead"))
+        os.mkdir(os.path.join(server.home, "adir"))
+        c = self.connect()
+        for name in ("dead", "adir", "nothing"):
+            self.assertReply(c, "SIZE " + name, 550)
+        os.chmod(os.path.join(server.home, "secret.txt"), 0o644)
+        self.assertReply(c, "SIZE secret.txt", 213)
+
+
+    def test_listing_of_special_files_and_broken_links_is_stable(self):
+        """A FIFO, a socket or a device is neither a file nor a directory: it is not listed. The fields of the entry were
+        read without being set, so it was listed or not by chance (and as a regular file of size 0). A broken link is
+        listed, with size 0."""
+        os.mkfifo(os.path.join(server.home, "a-fifo"))
+        sock = socket.socket(socket.AF_UNIX)
+        self.addCleanup(sock.close)
+        sock.bind(os.path.join(server.home, "a-socket"))
+        os.symlink("/nonexistent/target", os.path.join(server.home, "a-dead-link"))
+        self.make_file("plain.txt", b"12345")
+        c = self.connect()
+        for command in ("LIST", "LIST -a", "STAT ."):
+            if command == "STAT .":
+                lines = self.assertReply(c, command, 213).splitlines()
+            else:
+                code, data = c.download(command, c.pasv())
+                self.assertEqual(code, 226)
+                lines = data.decode().splitlines()
+            names = [line.split()[8] for line in lines if line[:1] in "-dl" and len(line.split()) > 8]
+            self.assertIn("plain.txt", names, command)
+            self.assertNotIn("a-fifo", names, command)
+            self.assertNotIn("a-socket", names, command)
+            link = [line for line in lines if " a-dead-link" in line]
+            self.assertEqual(len(link), 1, command)
+            self.assertRegex(link[0], r"^l\S+ +\d+ +\S+ +\S+ +0 ", command)
+        code, data = c.download("NLST", c.pasv())
+        self.assertNotIn(b"a-fifo", data)
+
+
+class RecordStructureTests(RFCTestCase):
+    """RFC 959 section 3.4.2: STRU R in stream mode. 0xFF is doubled, 0xFF 0x01 ends a record,
+    0xFF 0x02 the file, 0xFF 0x03 both."""
+
+    def test_stru_r_and_back(self):
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        self.assertReply(c, "STRU P", 504)
+        self.assertReply(c, "STRU F", 200)
+
+    def test_retr_sends_one_record_with_escaped_ff(self):
+        self.make_file("data.bin", b"ab\xffcd\xff\xffef")
+        c = self.connect()
+        self.assertReply(c, "TYPE I", 200)
+        self.assertReply(c, "STRU R", 200)
+        code, data = c.download("RETR data.bin", c.pasv())
+        self.assertEqual(code, 226)
+        self.assertEqual(data, b"ab\xff\xffcd\xff\xff\xff\xffef\xff\x03")
+
+    def test_stor_decodes_the_records(self):
+        c = self.connect()
+        self.assertReply(c, "TYPE I", 200)
+        self.assertReply(c, "STRU R", 200)
+        self.assertEqual(c.upload("STOR up.bin", c.pasv(), b"one\xff\x01two\xff\xffthree\xff\x03ignored"), 226)
+        with open(os.path.join(server.home, "up.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"onetwo\xffthree")
+
+    def test_stor_marker_split_over_two_packets(self):
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        data = c.pasv()
+        self.assertReply(c, "STOR split.bin", 150)
+        for part in (b"abc\xff", b"\xffdef\xff", b"\x02"):
+            data.sendall(part)
+            time.sleep(0.2)
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        with open(os.path.join(server.home, "split.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"abc\xffdef")
+
+    def test_round_trip_of_every_byte_value(self):
+        payload = bytes(range(256)) * 600
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        encoded = payload.replace(b"\xff", b"\xff\xff") + b"\xff\x03"
+        self.assertEqual(c.upload("STOR all.bin", c.pasv(), encoded), 226)
+        with open(os.path.join(server.home, "all.bin"), "rb") as f:
+            self.assertEqual(f.read(), payload)
+        code, data = c.download("RETR all.bin", c.pasv())
+        self.assertEqual((code, data), (226, encoded))
+
+    def test_file_structure_is_unchanged(self):
+        self.make_file("data.bin", b"a\xffb")
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        self.assertReply(c, "STRU F", 200)
+        self.assertEqual(c.download("RETR data.bin", c.pasv()), (226, b"a\xffb"))
+
+    def test_listings_are_not_encoded(self):
+        self.make_file("name.txt")
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        code, data = c.download("NLST", c.pasv())
+        self.assertEqual((code, data), (226, b"name.txt\r\n"))
+
+    def test_the_structure_belongs_to_the_connection(self):
+        self.make_file("data.bin", b"a\xffb")
+        first, second = self.connect(), self.connect()
+        self.assertReply(first, "STRU R", 200)
+        self.assertEqual(second.download("RETR data.bin", second.pasv()), (226, b"a\xffb"))
+
+
+    def test_an_invalid_marker_fails_the_upload(self):
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        self.assertEqual(c.upload("STOR bad.bin", c.pasv(), b"abc\xff\x05def"), 501)
+        self.assertReply(c, "NOOP", 200)
+
+    def test_a_marker_cut_by_the_end_of_the_connection_is_ignored(self):
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        self.assertEqual(c.upload("STOR cut.bin", c.pasv(), b"abc\xff"), 226)
+        with open(os.path.join(server.home, "cut.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"abc")
+
+    def test_retr_after_rest_sends_the_records_from_the_offset(self):
+        self.make_file("part.bin", b"0123\xff89")
+        c = self.connect()
+        self.assertReply(c, "TYPE I", 200)
+        self.assertReply(c, "STRU R", 200)
+        self.assertReply(c, "REST 4", 350)
+        self.assertEqual(c.download("RETR part.bin", c.pasv()), (226, b"\xff\xff89\xff\x03"))
+
+
+    def test_empty_records_and_a_record_made_of_markers_only(self):
+        """0xFF 0x01 with no data (an empty record) must not end or truncate the file; a file that is only markers is empty."""
+        c = self.connect()
+        self.assertReply(c, "STRU R", 200)
+        self.assertEqual(c.upload("STOR empty.bin", c.pasv(), b"\xff\x01"), 226)
+        self.assertEqual(os.path.getsize(os.path.join(server.home, "empty.bin")), 0)
+        self.assertEqual(c.upload("STOR records.bin", c.pasv(), b"\xff\x01\xff\x01abc\xff\x01\xff\x01def\xff\x01"), 226)
+        with open(os.path.join(server.home, "records.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"abcdef")
 
 
 if __name__ == "__main__":

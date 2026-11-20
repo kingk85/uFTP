@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -43,6 +44,7 @@
 #include "../ftpData.h"
 #include "connection.h"
 #include "openSsl.h"
+#include "addressKey.h"
 #include "log.h"
 
 #include "debug_defines.h"
@@ -336,13 +338,17 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 	   (OpenSSL objects are not thread safe). Cancellation is disabled while the mutex
 	   is held: a worker cancelled inside write() would leave it locked for ever. */
 	int previousCancelState;
+	/* The control thread is one for the whole server: a client that does not read stops it for as long as the
+	   write waits. A client that has not logged in has no reason to be slow (its replies are a few bytes): it is
+	   given a tenth of a second, a logged in client the CONTROL_WRITE_TIMEOUT_MS of a slow link. */
+	int writeTimeoutMs = (ftpData->clients[clientId].login.userLoggedIn == 1) ? CONTROL_WRITE_TIMEOUT_MS : CONTROL_WRITE_TIMEOUT_UNAUTHENTICATED_MS;
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
 	pthread_mutex_lock(&ftpData->clients[clientId].writeMutex);
 
 	if (ftpData->clients[clientId].tlsIsEnabled != 1)
 	{
 		bytesWritten = writeControlBounded(ftpData->clients[clientId].socketDescriptor, commandBuffer,
-		                                   (size_t)theCommandSize, CONTROL_WRITE_TIMEOUT_MS);
+		                                   (size_t)theCommandSize, writeTimeoutMs);
 	}
 	else if (ftpData->clients[clientId].tlsIsEnabled == 1)
 	{
@@ -354,7 +360,7 @@ int socketPrintf(ftpDataType * ftpData, int clientId, const char *__restrict __f
 		bytesWritten = tlsWriteBounded(ftpData->clients[clientId].ssl,
 		                               ftpData->clients[clientId].socketDescriptor,
 		                               commandBuffer, theCommandSize,
-		                               CONTROL_WRITE_TIMEOUT_MS);
+		                               writeTimeoutMs);
 		#endif
 	}
 
@@ -433,10 +439,9 @@ static ssize_t writeDataChannelBuffer(ftpDataType *ftpData, int clientId, const 
     {
         SSL *dataSsl = NULL;
 
-        if (ftpData->clients[clientId].workerData.passiveModeOn == 1)
+        if (ftpData->clients[clientId].workerData.passiveModeOn == 1 ||
+            ftpData->clients[clientId].workerData.activeModeOn == 1)
             dataSsl = ftpData->clients[clientId].workerData.serverSsl;
-        else if (ftpData->clients[clientId].workerData.activeModeOn == 1)
-            dataSsl = ftpData->clients[clientId].workerData.clientSsl;
 
         if (dataSsl == NULL)
             return -1;
@@ -538,22 +543,6 @@ int socketWorkerPrintf(ftpDataType * ftpData, int clientId, const char *__restri
 }
 
 /* Return the higher socket available*/
-int getMaximumSocketFd(int mainSocket, ftpDataType * ftpData)
-{
-    int toReturn = mainSocket;
-    int i = 0;
-
-    for (i = 0; i < ftpData->ftpParameters.maxClients; i++)
-    {
-        if (ftpData->clients[i].socketDescriptor > toReturn) {
-            toReturn = ftpData->clients[i].socketDescriptor;
-        }
-    }
-    //Must be incremented by one
-    toReturn++;
-    return toReturn;
-}
-
 #ifdef IPV6_ENABLED
 
 int isPortInUse(int port) {
@@ -923,15 +912,47 @@ int createPassiveSocket(int port)
 
 #endif
 
+/* The worker of an active mode data connection is stopped with pthread_cancel (a new PORT/PASV, ABOR, QUIT) and connect()
+   is a cancellation point: a socket created here and not yet known to anybody was lost when the worker was stopped while
+   connecting. The descriptor is put in the data of the worker (descriptorSlot) as soon as it exists, with the
+   cancellation disabled, so the cleanup of the worker closes it; the failure paths close it the same way. */
+static int socketForTheWorker(int family, volatile int *descriptorSlot)
+{
+    int previousCancelState;
+    int sockfd;
+
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
+    sockfd = socket(family, SOCK_STREAM, 0);
+    if (sockfd >= 0 && descriptorSlot != NULL)
+    {
+        *descriptorSlot = sockfd;
+    }
+    pthread_setcancelstate(previousCancelState, NULL);
+    return sockfd;
+}
+
+static void closeSocketOfTheWorker(int sockfd, volatile int *descriptorSlot)
+{
+    int previousCancelState;
+
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousCancelState);
+    if (descriptorSlot != NULL)
+    {
+        *descriptorSlot = -1;
+    }
+    close(sockfd);
+    pthread_setcancelstate(previousCancelState, NULL);
+}
+
 #ifdef IPV6_ENABLED
-int createActiveSocketV6(int port, char *ipAddress)
+int createActiveSocketV6(int port, char *ipAddress, volatile int *descriptorSlot)
 {
 	int sockfd;
 	struct sockaddr_in6 serv_addr6;
 	struct sockaddr *serv_addr_any;
 
     // Creating socket
-    if ((sockfd = socket(AF_INET6, SOCK_STREAM, 0)) < 0) 
+    if ((sockfd = socketForTheWorker(AF_INET6, descriptorSlot)) < 0) 
 	{
 		my_printfError("Socket creation failed");
 		LOG_ERROR("Socket creation failed");
@@ -967,7 +988,7 @@ int createActiveSocketV6(int port, char *ipAddress)
 	else 
 	{
 		my_printfError("Invalid ip address");
-		close(sockfd);
+		closeSocketOfTheWorker(sockfd, descriptorSlot);
 		errno = EINVAL;
         return -1;
     }
@@ -977,7 +998,7 @@ int createActiveSocketV6(int port, char *ipAddress)
 	{
 		int connectError = errno;
 		my_printfError("Connection failed");
-		close(sockfd);
+		closeSocketOfTheWorker(sockfd, descriptorSlot);
 		errno = connectError;
 		return -1;
     }
@@ -986,7 +1007,16 @@ int createActiveSocketV6(int port, char *ipAddress)
 }
 #endif
 
-int createActiveSocket(int port, char *ipAddress)
+/* The replies of the control connection are small and come one after the other (150 then 226). Without
+   TCP_NODELAY the second one waits for the ACK of the first, which the client delays by about 40 ms: every
+   transfer took at least 41 ms, whatever its size. */
+void setTcpNoDelay(int fd)
+{
+    int enable = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+}
+
+int createActiveSocket(int port, char *ipAddress, volatile int *descriptorSlot)
 {
   int sockfd;
   struct sockaddr_in serv_addr;
@@ -1001,7 +1031,7 @@ int createActiveSocket(int port, char *ipAddress)
       return -1;
   } 
 
-  if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+  if((sockfd = socketForTheWorker(AF_INET, descriptorSlot)) < 0)
   {
       my_printf("\n2 Error : Could not create socket \n");
       return -1;
@@ -1038,7 +1068,7 @@ int createActiveSocket(int port, char *ipAddress)
 
    	  if (sockfd != -1)
    	  {
-   		close(sockfd);
+   		closeSocketOfTheWorker(sockfd, descriptorSlot);
    	  }
 
      return -1;
@@ -1049,34 +1079,89 @@ int createActiveSocket(int port, char *ipAddress)
   return sockfd;
 }
 
+/* The control channel waits with epoll (Linux) or poll(), not select(): select() can not watch a descriptor of
+   1024 or more (FD_SET wrote outside its sets and the server fell at about the 1020th connection), and it scans
+   every descriptor at every turn. The events are level triggered, as the sets of select() were: a client with
+   data left unread is reported again at the next wait. With epoll the data of the event is the index of the
+   client plus one (0 is the socket that listens); with poll() the list of the descriptors is built at every wait. */
+#ifdef UFTP_USE_EPOLL
+
 void fdInit(ftpDataType * ftpData)
 {
-    FD_ZERO(&ftpData->connectionData.rset);
-    FD_ZERO(&ftpData->connectionData.wset);
-    FD_ZERO(&ftpData->connectionData.eset);
-    FD_ZERO(&ftpData->connectionData.rsetAll);
-    FD_ZERO(&ftpData->connectionData.wsetAll);
-    FD_ZERO(&ftpData->connectionData.esetAll);    
+    struct epoll_event event;
 
-    FD_SET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.rsetAll);    
-    FD_SET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.wsetAll);
-    FD_SET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.esetAll);
+    ftpData->connectionData.mainSocketReady = 0;
+    ftpData->connectionData.epollFd = epoll_create1(EPOLL_CLOEXEC);
+    ftpData->connectionData.events = (struct epoll_event *) DYNMEM_malloc(sizeof(struct epoll_event) * ((size_t)ftpData->ftpParameters.maxClients + 1), &ftpData->generalDynamicMemoryTable, "EpollEvents");
+
+    if (ftpData->connectionData.epollFd == -1 || ftpData->connectionData.events == NULL)
+    {
+        LOGF_NOW("%sCan not create the epoll instance: %s, exiting", LOG_FATAL_PREFIX, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&event, 0, sizeof(event));
+    event.events = EPOLLIN;
+    event.data.u32 = 0;
+
+    if (epoll_ctl(ftpData->connectionData.epollFd, EPOLL_CTL_ADD, ftpData->connectionData.theMainSocket, &event) == -1)
+    {
+        LOGF_NOW("%sCan not watch the listening socket: %s, exiting", LOG_FATAL_PREFIX, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
 }
 
 void fdAdd(ftpDataType * ftpData, int index)
 {
-    FD_SET(ftpData->clients[index].socketDescriptor, &ftpData->connectionData.rsetAll);    
-    FD_SET(ftpData->clients[index].socketDescriptor, &ftpData->connectionData.wsetAll);
-    FD_SET(ftpData->clients[index].socketDescriptor, &ftpData->connectionData.esetAll);
-    ftpData->connectionData.maxSocketFD = getMaximumSocketFd(ftpData->connectionData.theMainSocket, ftpData) + 1;
+    struct epoll_event event;
+
+    memset(&event, 0, sizeof(event));
+    event.events = EPOLLIN | EPOLLPRI;
+    event.data.u32 = (uint32_t)index + 1;
+
+    if (epoll_ctl(ftpData->connectionData.epollFd, EPOLL_CTL_ADD, ftpData->clients[index].socketDescriptor, &event) == -1)
+    {
+        /* the client is not watched: it would stay connected until the idle timeout, without being served */
+        LOGF("%sCan not watch the client %d: %s", LOG_ERROR_PREFIX, index, strerror(errno));
+        markClientForClosing(ftpData, index, "can not be watched (epoll)");
+    }
 }
 
-void fdRemove(ftpDataType * ftpData, int index)
+static void fdRemove(ftpDataType * ftpData, int index)
 {
-    FD_CLR(ftpData->clients[index].socketDescriptor, &ftpData->connectionData.rsetAll);    
-    FD_CLR(ftpData->clients[index].socketDescriptor, &ftpData->connectionData.wsetAll);
-    FD_CLR(ftpData->clients[index].socketDescriptor, &ftpData->connectionData.esetAll);
+    /* not watched any more (the close would do it too, but not with a copy of the descriptor around) */
+    epoll_ctl(ftpData->connectionData.epollFd, EPOLL_CTL_DEL, ftpData->clients[index].socketDescriptor, NULL);
 }
+
+#else /* poll() */
+
+void fdInit(ftpDataType * ftpData)
+{
+    ftpData->connectionData.mainSocketReady = 0;
+    ftpData->connectionData.pollDescriptors = (struct pollfd *) DYNMEM_malloc(sizeof(struct pollfd) * ((size_t)ftpData->ftpParameters.maxClients + 1), &ftpData->generalDynamicMemoryTable, "PollDescriptors");
+    ftpData->connectionData.pollClientIndex = (int *) DYNMEM_malloc(sizeof(int) * ((size_t)ftpData->ftpParameters.maxClients + 1), &ftpData->generalDynamicMemoryTable, "PollClientIndex");
+
+    if (ftpData->connectionData.pollDescriptors == NULL || ftpData->connectionData.pollClientIndex == NULL)
+    {
+        LOGF_NOW("%sCan not allocate the list of descriptors, exiting", LOG_FATAL_PREFIX);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void fdAdd(ftpDataType * ftpData, int index)
+{
+    /* nothing to do: the connected clients are all in the list built by waitForClientEvents() */
+    (void)ftpData;
+    (void)index;
+}
+
+static void fdRemove(ftpDataType * ftpData, int index)
+{
+    (void)ftpData;
+    (void)index;
+}
+
+#endif
 
 void closeSocket(ftpDataType * ftpData, int processingSocket)
 {
@@ -1134,14 +1219,10 @@ void closeClient(ftpDataType * ftpData, int processingSocket)
     	handleThreadReuse(ftpData, processingSocket);
     }
 
-    FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.rsetAll);    
-    FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.wsetAll);
-    FD_CLR(ftpData->clients[processingSocket].socketDescriptor, &ftpData->connectionData.esetAll);
+    fdRemove(ftpData, processingSocket);
+    ftpData->clients[processingSocket].socketEventReady = 0;
 
     closeSocket(ftpData, processingSocket);
-
-    ftpData->connectionData.maxSocketFD = ftpData->connectionData.theMainSocket+1;
-    ftpData->connectionData.maxSocketFD = getMaximumSocketFd(ftpData->connectionData.theMainSocket, ftpData) + 1;
     return;
 }
 
@@ -1209,15 +1290,134 @@ void flushLoginWrongTriesData(ftpDataType * ftpData)
     }
 }
 
-int selectWait(ftpDataType * ftpData)
+#ifdef OPENSSL_ENABLED
+/* A TLS record (up to 16 KB) is decrypted as a whole at the first read, but the control
+   channel reads 4096 bytes at a time: the rest stays inside OpenSSL, where select()
+   does not see it. */
+static int hasDecryptedDataWaiting(ftpDataType * ftpData, int index)
 {
-    struct timeval selectMaximumLockTime;
-    selectMaximumLockTime.tv_sec = 10;
-    selectMaximumLockTime.tv_usec = 0;
-    ftpData->connectionData.rset = ftpData->connectionData.rsetAll;
-    ftpData->connectionData.wset = ftpData->connectionData.wsetAll;
-    ftpData->connectionData.eset = ftpData->connectionData.esetAll;
-    return select(ftpData->connectionData.maxSocketFD, &ftpData->connectionData.rset, NULL, &ftpData->connectionData.eset, &selectMaximumLockTime);
+    int pending;
+
+    if (isClientConnected(ftpData, index) == 0 ||
+        ftpData->clients[index].tlsIsEnabled == 0 ||
+        ftpData->clients[index].ssl == NULL)
+    {
+        return 0;
+    }
+
+    /* the worker may be writing a reply on the same SSL object */
+    pthread_mutex_lock(&ftpData->clients[index].writeMutex);
+    pending = SSL_pending(ftpData->clients[index].ssl);
+    pthread_mutex_unlock(&ftpData->clients[index].writeMutex);
+
+    return pending > 0;
+}
+#endif
+
+/* Waits (at most 10 seconds) for activity and marks who has it: the listening socket
+   (mainSocketReady) and every client with something to read, an error or a hang up (socketEventReady). */
+int waitForClientEvents(ftpDataType * ftpData)
+{
+    int timeoutMilliseconds = 10000;
+    int count;
+
+    #ifdef OPENSSL_ENABLED
+    /* a client with data already decrypted is readable now: do not wait for the socket */
+    for (int i = 0; i < ftpData->ftpParameters.maxClients; i++)
+    {
+        if (hasDecryptedDataWaiting(ftpData, i))
+        {
+            timeoutMilliseconds = 0;
+            break;
+        }
+    }
+    #endif
+
+    ftpData->connectionData.mainSocketReady = 0;
+    for (int i = 0; i < ftpData->ftpParameters.maxClients; i++)
+    {
+        ftpData->clients[i].socketEventReady = 0;
+
+        /* A client that is to be closed (QUIT, a failed login, a refused connection...) is closed at the next turn of the
+           loop: with nothing else happening that turn started only after the 10 seconds of the wait, and the connection
+           stayed open that long after the 221 of QUIT (a client that waits for the server to close it waited 10 s). */
+        if (ftpData->clients[i].closeTheClient == 1)
+        {
+            timeoutMilliseconds = 0;
+        }
+    }
+
+#ifdef UFTP_USE_EPOLL
+    count = epoll_wait(ftpData->connectionData.epollFd, ftpData->connectionData.events, ftpData->ftpParameters.maxClients + 1, timeoutMilliseconds);
+
+    for (int e = 0; e < count; e++)
+    {
+        uint32_t who = ftpData->connectionData.events[e].data.u32;
+
+        if (who == 0)
+        {
+            ftpData->connectionData.mainSocketReady = 1;
+        }
+        else if (who <= (uint32_t)ftpData->ftpParameters.maxClients)
+        {
+            ftpData->clients[who - 1].socketEventReady = 1;
+        }
+    }
+#else
+    {
+        struct pollfd *list = ftpData->connectionData.pollDescriptors;
+        int used = 0;
+
+        list[0].fd = ftpData->connectionData.theMainSocket;
+        list[0].events = POLLIN;
+        list[0].revents = 0;
+        ftpData->connectionData.pollClientIndex[0] = -1;
+        used = 1;
+
+        for (int i = 0; i < ftpData->ftpParameters.maxClients; i++)
+        {
+            if (isClientConnected(ftpData, i) == 1)
+            {
+                list[used].fd = ftpData->clients[i].socketDescriptor;
+                list[used].events = POLLIN | POLLPRI;
+                list[used].revents = 0;
+                ftpData->connectionData.pollClientIndex[used] = i;
+                used++;
+            }
+        }
+
+        count = poll(list, (nfds_t)used, timeoutMilliseconds);
+
+        /* any event, an error or a hang up included, is "ready": the read finds out */
+        for (int e = 0; count > 0 && e < used; e++)
+        {
+            if (list[e].revents == 0)
+            {
+                continue;
+            }
+            if (e == 0)
+            {
+                ftpData->connectionData.mainSocketReady = 1;
+            }
+            else
+            {
+                ftpData->clients[ftpData->connectionData.pollClientIndex[e]].socketEventReady = 1;
+            }
+        }
+    }
+#endif
+
+    #ifdef OPENSSL_ENABLED
+    for (int i = 0; i < ftpData->ftpParameters.maxClients; i++)
+    {
+        if (hasDecryptedDataWaiting(ftpData, i))
+        {
+            ftpData->clients[i].socketEventReady = 1;
+        }
+    }
+    #endif
+
+    return count;
 }
 
 int isClientConnected(ftpDataType * ftpData, int cliendId)
@@ -1247,21 +1447,124 @@ int getAvailableClientSocketIndex(ftpDataType * ftpData)
 }
 
 
+/* 1 if this address has opened more than MAX_CONNECTION_RATE_PER_IP connections in the current
+   minute (this one included). Every connection counts, whatever it does next: a flood is what the
+   limit is for. IPv4 as it is, IPv6 as its /64 network (addressKey.h). */
+static int connectionRateIsExceeded(ftpDataType * ftpData, const char *address)
+{
+    char key[INET6_ADDRSTRLEN];
+    unsigned int slot = 5381;
+    time_t now = time(NULL);
+    connectionRateType *entry;
+
+    if (ftpData->ftpParameters.maximumConnectionRatePerIp <= 0)
+    {
+        return 0;
+    }
+
+    addressKey(address, key, sizeof(key));
+
+    for (const char *c = key; *c != '\0'; c++)
+    {
+        slot = slot * 33 + (unsigned char)*c;
+    }
+
+    entry = &ftpData->connectionRate[slot % CONNECTION_RATE_TABLE_SIZE];
+
+    /* another address on the same entry, or a minute gone: start again */
+    if (strcmp(entry->key, key) != 0 || now - entry->windowStart >= CONNECTION_RATE_WINDOW)
+    {
+        snprintf(entry->key, sizeof(entry->key), "%s", key);
+        entry->windowStart = now;
+        entry->count = 0;
+    }
+
+    entry->count++;
+    return entry->count > ftpData->ftpParameters.maximumConnectionRatePerIp;
+}
+
+static void refuseTooManyNewConnections(ftpDataType * ftpData, int clientIndex)
+{
+    socketPrintf(ftpData, clientIndex, "s", "421 Too many connections from your address, please try again later.\r\n");
+    /* The log first: closeClient() clears the address of the client, and a line that does not
+       say who it was is of no use (fail2ban, a firewall rule, the administrator). */
+    LOGF("%sConnection refused: %s opened more than %d connections in the last minute", LOG_SECURITY_PREFIX,
+         ftpData->clients[clientIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionRatePerIp);
+    /* Closed now, not at the next turn of the loop: that can be 10 seconds away when nothing else
+       happens, and a refused connection would keep its slot for that long. */
+    closeClient(ftpData, clientIndex);
+}
+
+/* No slot left for a new client. RFC 959: 421 and the connection is closed (it used to be
+   "10068 ...", which is not a reply code). */
+static void refuseConnectionServerIsFull(ftpDataType * ftpData, int refusedSocket)
+{
+    static const char message[] = "421 Server reached the maximum number of connections, please try later.\r\n";
+    ssize_t written = write(refusedSocket, message, sizeof(message) - 1);
+    (void)written;
+    shutdown(refusedSocket, SHUT_RDWR);
+    close(refusedSocket);
+    LOGF("%sConnection refused: the server has reached the maximum number of clients (%d)", LOG_DEBUG_PREFIX, ftpData->ftpParameters.maxClients);
+}
+
+/* The server is full. The connections that have not logged in are the ones that can go: they
+   are what an attacker fills the slots with, keeping the users out until LOGIN_TIMEOUT. The one
+   that has been there for the longest time is sent away (421) and its slot is given to the new
+   connection; a client that is logged in is never touched. Returns the free slot, or -1 if
+   everybody is logged in. */
+static int sendAwayTheOldestUnauthenticatedClient(ftpDataType * ftpData)
+{
+    int victim = -1;
+
+    for (int i = 0; i < ftpData->ftpParameters.maxClients; i++)
+    {
+        if (isClientConnected(ftpData, i) == 1 &&
+            ftpData->clients[i].login.userLoggedIn == 0 &&
+            ftpData->clients[i].closeTheClient == 0 &&
+            (victim == -1 || ftpData->clients[i].connectionTimeStamp < ftpData->clients[victim].connectionTimeStamp))
+        {
+            victim = i;
+        }
+    }
+
+    if (victim == -1)
+    {
+        return -1;
+    }
+
+    /* not in the middle of a TLS handshake, where a clear text reply would only corrupt it */
+    if (ftpData->clients[victim].tlsIsNegotiating == 0)
+    {
+        socketPrintf(ftpData, victim, "s", "421 Server is full, closing the connection.\r\n");
+    }
+
+    setCloseReason(ftpData, victim, "sent away to make room: the server is full");
+    closeClient(ftpData, victim);
+    return victim;
+}
+
 #ifdef IPV6_ENABLED
 
 int evaluateClientSocketConnection(ftpDataType * ftpData)
 {
 
-    if (FD_ISSET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.rset))
+    if (ftpData->connectionData.mainSocketReady == 1)
     {
-        int availableSocketIndex;
-        if ((availableSocketIndex = getAvailableClientSocketIndex(ftpData)) != -1) //get available socket  
+        int availableSocketIndex = getAvailableClientSocketIndex(ftpData);
+
+        if (availableSocketIndex == -1)
+        {
+            availableSocketIndex = sendAwayTheOldestUnauthenticatedClient(ftpData);
+        }
+
+        if (availableSocketIndex != -1) //get available socket  
         {
             if ((ftpData->clients[availableSocketIndex].socketDescriptor = accept(ftpData->connectionData.theMainSocket, (struct sockaddr *)&ftpData->clients[availableSocketIndex].client_sockaddr_in, (socklen_t*)&ftpData->clients[availableSocketIndex].sockaddr_in_size)) !=- 1)
             {
                 int numberOfConnectionFromSameIp, i;
                 numberOfConnectionFromSameIp = 0;
                 ftpData->connectedClients++;
+                setTcpNoDelay(ftpData->clients[availableSocketIndex].socketDescriptor);
                 ftpData->clients[availableSocketIndex].socketIsConnected = 1;
 
                 fcntl(ftpData->clients[availableSocketIndex].socketDescriptor, F_SETFL, O_NONBLOCK);
@@ -1324,12 +1627,20 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                         numberOfConnectionFromSameIp++;
                     }
                 }
+                /* every connection counts for the limit of the rate, also the ones refused below for another
+                   reason (it used to be asked only if the limit per address had not been reached) */
+                int rateExceeded = connectionRateIsExceeded(ftpData, ftpData->clients[availableSocketIndex].clientIpAddress);
+
                 if (ftpData->ftpParameters.maximumConnectionsPerIp > 0 &&
                     numberOfConnectionFromSameIp >= ftpData->ftpParameters.maximumConnectionsPerIp)
                 {
                 	socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
                     markClientForClosing(ftpData, availableSocketIndex, "too many connections from the address");
 					LOGF("%stoo many connection from ip address: %s maximum allowed: %d", LOG_SECURITY_PREFIX, ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionsPerIp); 
+                }
+                else if (rateExceeded == 1)
+                {
+                    refuseTooManyNewConnections(ftpData, availableSocketIndex);
                 }
                 else
                 {
@@ -1361,10 +1672,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
 			socklen_t socketRefuse_in_size = sizeof(socketRefuse_sockaddr_in);
             if ((socketRefuseFd = accept(ftpData->connectionData.theMainSocket, (struct sockaddr *)&socketRefuse_sockaddr_in, &socketRefuse_in_size))!=-1)
             {
-                char *messageToWrite = "10068 Server reached the maximum number of connection, please try later.\r\n";
-                write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
-                shutdown(socketRefuseFd, SHUT_RDWR);
-                close(socketRefuseFd);
+                refuseConnectionServerIsFull(ftpData, socketRefuseFd);
             }
 
             return 0;
@@ -1381,16 +1689,23 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
 
 int evaluateClientSocketConnection(ftpDataType * ftpData)
 {
-    if (FD_ISSET(ftpData->connectionData.theMainSocket, &ftpData->connectionData.rset))
+    if (ftpData->connectionData.mainSocketReady == 1)
     {
-        int availableSocketIndex;
-        if ((availableSocketIndex = getAvailableClientSocketIndex(ftpData)) != -1) //get available socket  
+        int availableSocketIndex = getAvailableClientSocketIndex(ftpData);
+
+        if (availableSocketIndex == -1)
+        {
+            availableSocketIndex = sendAwayTheOldestUnauthenticatedClient(ftpData);
+        }
+
+        if (availableSocketIndex != -1) //get available socket  
         {
             if ((ftpData->clients[availableSocketIndex].socketDescriptor = accept(ftpData->connectionData.theMainSocket, (struct sockaddr *)&ftpData->clients[availableSocketIndex].client_sockaddr_in, (socklen_t*)&ftpData->clients[availableSocketIndex].sockaddr_in_size))!=-1)
             {
                 int numberOfConnectionFromSameIp, i;
                 numberOfConnectionFromSameIp = 0;
                 ftpData->connectedClients++;
+                setTcpNoDelay(ftpData->clients[availableSocketIndex].socketDescriptor);
                 ftpData->clients[availableSocketIndex].socketIsConnected = 1;
 
                 fcntl(ftpData->clients[availableSocketIndex].socketDescriptor, F_SETFL, O_NONBLOCK);
@@ -1433,12 +1748,20 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
                         numberOfConnectionFromSameIp++;
                     }
                 }
+                /* every connection counts for the limit of the rate, also the ones refused below for another
+                   reason (it used to be asked only if the limit per address had not been reached) */
+                int rateExceeded = connectionRateIsExceeded(ftpData, ftpData->clients[availableSocketIndex].clientIpAddress);
+
                 if (ftpData->ftpParameters.maximumConnectionsPerIp > 0 &&
                     numberOfConnectionFromSameIp >= ftpData->ftpParameters.maximumConnectionsPerIp)
                 {
                 	socketPrintf(ftpData, availableSocketIndex, "sss", "530 too many connection from your ip address ", ftpData->clients[availableSocketIndex].clientIpAddress, " \r\n");
                     markClientForClosing(ftpData, availableSocketIndex, "too many connections from the address");
 					LOGF("%stoo many connection from ip address: %s maximum allowed: %d", LOG_SECURITY_PREFIX, ftpData->clients[availableSocketIndex].clientIpAddress, ftpData->ftpParameters.maximumConnectionsPerIp);
+                }
+                else if (rateExceeded == 1)
+                {
+                    refuseTooManyNewConnections(ftpData, availableSocketIndex);
                 }
                 else
                 {
@@ -1470,10 +1793,7 @@ int evaluateClientSocketConnection(ftpDataType * ftpData)
             struct sockaddr_in socketRefuse_sockaddr_in;
             if ((socketRefuseFd = accept(ftpData->connectionData.theMainSocket, (struct sockaddr *)&socketRefuse_sockaddr_in, (socklen_t*)&socketRefuse_in_size))!=-1)
             {
-                char *messageToWrite = "10068 Server reached the maximum number of connection, please try later.\r\n";
-                write(socketRefuseFd, messageToWrite, strlen(messageToWrite));
-                shutdown(socketRefuseFd, SHUT_RDWR);
-                close(socketRefuseFd);
+                refuseConnectionServerIsFull(ftpData, socketRefuseFd);
             }
 
             return 0;
@@ -1595,7 +1915,17 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData)
                 return -1;
             }
 
-            usleep(10000); // 10 ms
+            /* wait for the message of the client (or for the socket to be writable) at most 10 ms, and try
+               again at once when it arrives: a usleep() of 10 ms made every transfer wait 10 to 20 ms.
+               poll() is a cancellation point too, like the usleep() it replaces. */
+            {
+                struct pollfd waiting;
+                waiting.fd = ftpData->clients[theSocketId].workerData.socketConnection;
+                waiting.events = (err == SSL_ERROR_WANT_WRITE) ? POLLOUT : POLLIN;
+                waiting.revents = 0;
+                if (poll(&waiting, 1, 10) < 0 && errno != EINTR)
+                    usleep(1000);
+            }
             continue;
         }
         else

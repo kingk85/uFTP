@@ -20,7 +20,9 @@ import grp
 import os
 import pwd
 import socket
+import stat
 import sys
+import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -288,6 +290,74 @@ class PermissionDeniedTests(ScenarioCase):
 
 
 # ---------------------------------------------------------------------------------------
+# SITE CHMOD: the same rule of the other commands that change a file, and no change of owner.
+# ---------------------------------------------------------------------------------------
+def secondary_group():
+    """Name of a group of the test user other than the group of the files it creates."""
+    for gid in os.getgroups():
+        if gid != os.getegid():
+            try:
+                return grp.getgrgid(gid).gr_name
+            except KeyError:
+                continue
+    return None
+
+
+@unittest.skipIf(other_owner() is None, "no other account (nobody) to configure as owner")
+class SiteChmodPermissionTests(ScenarioCase):
+    """SITE CHMOD used to check nothing: a user could change the mode of a file it may not
+    write (and then read it). Now the user must be allowed to write the file or directory."""
+
+    server_port = PORT + 7
+    owner = other_owner()
+    extra_config = {"USER_NAME_OWNER_0": owner[0] if owner else "nobody",
+                    "GROUP_NAME_OWNER_0": owner[1] if owner else "nogroup"}
+
+    @staticmethod
+    def mode(path):
+        return stat.S_IMODE(os.stat(path).st_mode)
+
+    def test_a_file_the_user_can_not_write_keeps_its_mode(self):
+        path = self.make_file("fixed.txt", 0o644)
+        self.assertReply(self.connect(), "SITE CHMOD 666 fixed.txt", 550)
+        self.assertEqual(self.mode(path), 0o644)
+
+    def test_a_directory_the_user_can_not_write_keeps_its_mode(self):
+        path = self.make_dir("fixed-dir", 0o755)
+        self.assertReply(self.connect(), "SITE CHMOD 777 fixed-dir", 550)
+        self.assertEqual(self.mode(path), 0o755)
+
+    def test_a_file_others_can_write_is_changed(self):
+        """The control: the check does not refuse everything."""
+        path = self.make_file("shared.txt", 0o666)
+        self.assertReply(self.connect(), "SITE CHMOD 600 shared.txt", 200)
+        self.assertEqual(self.mode(path), 0o600)
+
+    def test_a_directory_others_can_write_is_changed(self):
+        path = self.make_dir("shared-dir", 0o777)
+        self.assertReply(self.connect(), "SITE CHMOD 755 shared-dir", 200)
+        self.assertEqual(self.mode(path), 0o755)
+
+
+@unittest.skipIf(secondary_group() is None, "the test user has no secondary group")
+class SiteChmodOwnerTests(ScenarioCase):
+    """SITE CHMOD used to change the owner and the group of the file to the ones configured
+    for the user. It changes the mode and nothing else."""
+
+    server_port = PORT + 8
+    extra_config = {"USER_NAME_OWNER_0": pwd.getpwuid(os.geteuid()).pw_name,
+                    "GROUP_NAME_OWNER_0": secondary_group() or ""}
+
+    def test_chmod_does_not_change_the_group(self):
+        path = self.make_file("keep-group.txt", 0o644)
+        before = os.stat(path)
+        self.assertReply(self.connect(), "SITE CHMOD 640 keep-group.txt", 200)
+        after = os.stat(path)
+        self.assertEqual(stat.S_IMODE(after.st_mode), 0o640)
+        self.assertEqual((after.st_uid, after.st_gid), (before.st_uid, before.st_gid))
+
+
+# ---------------------------------------------------------------------------------------
 # System calls that fail for the real user of the server: the permission check of uFTP is
 # passed (no owner = root) and the operating system refuses.
 # ---------------------------------------------------------------------------------------
@@ -469,6 +539,49 @@ class LockoutTests(ScenarioCase):
         self.assertIn("Too many login failure", text)
 
 
+    def test_the_lockout_lasts_more_than_a_minute(self):
+        """The reply, the sample configuration and the documentation say five minutes. It was
+        60 seconds: the address was free again a minute after its last failed login. The test
+        waits 63 seconds, so it is the slow one of this class."""
+        c = self.connect(login=False)
+        for _ in range(2):
+            self.assertReply(c, f"USER {self.server.user}", 331)
+            self.assertReply(c, "PASS wrong", 530)
+        self.assertReply(c, f"USER {self.server.user}", 331)
+        self.assertIn("Too many login failure", self.assertReply(c, f"PASS {self.server.password}", 530))
+
+        time.sleep(63)
+
+        later = self.connect(login=False)
+        self.assertReply(later, f"USER {self.server.user}", 331)
+        self.assertIn("Too many login failure", self.assertReply(later, f"PASS {self.server.password}", 530))
+
+
+class Ipv6LockoutTests(LockoutTests):
+    """The lock-out after failed logins works over IPv6 too (the address is counted as its
+    network, see FailedLoginKeyTests)."""
+
+    server_port = PORT + 9
+
+    def connect(self, login=True, **options):
+        return super().connect(login=login, host="::1", **options)
+
+    def setUp(self):
+        try:
+            socket.create_connection(("::1", 9), timeout=0.2).close()
+        except ConnectionRefusedError:
+            pass
+        except OSError:
+            raise unittest.SkipTest("no IPv6 on this machine")
+        super().setUp()
+        try:
+            socket.create_connection(("::1", self.server_port), timeout=2).close()
+        except OSError:
+            raise unittest.SkipTest("uFTP was built without IPv6 support")
+
+    test_the_lockout_lasts_more_than_a_minute = None        # the slow one runs once, over IPv4
+
+
 # ---------------------------------------------------------------------------------------
 # CDUP and the working directory
 # ---------------------------------------------------------------------------------------
@@ -562,6 +675,20 @@ class Ipv6Tests(ScenarioCase):
     def test_pasv_is_refused_over_ipv6(self):
         c = self.connect6()
         self.assertReply(c, "PASV", 500, "use EPSV")
+
+    def test_epsv_protocol_over_ipv6(self):
+        """RFC 2428: the protocol of the data connection is the one of the control
+        connection: 2 here, so 1 is 522 and says what is supported."""
+        c = self.connect6()
+        self.assertReply(c, "EPSV 1", 522, "use (2)")
+        data = c.cmd("EPSV 2")
+        self.assertEqual(data[0], 229)
+
+    def test_epsv_all_over_ipv6(self):
+        c = self.connect6()
+        self.assertReply(c, "EPSV ALL", 200)
+        self.assertReply(c, "PASV", 501)             # the refusal comes before the "use EPSV" one
+        self.assertEqual(c.download("NLST", c.epsv())[0], 226)
 
     def test_epsv_transfers(self):
         c = self.connect6()

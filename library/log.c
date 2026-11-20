@@ -151,6 +151,32 @@ static int logFilePathFor(time_t when, char *path, size_t pathSize)
    not affected. */
 #define LOG_FILE_MODE 0640
 
+/* A fixed name for the log of today: a link in the log folder to the file of the day, moved when a new day
+   starts. Programs that follow a file (fail2ban expands a wildcard only when it starts, so it would not read the
+   file of a new day) follow a name that stays. The name does not start with "uftpLog_": a wildcard on the
+   files of the days does not see it and no line is counted twice. */
+#define LOG_CURRENT_LINK "uftpLog.current"
+
+static void logUpdateCurrentLink(const char *path)
+{
+    char link[PATH_MAX], temporary[PATH_MAX];
+    const char *name = strrchr(path, '/');
+
+    name = (name != NULL) ? name + 1 : path;
+
+    if (snprintf(link, sizeof(link), "%s%s", logFolder, LOG_CURRENT_LINK) >= (int)sizeof(link) ||
+        snprintf(temporary, sizeof(temporary), "%s%s.tmp", logFolder, LOG_CURRENT_LINK) >= (int)sizeof(temporary))
+        return;
+
+    (void)unlink(temporary);
+    if (symlink(name, temporary) != 0)
+        return;                                   /* a folder that does not allow it: the log works as before */
+
+    /* the new link replaces the old one in one step: a reader always finds a file */
+    if (rename(temporary, link) != 0)
+        (void)unlink(temporary);
+}
+
 /* Append one line. If the file can not be opened the line goes to stderr, which is
    kept by systemd and by the shell when the server does not run as a daemon. */
 static void logAppendLine(const char *path, const char *line)
@@ -176,6 +202,7 @@ static void logAppendLine(const char *path, const char *line)
             (void)fchmod(fd, LOG_FILE_MODE);
 
         snprintf(checkedPath, sizeof(checkedPath), "%s", path);
+        logUpdateCurrentLink(path);              /* the file of this day exists now */
     }
 
     fprintf(fp, "%s\n", line);
@@ -289,13 +316,6 @@ int logStartWriter(void) {
     return 1;
 }
 
-int logInit(const char* folder, int numberOfLogFiles) {
-    if (logConfigure(folder, numberOfLogFiles) != 1)
-        return -1;
-
-    return logStartWriter();
-}
-
 static unsigned long long logMessageHash(const char *message, const char *file, int line)
 {
     unsigned long long hash = 1469598103934665603ULL;      /* FNV-1a */
@@ -396,6 +416,14 @@ void logFlushRepeated(void)
            of a line written again, which is one event plus N copies */
         snprintf(line + strlen(line), sizeof(line) - strlen(line), "[pid %d] %s (%lu more times in the last %d s, grouped)",
                  (int)getpid(), entry->text, entry->suppressed, LOG_REPEAT_INTERVAL);
+        /* entry->text is the message as it was received, before the control characters were taken out of the line
+           that was written (the summary of a repeated line brought them back) */
+        for (char *c = line; *c != '\0'; c++)
+        {
+            if ((unsigned char)*c < 0x20 || (unsigned char)*c == 0x7f)
+                *c = '?';
+        }
+
         wake |= logEmitLocked(line, now);
 
         entry->suppressed = 0;
@@ -468,7 +496,17 @@ static void logMessageWrite(const char* message, const char* file, int line, con
         logLinesDropped = 0;
     }
 
+    size_t messageStart = strlen(logEntry);
     strncat(logEntry, message, LOG_LINE_SIZE - strlen(logEntry) - 1);
+
+    /* The message often holds what a client sent (a user name, a path). Control characters in it (ESC sequences that clear
+       or retitle the terminal of whoever reads the log, backspaces that overwrite what came before, bell) are shown as
+       '?': the line can not be disguised. A new line can not be in it: it ends the command. */
+    for (char *c = logEntry + messageStart; *c != '\0'; c++)
+    {
+        if ((unsigned char)*c < 0x20 || (unsigned char)*c == 0x7f)
+            *c = '?';
+    }
 
     char metaInfo[320];
     if (suppressed > 0)

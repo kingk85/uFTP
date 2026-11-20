@@ -145,11 +145,9 @@ void initFtpServer(void)
 
     printf("\nuFTP server starting..");
 
-    /* init fd set needed for select */
+    /* the epoll instance that the control channel waits on */
     fdInit(&ftpData);
 
-    /* the maximum socket fd is now the main socket descriptor */
-    ftpData.connectionData.maxSocketFD = ftpData.connectionData.theMainSocket+1;
     returnCode = pthread_create(&watchDogThread, NULL, watchDog, NULL);
 
 	if(returnCode != 0)

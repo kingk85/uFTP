@@ -829,5 +829,110 @@ class FTPServerRFCComplianceTests(unittest.TestCase):
             self.assertTrue(str(e).startswith('500') or str(e).startswith('502'),
                             f"Invalid command error should start with 5xx, got: {e}")
 
+    # ---- commands added in 4.3.0 (MLST/MLSD, LANG, HOST, STRU R) and the transfers they touch ----
+
+    def test_mlsd_lists_the_test_file(self):
+        """MLSD (RFC 3659), read by the ftplib parser."""
+        entries = dict(self.ftp.mlsd())
+        self.assertIn(TEST_FILENAME, entries)
+        self.assertEqual(entries[TEST_FILENAME]['type'], 'file')
+        self.assertEqual(entries[TEST_FILENAME]['size'], str(len(TEST_CONTENT)))
+        self.assertRegex(entries[TEST_FILENAME]['modify'], r'^\d{14}$')
+
+    def test_mlst_of_the_test_file(self):
+        resp = self.ftp.sendcmd(f'MLST {TEST_FILENAME}')
+        self.assertTrue(resp.startswith('250'), resp)
+        self.assertIn(f'size={len(TEST_CONTENT)};', resp)
+        self.assertIn(TEST_FILENAME, resp)
+
+    def test_feat_announces_mlst_lang_host(self):
+        features = [line.strip() for line in self.ftp.sendcmd('FEAT').splitlines()]
+        self.assertTrue(any(f.startswith('MLST ') for f in features), features)
+        self.assertIn('LANG EN*', features)
+        self.assertIn('HOST', features)
+
+    def test_lang(self):
+        self.assertTrue(self.ftp.sendcmd('LANG EN').startswith('200'))
+        with self.assertRaises(error_perm) as raised:
+            self.ftp.sendcmd('LANG IT')
+        self.assertTrue(str(raised.exception).startswith('504'))
+
+    def test_host_before_login_only(self):
+        ftp = FTP()
+        ftp.connect(FTP_HOST, FTP_PORT, timeout=10)
+        try:
+            self.assertTrue(ftp.sendcmd('HOST ftp.example.com').startswith('220'))
+            ftp.login(FTP_USER, FTP_PASS)
+            with self.assertRaises(error_perm) as raised:
+                ftp.sendcmd('HOST ftp.example.com')
+            self.assertTrue(str(raised.exception).startswith('503'))
+        finally:
+            ftp.close()
+
+    def test_record_structure_round_trip(self):
+        """STRU R: the 0xFF bytes are doubled on the wire and a record end closes the file."""
+        payload = b'a\xffb\xff\xffc'
+        self.assertTrue(self.ftp.sendcmd('STRU R').startswith('200'))
+        self.ftp.voidcmd('TYPE I')
+        wire = payload.replace(b'\xff', b'\xff\xff') + b'\xff\x03'
+        self.ftp.storbinary(f'STOR {UPLOAD_FILENAME}', BytesIO(wire))
+        received = bytearray()
+        self.ftp.retrbinary(f'RETR {UPLOAD_FILENAME}', received.extend)
+        self.assertEqual(bytes(received), wire)
+        self.assertTrue(self.ftp.sendcmd('STRU F').startswith('200'))
+        received = bytearray()
+        self.ftp.retrbinary(f'RETR {UPLOAD_FILENAME}', received.extend)
+        self.assertEqual(bytes(received), payload)
+
+    def test_big_download_is_exact_with_every_rest_offset(self):
+        """A download of a few MB (sendfile in clear text), whole and resumed."""
+        payload = bytes((i * 31 + i // 251) % 256 for i in range(3 * 65536 + 777))
+        self.ftp.voidcmd('TYPE I')
+        self.ftp.storbinary(f'STOR {UPLOAD_FILENAME}', BytesIO(payload))
+        received = bytearray()
+        self.ftp.retrbinary(f'RETR {UPLOAD_FILENAME}', received.extend)
+        self.assertEqual(bytes(received), payload)
+        for offset in (1, 65535, 65536, 2 * 65536 + 5, len(payload) - 1):
+            received = bytearray()
+            self.ftp.retrbinary(f'RETR {UPLOAD_FILENAME}', received.extend, rest=offset)
+            self.assertEqual(bytes(received), payload[offset:], f'offset {offset}')
+
+    def test_abor_during_a_big_download_leaves_the_session_working(self):
+        payload = b'x' * (24 << 20)
+        self.ftp.voidcmd('TYPE I')
+        self.ftp.storbinary(f'STOR {UPLOAD_FILENAME}', BytesIO(payload))
+        conn = self.ftp.transfercmd(f'RETR {UPLOAD_FILENAME}')
+        conn.recv(65536)
+        self.ftp.sock.sendall(b'ABOR\r\n')
+        self.ftp.sock.settimeout(1)
+        replies = []
+        try:
+            while True:
+                replies.append(self.ftp.getline()[:3])
+        except (socket.timeout, TimeoutError, OSError):
+            pass
+        conn.close()
+        self.ftp.sock.settimeout(10)
+        self.assertIn('226', replies, replies)                     # the abort (426 + 226) or the end of the transfer (226)
+        self.ftp.file = self.ftp.sock.makefile('r', encoding=self.ftp.encoding)
+        self.assertTrue(self.ftp.sendcmd('NOOP').startswith('200'))
+
+    def test_size_of_things_that_are_not_files(self):
+        self.ftp.voidcmd('TYPE I')
+        self.assertEqual(self.ftp.size(TEST_FILENAME), len(TEST_CONTENT))
+        with self.assertRaises(error_perm):
+            self.ftp.size('no-such-file.txt')
+
+    def test_listing_with_a_broken_link(self):
+        """A dangling link in the home must not break LIST (the fields of the entry were not initialised)."""
+        self.assertTrue(self.ftp.sendcmd('NOOP').startswith('200'))
+        lines = []
+        self.ftp.retrlines('LIST', lines.append)
+        self.assertTrue(any(TEST_FILENAME in line for line in lines), lines)
+        for line in lines:
+            parts = line.split()
+            if len(parts) > 4 and parts[0][0] in '-dl':
+                self.assertTrue(parts[4].isdigit(), line)
+
 if __name__ == '__main__':
     unittest.main()

@@ -47,15 +47,6 @@ static int FILE_CompareString(const void * a, const void * b)
     return strcmp (*(const char **) a, *(const char **) b);
 }
 
-static int FILE_CompareStringParameter(const void * a, const void * b);
-
-static int FILE_CompareStringParameter(const void * a, const void * b)
-{
-    const FILE_StringParameter_DataType * typeA = *(const FILE_StringParameter_DataType **)a;
-    const FILE_StringParameter_DataType * typeB = *(const FILE_StringParameter_DataType **)b;
-   //my_printf("Comparing  %s with %s",typeA->Name, typeB->Name);
-    return strcmp(typeA->Name, typeB->Name);
-}
 
 static time_t convertToUTC(time_t inputTime);
 
@@ -70,11 +61,6 @@ time_t convertToUTC(time_t inputTime)
     //my_printf("\nutc_time time: %ld", utc_time);
 
     return utc_time;
-}
-
-int FILE_fdIsValid(int fd)
-{
-    return fcntl(fd, F_GETFD);
 }
 
 int FILE_CheckIfLinkExist(const char * filename)
@@ -105,20 +91,6 @@ int FILE_IsDirectory(char *DirectoryPath, int checkExist)
     }
 
     return 0;
-}
-
-long int FILE_GetAvailableSpace(const char* path)
-{
-    struct statvfs stat;
-
-    if (statvfs(path, &stat) != 0)
-    {
-        // error happens, just quits here
-        return -1;
-    }
-
-    // the available size is f_bsize * f_bavail
-    return stat.f_bsize * stat.f_bavail;
 }
 
 /* Get the file size */
@@ -155,6 +127,14 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
       FILE *TheFilePointer;
       TheFilePointer = fopen64(TheFileName, "rb");
       long long int Prev = 0, TheFileSize = 0;
+
+      /* the file was there a moment ago (FILE_IsFile): it can be gone, or no longer readable,
+         when it is opened. It used to be used without looking: SIGSEGV */
+      if (TheFilePointer == NULL)
+      {
+          return 0;
+      }
+
       Prev = ftello64(TheFilePointer);
       fseeko64(TheFilePointer, 0L, SEEK_END);
       TheFileSize = ftello64(TheFilePointer);
@@ -174,6 +154,12 @@ long long int FILE_GetFileSizeFromPath(char *TheFileName)
       FILE *TheFilePointer;
       TheFilePointer = fopen(TheFileName, "rb");
       long long int Prev = 0, TheFileSize = 0;
+
+      if (TheFilePointer == NULL)
+      {
+          return 0;
+      }
+
       Prev = ftell(TheFilePointer);
       fseek(TheFilePointer, 0L, SEEK_END);
       TheFileSize = ftell(TheFilePointer);
@@ -387,8 +373,7 @@ int FILE_GetStringFromFile(char * filename, char **file_content, DYNMEM_MemoryTa
 
     if (file == NULL)
     {
-        fclose(file);
-        return 0;
+        return 0;          /* it used to be fclose(NULL) */
     }
 
     file_size = FILE_GetFileSize(file);
@@ -411,177 +396,6 @@ int FILE_GetStringFromFile(char * filename, char **file_content, DYNMEM_MemoryTa
     return count;
 }
 
-void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *ParametersVector)
-{
-    FILE *File;
-    char Line[FILE_MAX_LINE_LENGHT];
-    int i;
-    int c;
-    char FirstChar = 0;
-    char SeparatorChar = 0;
-    char ParameterChar = 0;
-    int BufferNameCursor = 0;
-    int BufferValueCursor = 0;
-    FILE_StringParameter_DataType TheParameter;
-
-    memset (TheParameter.Name, 0, FILE_MAX_PAR_VAR_SIZE);
-    memset (TheParameter.Value, 0, FILE_MAX_PAR_VAR_SIZE);
-
-    File = fopen(filename, "r");
-    if(File == NULL)
-    {
-        my_printf("error while opening file %s", filename);
-    }
-    else
-    {
-    //my_printf("Parameter initializing from file %s", filename);
-
-    while(fgets(Line, FILE_MAX_LINE_LENGHT, File) != NULL)
-            {
-            //my_printf("LINE: %s", Line);
-            i = 0;
-
-            while (i<FILE_MAX_LINE_LENGHT)
-            {
-            c = Line[i++];
-            if (((char) c == ' ' && FirstChar != '#') || (char) c == '\r' || (c == 9 && FirstChar != '#' ) || (c == 10) || (c == 13))
-                    {
-                    continue;
-                    }
-
-            if ((char) c == '\0' )
-                    {
-              if ((FirstChar != '#' && FirstChar != '=' && FirstChar != 0 ) && SeparatorChar == '=' && ParameterChar != 0 )
-                    {
-                    TheParameter.Name[BufferNameCursor] = '\0';
-                    TheParameter.Value[BufferValueCursor] = '\0';
-                    //my_printf("Adding name: %s value: %s", TheParameter.Name, TheParameter.Value);
-                    //my_printf("TheParameter.Name[0] = %d", TheParameter.Name[0]);
-
-                    ParametersVector->PushBack(ParametersVector, &TheParameter, sizeof(FILE_StringParameter_DataType));
-                            BufferNameCursor = 0;
-                            BufferValueCursor = 0;
-                            memset (TheParameter.Name, 0, FILE_MAX_PAR_VAR_SIZE);
-                            memset (TheParameter.Value, 0, FILE_MAX_PAR_VAR_SIZE);
-                }
-
-                    FirstChar = 0;
-                    SeparatorChar = 0;
-                    ParameterChar = 0;
-
-                    if ((char) c == '\0')
-                            {
-                            break;
-                            }
-               }
-               else
-                    {
-                     //my_printf("Checking chars");
-
-                            //first char, parameter name
-                            if (FirstChar == 0)
-                                    {
-                                    FirstChar = (char) c;
-                                    //my_printf("FirstChar = %c", FirstChar);
-                                    }
-                            else if (FirstChar != 0 && SeparatorChar == 0 && (char) c == '=')
-                                    {
-                                    SeparatorChar = (char) c;
-                                    //my_printf("SeparatorChar = %c", SeparatorChar);
-                                    }
-                            else if (FirstChar != 0 && SeparatorChar != 0 && ParameterChar == 0)
-                                    {
-                                    ParameterChar = (char) c;
-                                    //my_printf("ParameterChar = %c", ParameterChar);
-                                    }
-
-                            //Get the parameter name
-                            if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar == 0 && BufferNameCursor < FILE_MAX_PAR_VAR_SIZE )
-                                            TheParameter.Name[BufferNameCursor++] = (char) c;
-
-                            //Get the parameter value
-                            if ( FirstChar != '#' && FirstChar != 0 && SeparatorChar != 0 && ParameterChar != 0 && BufferValueCursor < FILE_MAX_PAR_VAR_SIZE )
-                                            TheParameter.Value[BufferValueCursor++] = (char) c;
-                    }
-                }
-            }
-
-            fclose(File);
-            }
-
-   // my_printf("ParametersVector->Size %d", ParametersVector->Size);
-
-    for (i = 0; i < ParametersVector->Size; i++)
-            {
-            //my_printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
-            }
-
-    qsort(ParametersVector->Data, ParametersVector->Size, sizeof(void *), FILE_CompareStringParameter);
-
-    //my_printf("Sorted");
-    for (i = 0; i < ParametersVector->Size; i++)
-            {
-            //my_printf("ParametersVector->Data[%d])->Name = %s",i, ((FILE_StringParameter_DataType *)ParametersVector->Data[i])->Name);
-            }
-
-}
-
-int FILE_StringParametersLinearySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * name)
-{
-
-    for(int i = 0; i < TheVectorGeneric->Size; i++)
-    {
-        if(strcmp(((FILE_StringParameter_DataType *)TheVectorGeneric->Data[i])->Name, (char *) name) == 0)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-int FILE_StringParametersBinarySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * Needle)
-	{
-
-	long long int CompareResult;
-
-	if (TheVectorGeneric->Size <= 0)
-		{
-		return -1;
-		}
-
-	int littler = 0;
-	int last = TheVectorGeneric->Size - 1;
-	int middle = (littler + last) / 2;
-
-	while (littler <= last)
-		{
-		CompareResult = strcmp(((FILE_StringParameter_DataType *)TheVectorGeneric->Data[middle])->Name, Needle);
-		//my_printf("CompareResult = %d.\n", CompareResult);
-
-		if ((CompareResult == 0))
-			{
-			//my_printf("%d found at location %d.\n", Needle, middle);
-			return middle;
-			}
-			else if (CompareResult < 0)
-			{
-			littler = middle + 1;
-			//my_printf("Needle bigger than middle  at %d .\n", middle);
-			}
-		else
-			{
-			last = middle - 1;
-			//my_printf("Needle lower than middle  at %d.\n", middle);
-			}
-
-			middle = (littler + last)/2;
-			}
-
-
-    return -1;
-
-	}
-
 char * FILE_GetFilenameFromPath(char * FileName)
 {
 	char * TheStr = FileName;
@@ -596,13 +410,16 @@ char * FILE_GetFilenameFromPath(char * FileName)
 	return TheStr;
 }
 
-char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** memoryTable) {
-    struct stat st, stl;
+/* The permission string of a listing from the results of stat() and lstat() that the caller has already made
+   (a listing used to make eight system calls per file, the same information again and again). */
+char * FILE_GetListPermissionsStringFromStat(const struct stat *st, int statOk, const struct stat *stl, int lstatOk, DYNMEM_MemoryTable_DataType ** memoryTable)
+{
     char *modeval = DYNMEM_malloc(sizeof(char) * 10 + 1, memoryTable, "getperm");
-    if(stat(file, &st) == 0) 
+
+    if (statOk)
     {
-        mode_t perm = st.st_mode;
-        modeval[0] = (S_ISDIR(st.st_mode)) ? 'd' : '-';
+        mode_t perm = st->st_mode;
+        modeval[0] = (S_ISDIR(st->st_mode)) ? 'd' : '-';
         modeval[1] = (perm & S_IRUSR) ? 'r' : '-';
         modeval[2] = (perm & S_IWUSR) ? 'w' : '-';
         modeval[3] = (perm & S_IXUSR) ? 'x' : '-';
@@ -612,36 +429,25 @@ char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** 
         modeval[7] = (perm & S_IROTH) ? 'r' : '-';
         modeval[8] = (perm & S_IWOTH) ? 'w' : '-';
         modeval[9] = (perm & S_IXOTH) ? 'x' : '-';
-        modeval[10] = '\0';
-
-        if(lstat(file, &stl) == 0 &&
-          S_ISLNK(stl.st_mode))
-        {
-                modeval[0] = 'l'; // is a link
-        }
     }
-    else 
+    else
     {
-        modeval[0] = '-';
-        modeval[1] = 'r';
-        modeval[2] = 'w';
-        modeval[3] = 'x';
-        modeval[4] = 'r';
-        modeval[5] = 'w';
-        modeval[6] = 'x';
-        modeval[7] = 'r';
-        modeval[8] = 'w';
-        modeval[9] = 'x';
-        modeval[10] = '\0';
-
-        if(lstat(file, &stl) == 0 &&
-          S_ISLNK(stl.st_mode))
-        {
-            modeval[0] = 'l'; // is a link
-        }
+        memcpy(modeval, "-rwxrwxrwx", 10);
     }
+    modeval[10] = '\0';
+
+    if (lstatOk && S_ISLNK(stl->st_mode))
+        modeval[0] = 'l'; // is a link
 
     return modeval;
+}
+
+char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** memoryTable) {
+    struct stat st, stl;
+    int statOk = (stat(file, &st) == 0);
+    int lstatOk = (lstat(file, &stl) == 0);
+
+    return FILE_GetListPermissionsStringFromStat(&st, statOk, &stl, lstatOk, memoryTable);
 }
 
 int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
@@ -669,6 +475,40 @@ int checkParentDirectoryPermissions(char *fileName, int uid, int gid)
 
 	//my_printf ("\n checking parent permissions on : %s", theFileName);
 	return checkUserFilePermissions(theFileName, uid, gid);
+}
+
+/* 1 if the file system of `path` (a file, also one that does not exist yet) has less than
+   minimumBytes available. The blocks reserved for root are not counted as free (f_bavail): the
+   server runs as root and would use them. 0 if there is enough, or if it can not be asked. */
+int FILE_FreeSpaceIsBelow(const char *path, long long int minimumBytes)
+{
+    struct statvfs info;
+    char directory[PATH_MAX];
+    char *lastSlash;
+
+    if (minimumBytes <= 0)
+    {
+        return 0;
+    }
+
+    snprintf(directory, sizeof(directory), "%s", path);
+    lastSlash = strrchr(directory, '/');
+
+    if (lastSlash == directory)
+    {
+        directory[1] = '\0';
+    }
+    else if (lastSlash != NULL)
+    {
+        *lastSlash = '\0';
+    }
+
+    if (statvfs(directory, &info) != 0)
+    {
+        return 0;
+    }
+
+    return (unsigned long long int)info.f_bavail * info.f_frsize < (unsigned long long int)minimumBytes;
 }
 
 int checkUserFilePermissions(char *fileName, int uid, int gid)
@@ -733,52 +573,90 @@ static char *ownerNameOrId(const char *theName, unsigned long theId, DYNMEM_Memo
     return toReturn;
 }
 
-char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
+/* The files of a directory almost always have the same owner: the last one is remembered, otherwise
+   every file of a listing reads /etc/passwd again (about 100 microseconds each). A listing starts with
+   FILE_ClearOwnerCache(): the control thread lives as long as the server and serves STAT, so what it
+   remembered would get old. */
+static __thread int cachedUidValid = 0;
+static __thread uid_t cachedUid;
+static __thread char cachedUserName[64];
+static __thread int cachedGidValid = 0;
+static __thread gid_t cachedGid;
+static __thread char cachedGroupName[64];
+
+void FILE_ClearOwnerCache(void)
 {
-    struct stat info;
+    cachedUidValid = 0;
+    cachedGidValid = 0;
+}
+
+char * FILE_GetOwnerFromId(uid_t uid, DYNMEM_MemoryTable_DataType **memoryTable)
+{
     struct passwd pd;
     struct passwd *result = NULL;
     char pwdbuffer[1024];
 
+    if (cachedUidValid == 1 && cachedUid == uid)
+        return ownerNameOrId(cachedUserName[0] != 0 ? cachedUserName : NULL, (unsigned long)uid, memoryTable);
+
+    /* an error (ERANGE for a very long entry, ...) is shown as the id too */
+    if (getpwuid_r(uid, &pd, pwdbuffer, sizeof(pwdbuffer), &result) != 0)
+        result = NULL;
+
+    cachedUid = uid;
+    cachedUidValid = 1;
+    snprintf(cachedUserName, sizeof(cachedUserName), "%s", result != NULL ? result->pw_name : "");
+    if (result != NULL && strlen(result->pw_name) >= sizeof(cachedUserName))
+        cachedUidValid = 0;                 /* a name too long for the cache is not remembered */
+
+    return ownerNameOrId(result != NULL ? result->pw_name : NULL, (unsigned long)uid, memoryTable);
+}
+
+char * FILE_GetGroupOwnerFromId(gid_t gid, DYNMEM_MemoryTable_DataType **memoryTable)
+{
+    struct group grp;
+    struct group *result = NULL;
+    char grpbuffer[1024];
+
+    if (cachedGidValid == 1 && cachedGid == gid)
+        return ownerNameOrId(cachedGroupName[0] != 0 ? cachedGroupName : NULL, (unsigned long)gid, memoryTable);
+
+    if (getgrgid_r(gid, &grp, grpbuffer, sizeof(grpbuffer), &result) != 0)
+        result = NULL;
+
+    cachedGid = gid;
+    cachedGidValid = 1;
+    snprintf(cachedGroupName, sizeof(cachedGroupName), "%s", result != NULL ? result->gr_name : "");
+    if (result != NULL && strlen(result->gr_name) >= sizeof(cachedGroupName))
+        cachedGidValid = 0;
+
+    return ownerNameOrId(result != NULL ? result->gr_name : NULL, (unsigned long)gid, memoryTable);
+}
+
+char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
+{
+    struct stat info;
+
     if (stat(fileName, &info) == -1)
         return NULL;
 
-    /* an error (ERANGE for a very long entry, ...) is shown as the id too */
-    if (getpwuid_r(info.st_uid, &pd, pwdbuffer, sizeof(pwdbuffer), &result) != 0)
-        result = NULL;
-
-    return ownerNameOrId(result != NULL ? result->pw_name : NULL, (unsigned long)info.st_uid, memoryTable);
+    return FILE_GetOwnerFromId(info.st_uid, memoryTable);
 }
 
 char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType **memoryTable)
 {
     struct stat info;
-    struct group grp;
-    struct group *result = NULL;
-    char grpbuffer[1024];
 
     if (stat(fileName, &info) == -1)
         return NULL;
 
-    if (getgrgid_r(info.st_gid, &grp, grpbuffer, sizeof(grpbuffer), &result) != 0)
-        result = NULL;
-
-    return ownerNameOrId(result != NULL ? result->gr_name : NULL, (unsigned long)info.st_gid, memoryTable);
+    return FILE_GetGroupOwnerFromId(info.st_gid, memoryTable);
 }
 
-void FILE_AppendStringToFile(char *fileName, char *theString)
+/* The modification time of a file as the listings show it (see FILE_GetLastModifiedData). */
+time_t FILE_ConvertModifiedTime(time_t modified)
 {
-    FILE *fp = fopen(fileName, "a");
-    if (fp == NULL)
-    {
-        /* the line is lost, but the server goes on: it used to write on the null
-           pointer and crash (log folder not writable, no descriptors left...) */
-        my_printfError("\nError while opening file %s.", fileName);
-        return;
-    }
-
-    fprintf(fp, "\n%s", theString);
-    fclose(fp);
+    return convertToUTC(modified);
 }
 
 time_t FILE_GetLastModifiedData(char *path)
@@ -866,23 +744,6 @@ int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid)
     return 1;
 }
 
-int FILE_doChownFromUidGidString (  const char *file_path,
-                    const char *user_name,
-                    const char *group_name) 
-{
-    uid_t          uid;
-    gid_t          gid;
-    uid = FILE_getUID(user_name);
-    gid = FILE_getGID(group_name);
-
-    if (chown(file_path, uid, gid) == -1)
-    {
-        return 0;
-    }
-    
-    return 1;
-}
-
 /* Buffer for getpwnam_r/getgrnam_r: the size suggested by the system, at least 16 KB.
    It used to be 200 bytes: a longer entry (ERANGE) made a valid owner become root. */
 static size_t lookupBufferSize(int name)
@@ -937,55 +798,3 @@ int FILE_lookupGID(const char *group_name, gid_t *gid)
     return found;
 }
 
-/* uid of a user name; 0 (root) if the user does not exist. It used to return the
-   uid field of a struct that had never been filled: root or a random uid. */
-uid_t FILE_getUID(const char *user_name)
-{
-    uid_t uid = 0;
-    FILE_lookupUID(user_name, &uid);
-    return uid;
-}
-
-/* gid of a group name; 0 (root) if the group does not exist. */
-gid_t FILE_getGID(const char *group_name)
-{
-    gid_t gid = 0;
-    FILE_lookupGID(group_name, &gid);
-    return gid;
-}
-
-
-void FILE_checkAllOpenedFD(void)
-{
-	int openedFd = 0;
-    int ret;
-
-	struct rlimit rl;
-	if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
-		my_printf("%s: can’t get file limit", "");
-
-	if (rl.rlim_max == RLIM_INFINITY)
-		rl.rlim_max = 1024;
-
-	for (int i = 0; i < rl.rlim_max; i++)
-	{
-		ret = FILE_fdIsValid(i);
-		//my_printf("\nret = %d", ret);
-		if (ret != -1)
-		{
-			struct stat statbuf;
-			fstat(i, &statbuf);
-			if (S_ISSOCK(statbuf.st_mode))
-			{
-				//my_printf("\n fd %d is socket", i);
-			}
-			else if (S_ISDIR(statbuf.st_mode))
-			{
-				//my_printf("\n fd %d is dir", i);
-			}
-
-			openedFd++;
-		}
-	}
-	//my_printf("\n\nOpened fd : %d", openedFd);
-}

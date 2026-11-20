@@ -230,11 +230,6 @@ void *watchDog(void * arg)
 	}
 }
 
-void setWatchDogTimeout(int theTime)
-{
-	WatchDogTimerTimeOut = theTime;
-}
-
 void updateWatchDogTime(int theTime)
 {
 	WatchDogTime = theTime;

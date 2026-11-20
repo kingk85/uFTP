@@ -33,15 +33,15 @@
 #include "../debugHelper.h"
 #include "log.h"
 
-#ifdef OPENSSL_ENABLED
-	#include "openSsl.h"
-#endif
+#include "openSsl.h"
 
 #include "fileManagement.h"
 #include "daemon.h"
 #include "dynamicMemory.h"
 
 #define PARAMETER_SIZE_LIMIT        1024
+/* upper limit of MAXIMUM_ALLOWED_FTP_CONNECTION: 1,000,000 slots are about 37 GB */
+#define CONFIG_MAXIMUM_ALLOWED_CLIENTS 1000000
 
 /* Private Functions */
 static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_VectorGenericDataType *parametersVector);
@@ -197,10 +197,12 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
 
     theFileSize = FILE_GetStringFromFile(path, &theFileContent, memoryTable);
 
-    char name[PARAMETER_SIZE_LIMIT];
-    char value[PARAMETER_SIZE_LIMIT];
-    memset(name, 0, PARAMETER_SIZE_LIMIT);
-    memset(value, 0, PARAMETER_SIZE_LIMIT);
+    /* one byte more than the longest name or value kept: a line with 1024 characters or more filled the array to
+       the end, without the terminator, and strcpy() read past it (and wrote past the copy made for it) */
+    char name[PARAMETER_SIZE_LIMIT + 1];
+    char value[PARAMETER_SIZE_LIMIT + 1];
+    memset(name, 0, sizeof(name));
+    memset(value, 0, sizeof(value));
     nameIndex = 0;
     valueIndex = 0;
     i = 0;
@@ -251,7 +253,7 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
                 {
                     i++;
                     nameIndex = 0;
-                    memset(name, 0, PARAMETER_SIZE_LIMIT);
+                    memset(name, 0, sizeof(name));
                     state = STATE_START;
                 }
                 /* Name ends and value starts */
@@ -302,8 +304,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
                     }
                     else if (valueIndex == 0) /* No void value allowed*/
                     {
-                        memset(name, 0, PARAMETER_SIZE_LIMIT);
-                        memset(value, 0, PARAMETER_SIZE_LIMIT);
+                        memset(name, 0, sizeof(name));
+                        memset(value, 0, sizeof(value));
                         nameIndex = 0;
                         valueIndex = 0;
                         state = STATE_START;
@@ -339,8 +341,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
                 strcpy(parameter.value, value);
                 parameter.name[nameIndex]  = '\0';
                 parameter.value[valueIndex] = '\0';
-                memset(name, 0, PARAMETER_SIZE_LIMIT);
-                memset(value, 0, PARAMETER_SIZE_LIMIT);
+                memset(name, 0, sizeof(name));
+                memset(value, 0, sizeof(value));
                 nameIndex = 0;
                 valueIndex = 0;
                 state = STATE_START;
@@ -365,8 +367,8 @@ static int readConfigurationFile(char *path, DYNV_VectorGenericDataType *paramet
         strcpy(parameter.value, value);
         parameter.name[nameIndex]  = '\0';
         parameter.value[valueIndex] = '\0';
-        memset(name, 0, PARAMETER_SIZE_LIMIT);
-        memset(value, 0, PARAMETER_SIZE_LIMIT);
+        memset(name, 0, sizeof(name));
+        memset(value, 0, sizeof(value));
         nameIndex = 0;
         valueIndex = 0;
         //my_printf("\nParameter read: %s = %s", parameter.name, parameter.value);
@@ -404,6 +406,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
             passwordX[PARAMETER_SIZE_LIMIT], 
             homeX[PARAMETER_SIZE_LIMIT], 
             userOwnerX[PARAMETER_SIZE_LIMIT], 
+            maximumConnectionsX[PARAMETER_SIZE_LIMIT], 
             groupOwnerX[PARAMETER_SIZE_LIMIT];
     
     my_printf("\nReading configuration settings..");
@@ -419,6 +422,27 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         ftpParameters->maxClients = 10;
         //my_printf("\nMAXIMUM_ALLOWED_FTP_CONNECTION parameter not found in the configuration file, using the default value: %d", ftpParameters->maxClients);
     }
+
+    /* a size that can not be allocated made the server stop with a message about memory, or (in a build with
+       AddressSanitizer) crash; a value that does not fit an int was read with atoi(), which is not defined then */
+    if (ftpParameters->maxClients < 1 || ftpParameters->maxClients > CONFIG_MAXIMUM_ALLOWED_CLIENTS)
+    {
+        LOGF_NOW("%sMAXIMUM_ALLOWED_FTP_CONNECTION must be between 1 and %d (it is %d), exiting", LOG_FATAL_PREFIX, CONFIG_MAXIMUM_ALLOWED_CLIENTS, ftpParameters->maxClients);
+        fprintf(stderr, "\nMAXIMUM_ALLOWED_FTP_CONNECTION must be between 1 and %d\n", CONFIG_MAXIMUM_ALLOWED_CLIENTS);
+        exit(EXIT_FAILURE);
+    }
+
+    searchIndex = searchParameter("MIN_FREE_SPACE_MB", parametersVector);
+    ftpParameters->minimumFreeSpaceMb = (searchIndex != -1) ?
+        atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value) : 0;
+
+    searchIndex = searchParameter("MAX_CONNECTION_RATE_PER_IP", parametersVector);
+    ftpParameters->maximumConnectionRatePerIp = (searchIndex != -1) ?
+        atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value) : 0;
+
+    searchIndex = searchParameter("MAX_CONNECTION_PER_ACCOUNT", parametersVector);
+    ftpParameters->maximumConnectionsPerAccount = (searchIndex != -1) ?
+        atoi(((parameter_DataType *) parametersVector->Data[searchIndex])->value) : 0;
 
     searchIndex = searchParameter("MAX_CONNECTION_NUMBER_PER_IP", parametersVector);
     if (searchIndex != -1)
@@ -651,6 +675,17 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         my_printf("\n RANDOM_PORT_END parameter not found in the configuration file, using the default value: %d", ftpParameters->connectionPortMax);
     }
 
+    /* The passive port is picked with rand() between the two and kept in an unsigned short: an inverted range answered
+       "227 ... (127,0,0,1,0,0)" (port 0), a value above 65535 gave a port outside the range configured. */
+    if (ftpParameters->connectionPortMin < 1 || ftpParameters->connectionPortMax > 65535 ||
+        ftpParameters->connectionPortMin > ftpParameters->connectionPortMax)
+    {
+        LOGF_NOW("%sRANDOM_PORT_START (%d) and RANDOM_PORT_END (%d) must be ports from 1 to 65535, the first not above the second, exiting",
+                 LOG_FATAL_PREFIX, ftpParameters->connectionPortMin, ftpParameters->connectionPortMax);
+        fprintf(stderr, "\nRANDOM_PORT_START and RANDOM_PORT_END must be ports from 1 to 65535, the first not above the second\n");
+        exit(EXIT_FAILURE);
+    }
+
 
     /* USER SETTINGS */
     userIndex = 0;
@@ -658,12 +693,13 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
     memset(passwordX, 0, PARAMETER_SIZE_LIMIT);
     memset(homeX, 0, PARAMETER_SIZE_LIMIT);
     memset(userOwnerX, 0, PARAMETER_SIZE_LIMIT);
+    memset(maximumConnectionsX, 0, PARAMETER_SIZE_LIMIT);
     memset(groupOwnerX, 0, PARAMETER_SIZE_LIMIT);
     
     DYNV_VectorGeneric_Init(&ftpParameters->usersVector);
     while(1)
     {
-        int searchUserIndex, searchPasswordIndex, searchHomeIndex, searchUserOwnerIndex, searchGroupOwnerIndex;
+        int searchUserIndex, searchPasswordIndex, searchHomeIndex, searchUserOwnerIndex, searchGroupOwnerIndex, searchMaximumConnectionsIndex;
         usersParameters_DataType userData;
 
         snprintf(userX, PARAMETER_SIZE_LIMIT, "USER_%d", userIndex);
@@ -671,6 +707,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         snprintf(homeX, PARAMETER_SIZE_LIMIT, "HOME_%d", userIndex);
         snprintf(groupOwnerX, PARAMETER_SIZE_LIMIT, "GROUP_NAME_OWNER_%d", userIndex);
         snprintf(userOwnerX, PARAMETER_SIZE_LIMIT, "USER_NAME_OWNER_%d", userIndex);
+        snprintf(maximumConnectionsX, PARAMETER_SIZE_LIMIT, "MAX_CONNECTION_PER_ACCOUNT_%d", userIndex);
         userIndex++;
         
         searchUserIndex = searchParameter(userX, parametersVector);
@@ -678,6 +715,7 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         searchHomeIndex = searchParameter(homeX, parametersVector);
         searchUserOwnerIndex = searchParameter(userOwnerX, parametersVector);
         searchGroupOwnerIndex = searchParameter(groupOwnerX, parametersVector);        
+        searchMaximumConnectionsIndex = searchParameter(maximumConnectionsX, parametersVector);
         
         //my_printf("\ngroupOwnerX = %s", groupOwnerX);
         //my_printf("\nuserOwnerX = %s", userOwnerX);
@@ -695,6 +733,8 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
 
         userData.ownerShip.groupOwnerString = NULL;
         userData.ownerShip.userOwnerString = NULL;
+        userData.maximumConnections = (searchMaximumConnectionsIndex != -1) ?
+            atoi(((parameter_DataType *) parametersVector->Data[searchMaximumConnectionsIndex])->value) : -1;
 
         userData.name = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value) + 1), &ftpParameters->usersVector.memoryTable, "userData");
         userData.password = DYNMEM_malloc((strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value) + 1), &ftpParameters->usersVector.memoryTable, "userData");
@@ -707,6 +747,25 @@ static int parseConfigurationFile(ftpParameters_DataType *ftpParameters, DYNV_Ve
         userData.name[strlen(((parameter_DataType *) parametersVector->Data[searchUserIndex])->value)] = '\0';
         userData.password[strlen(((parameter_DataType *) parametersVector->Data[searchPasswordIndex])->value)] = '\0';
         userData.homePath[strlen(((parameter_DataType *) parametersVector->Data[searchHomeIndex])->value)] = '\0';
+
+        /* A mistyped hash, or a hash in a build without OpenSSL, would lock the user out
+           without a word: the server does not start. */
+        if (passwordIsHashed(userData.password))
+        {
+            ftpParameters->hashedPasswordsPresent = 1;
+        }
+
+        if (passwordIsHashed(userData.password) && passwordHashIsValid(userData.password) != 1)
+        {
+            fprintf(stderr, "uFTP: PASSWORD_%d is not a valid %s hash (or this build of uFTP has no OpenSSL: hashed passwords need it)\n",
+                    userIndex - 1, "pbkdf2-sha256");
+            exit(1);
+        }
+
+        if (passwordHashIterations(userData.password) > ftpParameters->hashedPasswordsIterations)
+        {
+            ftpParameters->hashedPasswordsIterations = passwordHashIterations(userData.password);
+        }
         
         if (searchUserOwnerIndex != -1 &&
             searchGroupOwnerIndex != -1)

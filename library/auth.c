@@ -20,21 +20,47 @@
 #include "ftpData.h"
 #include "../debugHelper.h"
 
-struct pam_response *reply;
-
-// //function used to get user input
-int function_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr)
+/* The answer to every question of PAM is the password. It is allocated for each call and handed to PAM, which frees it (a
+   global shared by all the logins, one element for any number of messages, was read past its end when PAM sent an
+   information message with the question, and leaked when PAM did not ask anything). */
+static int function_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr)
 {
-    *resp = reply;
-        return PAM_SUCCESS;
+    const char *password = (const char *)appdata_ptr;
+    struct pam_response *replies;
+    int i;
+
+    if (num_msg <= 0 || num_msg > PAM_MAX_NUM_MSG || password == NULL)
+        return PAM_CONV_ERR;
+
+    replies = (struct pam_response *)calloc((size_t)num_msg, sizeof(struct pam_response));
+    if (replies == NULL)
+        return PAM_BUF_ERR;
+
+    for (i = 0; i < num_msg; i++)
+    {
+        if (msg[i]->msg_style == PAM_PROMPT_ECHO_OFF || msg[i]->msg_style == PAM_PROMPT_ECHO_ON)
+        {
+            replies[i].resp = strdup(password);
+            if (replies[i].resp == NULL)
+            {
+                while (i-- > 0)
+                    free(replies[i].resp);
+                free(replies);
+                return PAM_BUF_ERR;
+            }
+        }
+    }
+
+    *resp = replies;
+    return PAM_SUCCESS;
 }
 
 int authenticateSystem(const char *username, const char *password)
 {
-    const struct pam_conv local_conversation = { function_conversation, NULL };
+    const struct pam_conv local_conversation = { function_conversation, (void *)password };
     pam_handle_t *local_auth_handle = NULL; // this gets set by pam_start
+    int retval, accepted = 0;
 
-    int retval;
     retval = pam_start("sudo", username, &local_conversation, &local_auth_handle);
 
     if (retval != PAM_SUCCESS)
@@ -43,33 +69,24 @@ int authenticateSystem(const char *username, const char *password)
 		return 0;
     }
 
-    reply = (struct pam_response *)malloc(sizeof(struct pam_response));
-    reply[0].resp = strdup(password);
-    reply[0].resp_retcode = 0;
     retval = pam_authenticate(local_auth_handle, 0);
 
-    if (retval != PAM_SUCCESS)
+    if (retval == PAM_SUCCESS)
     {
-		if (retval == PAM_AUTH_ERR)
-		{
-			my_printf("Authentication failure.\n");
-		}
-		else
-		{
-			my_printf("pam_authenticate returned %d\n", retval);
-		}
-		return 0;
+        /* the password is right, but the account may be expired or not allowed to log in now */
+        retval = pam_acct_mgmt(local_auth_handle, 0);
+        accepted = (retval == PAM_SUCCESS);
     }
 
-    retval = pam_end(local_auth_handle, retval);
-
-    if (retval != PAM_SUCCESS)
+    if (accepted == 0)
     {
-		my_printf("pam_end returned\n");
-		return 0;
+        my_printf("pam returned %d\n", retval);
     }
 
-    return 1;
+    /* always: a failed login used to leave the handle (and what PAM loaded for it) behind */
+    pam_end(local_auth_handle, retval);
+
+    return accepted;
 }
 
 
@@ -106,8 +123,8 @@ void loginCheck(char *name, char *password, loginDataType *login, DYNMEM_MemoryT
 
 			//setDynamicStringDataType(&login->ftpPath, "/", strlen("/"), &*memoryTable);
 
-			login->ownerShip.uid = pass->pw_gid;
-			login->ownerShip.gid = pass->pw_uid;
+			login->ownerShip.uid = pass->pw_uid;
+			login->ownerShip.gid = pass->pw_gid;
 			login->ownerShip.ownerShipSet = 1;
 			login->userLoggedIn = 1;
 

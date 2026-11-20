@@ -57,10 +57,8 @@ void initOpenssl();
 void cleanupOpenssl();
 int thread_cleanup(void);
 int thread_setup(void);
-void handle_error(const char *file, int lineno, const char *msg);
 SSL_CTX *createServerContext();
 void configureContext(SSL_CTX *ctx, const char *certificatePath, const char* privateCertificatePath);
-void ShowCerts(SSL* ssl);
 
 /* Bounded bidirectional TLS close and bounded SSL_write on a socket that may
    be non-blocking. See the comments in openSsl.c. */
@@ -72,3 +70,35 @@ int tlsWriteBounded(SSL *ssl, int fd, const void *buffer, int length, int timeou
 
 #endif /* OPENSSL_H */
 #endif
+
+/* Password hashes: PBKDF2-HMAC-SHA256, "$pbkdf2-sha256$<iterations>$<salt>$<hash>" with the
+   salt (16 bytes) and the hash (32 bytes) in base64 without padding and with '.' instead of
+   '+' (the format of passlib). Always declared: a build without OpenSSL can not make or check
+   them and the functions say so. */
+#ifndef PASSWORD_HASH_H
+#define PASSWORD_HASH_H
+
+#include <stddef.h>
+
+#define PASSWORD_HASH_PREFIX "$pbkdf2-sha256$"
+#define PASSWORD_HASH_DEFAULT_ITERATIONS 100000
+#define PASSWORD_HASH_MAX_ITERATIONS 10000000
+#define PASSWORD_HASH_BUFFER_SIZE 128
+
+/* 1 if the stored password is a hash (it starts with the prefix), 0 if it is plain text */
+int passwordIsHashed(const char *stored);
+/* 1 if the stored hash is well formed and this build can check it */
+int passwordHashIsValid(const char *stored);
+/* 1 if the password sent by the client is the stored one (plain text or hash) */
+int passwordMatches(const char *stored, const char *given);
+/* The iterations of a well formed hash, 0 if it is not one or this build can not check it */
+int passwordHashIterations(const char *stored);
+/* Does the work of checking a password against a hash with that many iterations (the highest of the
+   hashes of the configuration) and throws the result away: the time of a wrong password is then the
+   same whatever the name (see ftpCommandElaborate.c). 0 or less: the default iterations. */
+void passwordDummyVerify(const char *given, int iterations);
+/* The hash of a password with a new random salt, in out (PASSWORD_HASH_BUFFER_SIZE bytes).
+   1 on success, 0 on error or without OpenSSL. */
+int passwordHashCreate(const char *password, int iterations, char *out, size_t outSize);
+
+#endif /* PASSWORD_HASH_H */

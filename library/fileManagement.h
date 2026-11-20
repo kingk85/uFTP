@@ -27,6 +27,7 @@
     #include <stdio.h> 
     #include <time.h> 
     #include <sys/types.h>
+    #include <sys/stat.h>
     #include "dynamicVectors.h"
 
     #define FILE_MAX_LINE_LENGHT			512
@@ -56,7 +57,6 @@
     FILE_fileInfo_DataType;
 
     long long int  FILE_GetFileSize(FILE *theFilePointer);
-    long int FILE_GetAvailableSpace(const char* ThePath);
     long long int FILE_GetFileSizeFromPath(char *TheFileName);
     int  FILE_IsFile(const char *theFileName, int checkExist);
     int  FILE_IsDirectory (char *directory_path, int checkExist);
@@ -64,26 +64,24 @@
     void FILE_GetDirectoryInodeList(char * DirectoryInodeName, char *** InodeList, int * filesandfolders, int recursive, char* commandOps, int checkIfInodeExist, DYNMEM_MemoryTable_DataType ** memoryTable);
     int  FILE_GetDirectoryInodeCount(char * DirectoryInodeName);
     int  FILE_GetStringFromFile(char * filename, char **file_content, DYNMEM_MemoryTable_DataType ** memoryTable);
-    void FILE_ReadStringParameters(char * filename, DYNV_VectorGenericDataType *ParametersVector);
-    int FILE_StringParametersLinearySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * name);
-    int FILE_StringParametersBinarySearch(DYNV_VectorGenericDataType *TheVectorGeneric, void * Needle);
     char * FILE_GetFilenameFromPath(char * filename);
     char * FILE_GetListPermissionsString(char *file, DYNMEM_MemoryTable_DataType ** memoryTable);
     char * FILE_GetOwner(char *fileName, DYNMEM_MemoryTable_DataType ** memoryTable);
     char * FILE_GetGroupOwner(char *fileName, DYNMEM_MemoryTable_DataType ** memoryTable);
-    void FILE_AppendStringToFile(char *fileName, char *theString);
     time_t FILE_GetLastModifiedData(char *path);
+    time_t FILE_ConvertModifiedTime(time_t modified);
+    void FILE_ClearOwnerCache(void);
+    char * FILE_GetOwnerFromId(uid_t uid, DYNMEM_MemoryTable_DataType ** memoryTable);
+    char * FILE_GetGroupOwnerFromId(gid_t gid, DYNMEM_MemoryTable_DataType ** memoryTable);
+    char * FILE_GetListPermissionsStringFromStat(const struct stat *st, int statOk, const struct stat *stl, int lstatOk, DYNMEM_MemoryTable_DataType ** memoryTable);
     void FILE_AppendToString(char ** sourceString, char *theString, DYNMEM_MemoryTable_DataType ** memoryTable);
     int FILE_DirectoryToParent(char ** sourceString, DYNMEM_MemoryTable_DataType ** memoryTable);
     int FILE_LockFile(int fd);
-    int FILE_doChownFromUidGidString(const char *file_path, const char *user_name, const char *group_name);
     int FILE_doChownFromUidGid(const char *file_path, uid_t uid, gid_t gid);
-    uid_t FILE_getUID(const char *user_name);
-    gid_t FILE_getGID(const char *group_name);
     int FILE_lookupUID(const char *user_name, uid_t *uid);
     int FILE_lookupGID(const char *group_name, gid_t *gid);
-    void FILE_checkAllOpenedFD(void);
     int fd_is_valid(int fd);
+    int FILE_FreeSpaceIsBelow(const char *path, long long int minimumBytes);
     int checkUserFilePermissions(char *fileName, int uid, int gid);
     int checkParentDirectoryPermissions(char *fileName, int uid, int gid);
     int FILE_CheckIfLinkExist(const char * filename);

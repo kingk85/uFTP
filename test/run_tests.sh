@@ -16,7 +16,7 @@
 #
 # Ports (all on 127.0.0.1, each can be changed with its variable): integration 2121
 # (UFTP_INTEGRATION_PORT), resilience 2122 (UFTP_RESILIENCE_PORT), RFC compliance 2123
-# (UFTP_RFC_PORT), command scenarios 2135-2141
+# (UFTP_RFC_PORT, 2123-2133), command scenarios 2135-2144
 # (UFTP_SCENARIO_PORT). To start a test server by hand for debugging:
 #   python3 test/uftp_test_server.py --port 2121
 

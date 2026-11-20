@@ -125,7 +125,8 @@ void configureContext(SSL_CTX *ctx, const char *certPath, const char *keyPath)
     SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
     SSL_CTX_set_cipher_list(ctx, "HIGH:!aNULL:!MD5");
 
-    if (SSL_CTX_use_certificate_file(ctx, certPath, SSL_FILETYPE_PEM) <= 0) {
+    /* the whole chain: the first certificate is the one of the server, the others (fullchain.pem) are sent to the client too */
+    if (SSL_CTX_use_certificate_chain_file(ctx, certPath) <= 0) {
         tlsSetupFailed("invalid certificate:", certPath);
     }
 
@@ -135,24 +136,6 @@ void configureContext(SSL_CTX *ctx, const char *certPath, const char *keyPath)
 
     // Enable session cache on server side
     SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
-}
-
-void ShowCerts(SSL *ssl)
-{
-    X509 *cert = SSL_get_peer_certificate(ssl);
-    if (cert) {
-        char *line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-        my_printf("Subject: %s\n", line);
-        free(line);
-
-        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-        my_printf("Issuer: %s\n", line);
-        free(line);
-
-        X509_free(cert);
-    } else {
-        my_printf("No certificates.\n");
-    }
 }
 
 static long long int monotonicMilliseconds(void)
@@ -357,12 +340,6 @@ int tlsWriteBounded(SSL *ssl, int fd, const void *buffer, int length, int timeou
     return written;
 }
 
-void handle_error(const char *file, int lineno, const char *msg)
-{
-    fprintf(stderr, "** %s:%d %s\n", file, lineno, msg);
-    ERR_print_errors_fp(stderr);
-}
-
 #if NEED_OPENSSL_THREADING
 static void locking_function(int mode, int n, const char *file, int line)
 {
@@ -408,3 +385,187 @@ int thread_cleanup(void)
 }
 #endif
 #endif
+
+/* ---- Password hashes (see openSsl.h) ---- */
+#include "openSsl.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifdef OPENSSL_ENABLED
+#include <openssl/rand.h>
+#include <openssl/crypto.h>
+
+#define PASSWORD_SALT_BYTES 16
+#define PASSWORD_HASH_BYTES 32
+/* the same bytes in base64 without padding: ceil(bytes * 8 / 6) characters */
+#define PASSWORD_SALT_CHARS 22
+#define PASSWORD_HASH_CHARS 43
+#endif
+
+int passwordIsHashed(const char *stored)
+{
+    return strncmp(stored, PASSWORD_HASH_PREFIX, strlen(PASSWORD_HASH_PREFIX)) == 0;
+}
+
+#ifdef OPENSSL_ENABLED
+/* base64 without padding and with '.' instead of '+' (exactly `chars` characters of the
+   alphabet and nothing else) to `bytes` bytes. 1 if it is well formed. */
+static int ab64Decode(const char *text, size_t chars, unsigned char *out, size_t bytes)
+{
+    char padded[PASSWORD_HASH_CHARS + 4];
+    unsigned char decoded[PASSWORD_HASH_CHARS + 4];
+    size_t length = chars;
+
+    for (size_t i = 0; i < chars; i++)
+    {
+        char c = text[i];
+        if (c == '.')
+            c = '+';
+        else if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '/'))
+            return 0;
+        padded[i] = c;
+    }
+
+    while (length % 4 != 0)
+        padded[length++] = '=';
+
+    if (EVP_DecodeBlock(decoded, (const unsigned char *)padded, (int)length) < (int)bytes)
+        return 0;
+
+    memcpy(out, decoded, bytes);
+    return 1;
+}
+
+/* "$pbkdf2-sha256$<iterations>$<salt>$<hash>" to its parts. 1 if it is well formed. */
+static int parsePasswordHash(const char *stored, int *iterations, unsigned char *salt, unsigned char *hash)
+{
+    const char *cursor = stored + strlen(PASSWORD_HASH_PREFIX);
+    char *end = NULL;
+    long count;
+
+    if (*cursor < '0' || *cursor > '9')
+        return 0;
+
+    count = strtol(cursor, &end, 10);
+    if (*end != '$' || count < 1 || count > PASSWORD_HASH_MAX_ITERATIONS)
+        return 0;
+
+    cursor = end + 1;
+    if (strlen(cursor) != PASSWORD_SALT_CHARS + 1 + PASSWORD_HASH_CHARS || cursor[PASSWORD_SALT_CHARS] != '$')
+        return 0;
+
+    if (!ab64Decode(cursor, PASSWORD_SALT_CHARS, salt, PASSWORD_SALT_BYTES) ||
+        !ab64Decode(cursor + PASSWORD_SALT_CHARS + 1, PASSWORD_HASH_CHARS, hash, PASSWORD_HASH_BYTES))
+        return 0;
+
+    *iterations = (int)count;
+    return 1;
+}
+#endif
+
+int passwordHashIterations(const char *stored)
+{
+#ifdef OPENSSL_ENABLED
+    int iterations;
+    unsigned char salt[PASSWORD_SALT_BYTES], hash[PASSWORD_HASH_BYTES];
+
+    if (passwordIsHashed(stored) && parsePasswordHash(stored, &iterations, salt, hash))
+        return iterations;
+#else
+    (void)stored;
+#endif
+    return 0;
+}
+
+int passwordHashIsValid(const char *stored)
+{
+#ifdef OPENSSL_ENABLED
+    int iterations;
+    unsigned char salt[PASSWORD_SALT_BYTES], hash[PASSWORD_HASH_BYTES];
+
+    return passwordIsHashed(stored) && parsePasswordHash(stored, &iterations, salt, hash);
+#else
+    (void)stored;
+    return 0;
+#endif
+}
+
+int passwordMatches(const char *stored, const char *given)
+{
+    if (!passwordIsHashed(stored))
+        return strcmp(stored, given) == 0;
+
+#ifdef OPENSSL_ENABLED
+    int iterations;
+    unsigned char salt[PASSWORD_SALT_BYTES], hash[PASSWORD_HASH_BYTES], derived[PASSWORD_HASH_BYTES];
+
+    if (!parsePasswordHash(stored, &iterations, salt, hash))
+        return 0;
+
+    if (PKCS5_PBKDF2_HMAC(given, (int)strlen(given), salt, PASSWORD_SALT_BYTES, iterations, EVP_sha256(),
+                          PASSWORD_HASH_BYTES, derived) != 1)
+        return 0;
+
+    /* the time does not say how many bytes were right */
+    int equal = CRYPTO_memcmp(derived, hash, PASSWORD_HASH_BYTES) == 0;
+    OPENSSL_cleanse(derived, sizeof(derived));
+    return equal;
+#else
+    return 0;
+#endif
+}
+
+void passwordDummyVerify(const char *given, int iterations)
+{
+#ifdef OPENSSL_ENABLED
+    static const unsigned char salt[PASSWORD_SALT_BYTES] = {0};
+    unsigned char derived[PASSWORD_HASH_BYTES];
+
+    if (iterations < 1)
+        iterations = PASSWORD_HASH_DEFAULT_ITERATIONS;
+    if (iterations > PASSWORD_HASH_MAX_ITERATIONS)
+        iterations = PASSWORD_HASH_MAX_ITERATIONS;
+
+    PKCS5_PBKDF2_HMAC(given, (int)strlen(given), salt, PASSWORD_SALT_BYTES, iterations,
+                      EVP_sha256(), PASSWORD_HASH_BYTES, derived);
+    OPENSSL_cleanse(derived, sizeof(derived));       /* the result is used for nothing: this keeps the call */
+#else
+    (void)given;
+    (void)iterations;
+#endif
+}
+
+int passwordHashCreate(const char *password, int iterations, char *out, size_t outSize)
+{
+#ifdef OPENSSL_ENABLED
+    unsigned char salt[PASSWORD_SALT_BYTES], derived[PASSWORD_HASH_BYTES];
+    char saltText[PASSWORD_SALT_BYTES * 2], hashText[PASSWORD_HASH_BYTES * 2];
+
+    if (outSize < PASSWORD_HASH_BUFFER_SIZE || iterations < 1 || iterations > PASSWORD_HASH_MAX_ITERATIONS)
+        return 0;
+
+    if (RAND_bytes(salt, PASSWORD_SALT_BYTES) != 1 ||
+        PKCS5_PBKDF2_HMAC(password, (int)strlen(password), salt, PASSWORD_SALT_BYTES, iterations, EVP_sha256(),
+                          PASSWORD_HASH_BYTES, derived) != 1)
+        return 0;
+
+    EVP_EncodeBlock((unsigned char *)saltText, salt, PASSWORD_SALT_BYTES);
+    EVP_EncodeBlock((unsigned char *)hashText, derived, PASSWORD_HASH_BYTES);
+    OPENSSL_cleanse(derived, sizeof(derived));
+
+    /* base64 to the format of the file: no padding, '.' instead of '+' */
+    for (char *text = saltText; *text != '\0'; text++)
+        if (*text == '+') *text = '.';
+    for (char *text = hashText; *text != '\0'; text++)
+        if (*text == '+') *text = '.';
+    saltText[PASSWORD_SALT_CHARS] = '\0';
+    hashText[PASSWORD_HASH_CHARS] = '\0';
+
+    snprintf(out, outSize, "%s%d$%s$%s", PASSWORD_HASH_PREFIX, iterations, saltText, hashText);
+    return 1;
+#else
+    (void)password; (void)iterations; (void)out; (void)outSize;
+    return 0;
+#endif
+}

@@ -1,9 +1,43 @@
-About uFTP
+# uFTP server
 
-uFTP is a light FTP server designed for servers and embedded arm devices, is provided under MIT license terms.
-Visit the official project website to obtain more information: http://www.uftpserver.com/
+**A lightweight, open source FTP and FTPS server written in C, for Linux and embedded systems.**
+One binary, one configuration file, TLS, IPv6, MIT license.
 
-Read the detailed wiki https://www.uftpserver.com/wiki/
+Documentation: **<https://www.uftpserver.com/docs/>** · Website: <https://www.uftpserver.com/>
+
+## Why uFTP
+
+- **Simple:** one program and one configuration file (`uftpd.cfg`), every option explained in the file.
+- **FTP and FTPS:** explicit TLS (`AUTH TLS`) on control and data connections, passive and active mode, IPv4 and IPv6.
+- **Light:** one process with a few threads, not one process per client. Tested with 50,000 open connections.
+- **Portable:** plain C for Linux and POSIX systems (x86, x64, ARM), can be built as a static binary. Works on a Raspberry Pi.
+- **Careful by default:** hashed passwords, limits per address and per account, login lock-out, a free space guard, and a ready `fail2ban` filter.
+- **Tested:** an automatic test suite (`test/run_tests.sh`), fuzzing, and builds with AddressSanitizer and ThreadSanitizer.
+
+## Quick start
+
+```bash
+sudo apt-get install git gcc make libssl-dev
+git clone https://github.com/kingk85/uFTP.git
+cd uFTP
+make ENABLE_OPENSSL_SUPPORT="-D OPENSSL_ENABLED" LIBS="-lpthread -lssl -lcrypto"
+sudo cp build/uFTP /sbin/uFTP
+sudo cp uftpd.cfg /etc/uftpd.cfg      # edit the users at the end of the file
+sudo uFTP
+```
+
+Next: [installation](https://www.uftpserver.com/docs/installation/) ·
+[TLS and certificates](https://www.uftpserver.com/docs/tls/) ·
+[configuration](https://www.uftpserver.com/docs/configuration/) ·
+[troubleshooting](https://www.uftpserver.com/docs/troubleshooting/)
+
+## Security
+
+To report a vulnerability in private, read [SECURITY.md](SECURITY.md).
+
+## License
+
+uFTP is distributed under the MIT License (below). Built with TLS support it uses OpenSSL, whose license follows.
 
 This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org)
 

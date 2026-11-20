@@ -39,12 +39,6 @@
 #include "../debugHelper.h"
 #include "log.h"
 
-/* Catch Signal Handler functio */
-void signal_callback_handler(int signum) 
-{
-    my_printf("Caught signal SIGPIPE %d\n",signum);
-}
-
 static const char *signalName(int sig)
 {
     switch (sig)
@@ -115,12 +109,14 @@ static void onUftpTerminate(int sig)
     raise(sig);
 }
 
+/* SIGINT (Ctrl-C, kill -INT). It used to call my_printf(), deallocateMemory() and exit() here: none is
+   async-signal-safe. If the signal came while the main thread was inside the allocator the handler could wait for ever for
+   a lock it held itself, and the worker threads, still running, used the memory that was being freed. The process ends
+   at once with the exit status 0 it always had; the system gives the memory back. */
 void onUftpClose(int sig)
 {
     writeSignalLine(LOG_INFO_PREFIX "uFTP stopped by ", sig, 0);
-    my_printf("\nuFTP exit() sig %d\n", sig);
-    deallocateMemory();
-    exit(0);
+    _exit(0);
 }
 
 void signalHandlerInstall(void)

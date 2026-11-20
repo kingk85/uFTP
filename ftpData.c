@@ -594,6 +594,143 @@ void setRandomicPort(ftpDataType *data, int socketPosition)
     data->clients[socketPosition].workerData.connectionPort = 0;
 }
 
+/* The same rule as checkUserFilePermissions(): root, the owner and the group have read and write
+   (the execute bit is not looked at), anybody else the "other" bits */
+static void mlsxRights(const struct stat *info, int uid, int gid, int *canRead, int *canWrite)
+{
+    if (uid == 0 || gid == 0 || info->st_uid == (uid_t)uid || info->st_gid == (gid_t)gid)
+    {
+        *canRead = 1;
+        *canWrite = 1;
+        return;
+    }
+
+    *canRead = (info->st_mode & S_IROTH) != 0;
+    *canWrite = (info->st_mode & S_IWOTH) != 0;
+}
+
+int FTP_FormatMlsxFacts(char *out, size_t outSize, const struct stat *info, int facts, int uid, int gid)
+{
+    int isDirectory = S_ISDIR(info->st_mode);
+    int canRead, canWrite;
+    size_t length = 0;
+    int written;
+
+    if (!isDirectory && !S_ISREG(info->st_mode))
+    {
+        return 0;
+    }
+
+    mlsxRights(info, uid, gid, &canRead, &canWrite);
+    out[0] = '\0';
+
+#define MLSX_APPEND(...) do { written = snprintf(out + length, outSize - length, __VA_ARGS__); \
+                              if (written < 0 || (size_t)written >= outSize - length) return -1; \
+                              length += (size_t)written; } while (0)
+
+    if (facts & MLST_FACT_TYPE)
+    {
+        MLSX_APPEND("type=%s;", isDirectory ? "dir" : "file");
+    }
+
+    if (facts & MLST_FACT_SIZE)
+    {
+        MLSX_APPEND("size=%lld;", (long long int)info->st_size);
+    }
+
+    if (facts & MLST_FACT_MODIFY)
+    {
+        struct tm utc;
+        char text[32];
+        time_t modified = info->st_mtime;
+
+        gmtime_r(&modified, &utc);
+        strftime(text, sizeof(text), "%Y%m%d%H%M%S", &utc);
+        MLSX_APPEND("modify=%s;", text);
+    }
+
+    if (facts & MLST_FACT_PERM)
+    {
+        char perm[16];
+        int n = 0;
+
+        if (isDirectory)
+        {
+            if (canRead) { perm[n++] = 'e'; perm[n++] = 'l'; }
+            if (canWrite) { perm[n++] = 'c'; perm[n++] = 'm'; perm[n++] = 'p'; perm[n++] = 'd'; perm[n++] = 'f'; }
+        }
+        else
+        {
+            if (canRead) perm[n++] = 'r';
+            if (canWrite) { perm[n++] = 'a'; perm[n++] = 'w'; perm[n++] = 'd'; perm[n++] = 'f'; }
+        }
+
+        perm[n] = '\0';
+        MLSX_APPEND("perm=%s;", perm);
+    }
+
+    if (facts & MLST_FACT_UNIX_MODE)
+    {
+        MLSX_APPEND("unix.mode=%04o;", (unsigned int)(info->st_mode & 07777));
+    }
+
+    if (facts & MLST_FACT_UNIX_UID)
+    {
+        MLSX_APPEND("unix.uid=%u;", (unsigned int)info->st_uid);
+    }
+
+    if (facts & MLST_FACT_UNIX_GID)
+    {
+        MLSX_APPEND("unix.gid=%u;", (unsigned int)info->st_gid);
+    }
+
+#undef MLSX_APPEND
+
+    return (int)length > 0 ? (int)length : 1;
+}
+
+/* MLSD: one line "facts name" per file or directory of thePath, hidden files included, "." and ".."
+   not. Links are described by what they point to, dead links and names with a line break are not
+   listed (they would break the line format). The same stat() per entry as LIST. */
+int FTP_WriteMlsdToSocket(ftpDataType *ftpData, int clientId, char *thePath, int facts, int *filesNumber, DYNMEM_MemoryTable_DataType **memoryTable)
+{
+    int i, returnCode = 1;
+    int fileAndFoldersCount = 0;
+    char **fileList = NULL;
+
+    FILE_GetDirectoryInodeList(thePath, &fileList, &fileAndFoldersCount, 0, "A", 0, memoryTable);
+    *filesNumber = 0;
+
+    for (i = 0; i < fileAndFoldersCount; i++)
+    {
+        struct stat info;
+        char line[1024];            /* a name is at most 255 bytes, the facts about 120 */
+        char *name = FILE_GetFilenameFromPath(fileList[i]);
+        int length;
+
+        if (returnCode > 0 && name != NULL && strpbrk(name, "\r\n") == NULL && stat(fileList[i], &info) == 0)
+        {
+            length = FTP_FormatMlsxFacts(line, sizeof(line) - 1, &info, facts, 
+                                         ftpData->clients[clientId].login.ownerShip.uid,
+                                         ftpData->clients[clientId].login.ownerShip.gid);
+            if (length > 0 && length + (int)strlen(name) + 3 < (int)sizeof(line))
+            {
+                (*filesNumber)++;
+                returnCode = socketWorkerPrintf(ftpData, clientId, "ssss", line, " ", name, "\r\n");
+            }
+        }
+
+        DYNMEM_free(fileList[i], memoryTable);
+    }
+
+    if (fileList != NULL)
+    {
+        DYNMEM_free(fileList, memoryTable);
+    }
+
+    return returnCode > 0 ? 1 : -1;
+}
+
 /* thePath and theOptions are passed by the caller: the data worker passes
    the path and options it was given, STAT its own local copies. The function used to
    read the shared client fields listPath and workerData.ftpCommand, which the control
@@ -606,7 +743,9 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, char *thePath,
     my_printf("\nFILE_GetDirectoryInodeList arg path: %s", thePath);
     my_printf("\nFILE_GetDirectoryInodeList options: %s", theOptions);
 
-    int i, x, returnCode;
+    FILE_ClearOwnerCache();         /* the control thread (STAT) lives long: a name changed in /etc/passwd must show */
+
+    int i, x, returnCode = -1;      /* -1: the unknown commandType of the default case counts as a failed write */
     int fileAndFoldersCount = 0;
     char **fileList = NULL;
     FILE_GetDirectoryInodeList(thePath, &fileList, &fileAndFoldersCount, 0, theOptions, 0, memoryTable);
@@ -638,8 +777,20 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, char *thePath,
         data.linkPath = NULL;       
         data.isFile = 0;
         data.isDirectory = 0;
+        /* these were read without having been set for a file that is neither (a FIFO, a socket, a device): the
+           entry was listed or not by chance, and a broken link was listed with a garbage size */
+        data.isLink = 0;
+        data.fileSize = 0;
+        data.numberOfSubDirectories = 0;
 
-        if (FILE_IsDirectory(fileList[i], 0) == 1)
+        /* One stat() and one lstat() per file give everything a listing needs (type, size, owner, group,
+           permissions, time): it used to make about sixteen system calls per file, opening and closing the
+           file three times, and LIST of a big directory was slow. */
+        struct stat fileStat, linkStat;
+        int fileStatOk = (stat(fileList[i], &fileStat) == 0);
+        int linkStatOk = (lstat(fileList[i], &linkStat) == 0);
+
+        if (fileStatOk && S_ISDIR(fileStat.st_mode))
         {
             data.isDirectory = 1;
             data.isFile = 0;
@@ -647,15 +798,15 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, char *thePath,
             data.fileSize = 4096;
             data.numberOfSubDirectories = FILE_GetDirectoryInodeCount(fileList[i]);
         }
-        else if (FILE_IsFile(fileList[i], 0) == 1)
+        else if (fileStatOk && S_ISREG(fileStat.st_mode) && access(fileList[i], R_OK) == 0)
         {
             data.isDirectory = 0;
             data.isFile = 1;
             data.isLink = 0;
             data.numberOfSubDirectories = 1; /* to Do*/
-            data.fileSize = FILE_GetFileSizeFromPath(fileList[i]);
+            data.fileSize = (long long int)fileStat.st_size;
         }
-        else if (FILE_IsLink(fileList[i]) == 1)
+        else if (linkStatOk && S_ISLNK(linkStat.st_mode))
         {
             //List broken links
             data.isLink = 1;
@@ -672,12 +823,12 @@ int writeListDataInfoToSocket(ftpDataType *ftpData, int clientId, char *thePath,
             continue;
         }
 
-        data.owner = FILE_GetOwner(fileList[i], memoryTable);
-        data.groupOwner = FILE_GetGroupOwner(fileList[i], memoryTable);
+        data.owner = fileStatOk ? FILE_GetOwnerFromId(fileStat.st_uid, memoryTable) : NULL;
+        data.groupOwner = fileStatOk ? FILE_GetGroupOwnerFromId(fileStat.st_gid, memoryTable) : NULL;
         data.fileNameWithPath = fileList[i];
         data.fileNameNoPath = FILE_GetFilenameFromPath(fileList[i]);
-        data.inodePermissionString = FILE_GetListPermissionsString(fileList[i], memoryTable);
-        data.lastModifiedData = FILE_GetLastModifiedData(fileList[i]);
+        data.inodePermissionString = FILE_GetListPermissionsStringFromStat(&fileStat, fileStatOk, &linkStat, linkStatOk, memoryTable);
+        data.lastModifiedData = fileStatOk ? FILE_ConvertModifiedTime(fileStat.st_mtime) : 0;
 
         if (strlen(data.fileNameNoPath) > 0)
         {
@@ -849,114 +1000,6 @@ void deleteLoginFailsData(void *element)
     ; //NOP
 }
 
-void getListDataInfo(char * thePath, DYNV_VectorGenericDataType *directoryInfo, DYNMEM_MemoryTable_DataType **memoryTable)
-{
-    int i;
-    int fileAndFoldersCount = 0;
-    ftpListDataType data;
-    FILE_GetDirectoryInodeList(thePath, &data.fileList, &fileAndFoldersCount, 0, "Z", 0, memoryTable);
-    
-    //my_printf("\nNUMBER OF FILES: %d", fileAndFoldersCount);
-    //fflush(0);
-    
-    for (i = 0; i < fileAndFoldersCount; i++)
-    {
-        data.owner = NULL;
-        data.groupOwner = NULL;
-        data.inodePermissionString = NULL;
-        data.fileNameWithPath = NULL;
-        data.finalStringPath = NULL;
-        data.linkPath = NULL;       
-
-        data.numberOfSubDirectories = 1; /* to Do*/
-        data.isFile = 0;
-        data.isDirectory = 0;
-        
-        
-        //my_printf("\nPROCESSING: %s", data.fileList[i]);
-        //fflush(0);
-        
-        if (FILE_IsDirectory(data.fileList[i], 0) == 1)
-        {
-            //my_printf("\nis file");
-            //fflush(0);
-            data.isDirectory = 1;
-            data.isFile = 0;
-            data.isLink = 0;
-            data.fileSize = 4096;
-        }
-        else if (FILE_IsFile(data.fileList[i], 0) == 1)
-        {
-            //my_printf("\nis file");
-            //fflush(0);
-            data.isDirectory = 0;
-            data.isFile = 1;
-            data.isLink = 0;
-            data.fileSize = FILE_GetFileSizeFromPath(data.fileList[i]);
-        }
-        if (data.isDirectory == 0 && data.isFile == 0)
-        {
-            //my_printf("\nNot a directory, not a file, broken link");
-            continue;
-        }
-        
-       // my_printf("\nFILE SIZE : %lld", data.fileSize);
-
-        data.owner = FILE_GetOwner(data.fileList[i], memoryTable);
-        data.groupOwner = FILE_GetGroupOwner(data.fileList[i], memoryTable);
-        data.fileNameWithPath = data.fileList[i];
-        data.fileNameNoPath = FILE_GetFilenameFromPath(data.fileList[i]);
-        data.inodePermissionString = FILE_GetListPermissionsString(data.fileList[i], memoryTable);
-        data.lastModifiedData = FILE_GetLastModifiedData(data.fileList[i]);
-
-        if (strlen(data.fileNameNoPath) > 0)
-        {
-            data.finalStringPath = (char *) DYNMEM_malloc (strlen(data.fileNameNoPath)+1, memoryTable, "FinalStringPath");
-            strcpy(data.finalStringPath, data.fileNameNoPath);
-        }
-        
-        if (data.inodePermissionString != NULL &&
-            strlen(data.inodePermissionString) > 0 &&
-            data.inodePermissionString[0] == 'l')
-            {
-                int len = 0;
-                data.isLink = 1;
-                data.linkPath = (char *) DYNMEM_malloc (CLIENT_COMMAND_STRING_SIZE*sizeof(char), memoryTable, "data.linkPath");
-                if ((len = readlink (data.fileList[i], data.linkPath, CLIENT_COMMAND_STRING_SIZE - 1)) > 0)
-                {
-                    data.linkPath[len] = 0;
-                    FILE_AppendToString(&data.finalStringPath, " -> ", memoryTable);
-                    FILE_AppendToString(&data.finalStringPath, data.linkPath, memoryTable);
-                }
-            }
-
-        memset(data.lastModifiedDataString, 0, LIST_DATA_TYPE_MODIFIED_DATA_STR_SIZE);    
-        
-        struct tm newtime;
-        localtime_r(&data.lastModifiedData, &newtime);   
-        strftime(data.lastModifiedDataString, 80, "%b %d %Y", &newtime);
-
-        /*
-        -1 List one file per line
-        -A List all files except "." and ".."
-        -a List all files including those whose names start with "."
-        -C List entries by columns
-        -d List directory entries instead of directory contents
-        -F Append file type indicator (one of "*", "/", "=", "@" or "|") to names
-        -h Print file sizes in human-readable format (e.g. 1K, 234M, 2G)
-        -L List files pointed to by symlinks
-        -l Use a long listing format
-        -n List numeric UIDs/GIDs instead of user/group names
-        -R List subdirectories recursively
-        -r Sort filenames in reverse order
-        -S Sort by file size
-        -t Sort by modification time 
-         */
-
-        directoryInfo->PushBack(directoryInfo, &data, sizeof(ftpListDataType));
-    }
-}
-
 void deleteListDataInfoVector(DYNV_VectorGenericDataType *theVector)
 {
     for (int i = 0; i < theVector->Size; i++)
@@ -1027,6 +1070,14 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
             data->clients[clientId].workerData.theStorFile = NULL;
         }
 
+        /* a download stopped half way (ABOR, QUIT, a new PASV, the client gone): the worker was cancelled
+           in write() and the file it had opened was never closed (a descriptor and its buffer, at every stop) */
+        if (data->clients[clientId].workerData.theRetrFile != NULL)
+        {
+            fclose(data->clients[clientId].workerData.theRetrFile);
+            data->clients[clientId].workerData.theRetrFile = NULL;
+        }
+
 			#ifdef OPENSSL_ENABLED
 
         	if (data->clients[clientId].workerData.serverSsl != NULL)
@@ -1035,18 +1086,13 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
         		data->clients[clientId].workerData.serverSsl = NULL;
         	}
 
-        	if (data->clients[clientId].workerData.clientSsl != NULL)
-        	{
-        		SSL_free(data->clients[clientId].workerData.clientSsl);
-        		data->clients[clientId].workerData.clientSsl = NULL;
-        	}
-
 			#endif
       }
       else
       {
         DYNV_VectorGeneric_Init(&data->clients[clientId].workerData.directoryInfo);
         data->clients[clientId].workerData.theStorFile = NULL;
+        data->clients[clientId].workerData.theRetrFile = NULL;
         data->clients[clientId].workerData.threadHasBeenCreated = 0;
       }
 
@@ -1063,7 +1109,15 @@ void resetWorkerData(ftpDataType *data, int clientId, int isInitialization)
 
     #ifdef OPENSSL_ENABLED
     data->clients[clientId].workerData.serverSsl = SSL_new(data->serverCtx);
-    data->clients[clientId].workerData.clientSsl = SSL_new(data->serverCtx);
+    #if OPENSSL_VERSION_NUMBER >= 0x10101000L
+    /* No TLS 1.3 session ticket on the data connection. A client that uploads starts to send
+       the file right after its Finished; over a link with some latency the ticket of the
+       server crosses with the data and GnuTLS clients (lftp, FileZilla) answer with a reset:
+       426 and a file cut after the first TLS record. The control connection still sends the
+       tickets, which are what a client resumes. */
+    if (data->clients[clientId].workerData.serverSsl != NULL)
+        SSL_set_num_tickets(data->clients[clientId].workerData.serverSsl, 0);
+    #endif
     #endif
 }
 
@@ -1124,8 +1178,10 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].socketDescriptor = -1;
     data->clients[clientId].socketCommandReceived = 0;
     data->clients[clientId].socketIsConnected = 0;
+    data->clients[clientId].socketEventReady = 0;
     data->clients[clientId].bufferIndex = 0;
     data->clients[clientId].commandIndex = 0;
+    data->clients[clientId].telnetState = 0;
     data->clients[clientId].closeTheClient = 0;
     data->clients[clientId].closeReason = NULL;
     data->clients[clientId].accessLogged = 0;
@@ -1134,7 +1190,10 @@ void resetClientData(ftpDataType *data, int clientId, int isInitialization)
     data->clients[clientId].sockaddr_in_size = sizeof(struct sockaddr_in);
     data->clients[clientId].sockaddr_in_server_size = sizeof(struct sockaddr_in);
     data->clients[clientId].pbszIsSet = 0;
+    data->clients[clientId].epsvAllUsed = 0;
     data->clients[clientId].controlChannelCleared = 0;
+    data->clients[clientId].mlstFacts = MLST_FACTS_ALL;
+    data->clients[clientId].recordStructure = 0;
     data->clients[clientId].cccShutdownPending = CCC_SHUTDOWN_DONE;
     
     memset(&data->clients[clientId].client_sockaddr_in, 0, data->clients[clientId].sockaddr_in_size);

@@ -135,10 +135,16 @@ class UFTPTestServer:
         """Prepare the working directory and launch the server (it may still fail)."""
         if not os.path.isfile(self.binary):
             raise FileNotFoundError(f"uFTP binary not found at {self.binary}, build it first")
-        if check_port and port_in_use(self.port):
-            # uFTP sets SO_REUSEPORT: a second server on the same port would get
-            # a share of the connections and make test results meaningless.
-            raise RuntimeError(f"port {self.port} is already in use (leftover uFTP?)")
+        if check_port:
+            # The server of the previous test may still be closing (slow with
+            # AddressSanitizer): give it a few seconds before calling it a leftover.
+            deadline = time.monotonic() + 5
+            while port_in_use(self.port) and time.monotonic() < deadline:
+                time.sleep(0.2)
+            if port_in_use(self.port):
+                # uFTP sets SO_REUSEPORT: a second server on the same port would get
+                # a share of the connections and make test results meaningless.
+                raise RuntimeError(f"port {self.port} is already in use (leftover uFTP?)")
 
         self.workdir = tempfile.mkdtemp(prefix="uftp-test-")
         os.mkdir(self.home)
@@ -181,6 +187,8 @@ class UFTPTestServer:
         text = ""
         folder = os.path.join(self.workdir, "log")
         for name in sorted(os.listdir(folder)):
+            if os.path.islink(os.path.join(folder, name)):      # uftpLog.current: the same file as the one of today
+                continue
             with open(os.path.join(folder, name), errors="replace") as f:
                 text += f.read()
         return text

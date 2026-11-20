@@ -35,7 +35,6 @@
 extern "C" {
 #endif
 
-int getMaximumSocketFd(int mainSocket, ftpDataType * data);
 int createSocket(ftpDataType * ftpData);
 int createPassiveSocket(int port);
 int ipAddressToBinary(const char *theAddress, struct in6_addr *binary);
@@ -49,6 +48,8 @@ int dataWriteTimeoutMs(ftpDataType *ftpData);
    is not reading: it is closed. 250 ms (release candidate) closed live clients in
    production, and in clear text there was no wait at all. */
 #define CONTROL_WRITE_TIMEOUT_MS    2000
+/* the same for a client that has not logged in */
+#define CONTROL_WRITE_TIMEOUT_UNAUTHENTICATED_MS 100
 
 /* Log lines about one client: "[<slot> <address> <user>] message". isAccessRecord = 1
    for the actions of a logged in user (see logMessageRecord() in log.c). */
@@ -68,10 +69,11 @@ void setCloseReason(ftpDataType *ftpData, int clientId, const char *reason);
    system error) */
 void logTlsHandshakeFailure(ftpDataType *ftpData, int clientId, int sslError);
 #endif
-int createActiveSocket(int port, char *ipAddress);
+void setTcpNoDelay(int fd);
+int createActiveSocket(int port, char *ipAddress, volatile int *descriptorSlot);
 
 #ifdef IPV6_ENABLED
-int createActiveSocketV6(int port, char *ipAddress);
+int createActiveSocketV6(int port, char *ipAddress, volatile int *descriptorSlot);
 #endif
 
 #ifdef OPENSSL_ENABLED
@@ -80,13 +82,12 @@ int acceptSSLConnection(int theSocketId, ftpDataType * ftpData);
 
 void fdInit(ftpDataType * ftpData);
 void fdAdd(ftpDataType * ftpData, int index);
-void fdRemove(ftpDataType * ftpData, int index);
 
 void checkClientConnectionTimeout(ftpDataType * ftpData);
 void flushLoginWrongTriesData(ftpDataType * ftpData);
 void closeSocket(ftpDataType * ftpData, int processingSocket);
 void closeClient(ftpDataType * ftpData, int processingSocket);
-int selectWait(ftpDataType * ftpData);
+int waitForClientEvents(ftpDataType * ftpData);
 int isClientConnected(ftpDataType * ftpData, int cliendId);
 int getAvailableClientSocketIndex(ftpDataType * ftpData);
 int evaluateClientSocketConnection(ftpDataType * ftpData);

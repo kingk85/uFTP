@@ -60,7 +60,7 @@ void handleThreadReuse(ftpDataType *data, int socketId)
 
 void cancelWorker(ftpDataType *data, int clientId)
 {
-    LOG_DEBUG("Cancelling thread because it is busy");
+    LOG_CLIENT(data, clientId, LOG_DEBUG_PREFIX, "Cancelling the data worker: it is still busy with the previous transfer command");
 
     int returnCode = pthread_cancel(data->clients[clientId].workerData.workerThread);
     if (returnCode != 0) {

@@ -43,7 +43,6 @@
 
 #include <stddef.h>
 
-int logInit(const char* folder, int numberOfLogFiles);
 int logConfigure(const char* folder, int numberOfLogFiles);
 int logStartWriter(void);
 void logFlush(void);

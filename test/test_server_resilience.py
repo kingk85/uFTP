@@ -17,6 +17,7 @@ Environment overrides:
 """
 
 import os
+import resource
 import shutil
 import re
 import signal
@@ -33,8 +34,38 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from uftp_test_server import UFTPTestServer, HOST  # noqa: E402
-from ftp_test_client import FtpControl, listening_socket, port_argument, tls_client_context  # noqa: E402
+from uftp_test_server import UFTPTestServer, HOST, DEFAULT_BIN  # noqa: E402
+from ftp_test_client import listening_socket, FtpControl, port_argument, tls_client_context  # noqa: E402
+
+
+def _server_binary_text():
+    """The bytes of the server binary (when UFTP_BIN is a wrapper script, those of the binary it starts)."""
+    try:
+        with open(DEFAULT_BIN, "rb") as f:
+            data = f.read()
+        if data.startswith(b"#!"):
+            for word in data.split():
+                if word.endswith(b"/uFTP") and os.path.isfile(word):
+                    with open(word, "rb") as f:
+                        return f.read()
+        return data
+    except OSError:
+        return b""
+
+
+def sanitizer_factor():
+    """Slowdown allowed for the timing thresholds: 1 for a normal build, more when the binary is built with a sanitizer
+    (AddressSanitizer, UBSan and ThreadSanitizer make the server several times slower)."""
+    data = _server_binary_text()
+    if b"__tsan_init" in data:
+        return 12            # ThreadSanitizer is the slowest: a listing of 100,000 files takes about 105 s (1.2 s normally)
+    return 6 if (b"__asan_init" in data or b"__ubsan_handle" in data) else 1
+
+
+def built_with_tsan():
+    """ThreadSanitizer exits with 66 after reporting the (benign) races it found."""
+    return b"__tsan_init" in _server_binary_text()
+
 
 PORT = int(os.environ.get("UFTP_RESILIENCE_PORT", "2122"))
 IDLE_TIMEOUT = 3          # seconds, short on purpose
@@ -323,6 +354,475 @@ class UnknownOwnerTests(unittest.TestCase):
         self.assertEqual(line[-1], "file.txt")
 
 
+ADDRESS_KEY_PROGRAM = r"""
+#include <stdio.h>
+#include "library/addressKey.h"
+
+int main(int argc, char **argv)
+{
+    char key[INET6_ADDRSTRLEN];
+
+    for (int i = 1; i < argc; i++)
+    {
+        addressKey(argv[i], key, sizeof(key));
+        printf("%s\n", key);
+    }
+    return 0;
+}
+"""
+
+
+class AddressKeyTests(unittest.TestCase):
+    """Failed logins and new connections are counted per address; an IPv6 address is counted as its network (the
+    first 64 bits): who has a network has 2^64 addresses and could use a new one for every
+    attempt. A test with two real addresses of one network is not possible on this machine
+    (loopback has only ::1), so the function that makes the key is tried directly."""
+
+    @classmethod
+    def setUpClass(cls):
+        compiler = shutil.which("cc") or shutil.which("gcc")
+        if compiler is None:
+            raise unittest.SkipTest("no C compiler to build the test program")
+        cls.build = tempfile.mkdtemp(prefix="uftp-key-")
+        source = os.path.join(cls.build, "key.c")
+        with open(source, "w") as f:
+            f.write(ADDRESS_KEY_PROGRAM)
+        cls.program = os.path.join(cls.build, "key")
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        subprocess.run([compiler, "-Wall", "-I", root, "-o", cls.program, source], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.build, True)
+
+    def keys(self, *addresses):
+        output = subprocess.run([self.program, *addresses], capture_output=True, check=True).stdout.decode()
+        return output.splitlines()
+
+    def test_addresses_of_one_network_have_the_same_key(self):
+        keys = self.keys("2001:db8:1:2::1", "2001:db8:1:2:aaaa:bbbb:cccc:dddd",
+                         "2001:0DB8:0001:0002:0000:0000:0000:0001", "2001:db8:1:2:ffff:ffff:ffff:ffff")
+        self.assertEqual(len(set(keys)), 1, keys)
+
+    def test_another_network_has_another_key(self):
+        a, b, c = self.keys("2001:db8:1:2::1", "2001:db8:1:3::1", "2001:db8:2:2::1")
+        self.assertEqual(len({a, b, c}), 3)
+
+    def test_loopback_addresses_are_one_network(self):
+        keys = self.keys("::1", "::2", "::ffff:0:1")
+        self.assertEqual(keys[0], keys[1])
+
+    def test_ipv4_is_counted_as_it_is_also_when_it_arrives_on_an_ipv6_socket(self):
+        self.assertEqual(self.keys("192.0.2.5", "::ffff:192.0.2.5", "::ffff:192.0.2.6"),
+                         ["192.0.2.5", "::ffff:192.0.2.5", "::ffff:192.0.2.6"])
+
+    def test_what_is_not_an_address_is_left_alone(self):
+        self.assertEqual(self.keys("garbage", ""), ["garbage", ""])
+
+
+class FreeSpaceTests(unittest.TestCase):
+    """MIN_FREE_SPACE_MB: an upload must not fill the disk (the server runs as root and its
+    reserved blocks are not safe from it). Below the limit STOR and APPE are refused (452), and an
+    upload that is going on is stopped. The limit is set from the space that this machine has,
+    so the tests do not fill anything: they only ask for more free space than there is."""
+
+    def setUp(self):
+        probe = tempfile.mkdtemp(prefix="uftp-space-")
+        self.addCleanup(shutil.rmtree, probe, True)
+        stat = os.statvfs(probe)
+        self.available_mb = stat.f_bavail * stat.f_frsize // (1 << 20)
+        if self.available_mb < 300:
+            self.skipTest("less than 300 MB free on this machine")
+
+    def server(self, minimum):
+        server = UFTPTestServer(port=PORT, idle_timeout=60,
+                                extra_config={"MAXIMUM_LOG_FILES": 1, "MIN_FREE_SPACE_MB": minimum})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, server.user, server.password)
+        self.addCleanup(c.close)
+        return server, c
+
+    def test_stor_and_appe_are_refused_when_the_free_space_is_below_the_limit(self):
+        server, c = self.server(self.available_mb + 100)
+        for command in ("STOR full.bin", "APPE full.bin"):
+            data = c.pasv()
+            self.addCleanup(data.close)
+            code, text = c.cmd(command)
+            self.assertEqual(code, 452, (command, text))
+            self.assertIn("Insufficient storage space", text)
+        self.assertFalse(os.path.exists(os.path.join(server.home, "full.bin")))
+        self.assertEqual(c.cmd("NOOP")[0], 200)                  # the session goes on
+        self.assertEqual(c.cmd("RETR nothing")[0], 550)          # and the other commands answer as always
+
+    def test_the_refusal_is_in_the_log(self):
+        server, c = self.server(self.available_mb + 100)
+        data = c.pasv()
+        self.addCleanup(data.close)
+        self.assertEqual(c.cmd("STOR full.bin")[0], 452)
+        deadline = time.monotonic() + 5
+        log = ""
+        while time.monotonic() < deadline and "MIN_FREE_SPACE_MB" not in log:
+            time.sleep(0.2)
+            log = server.log_folder_text()
+        self.assertIn("STOR", log)
+        self.assertIn("refused (452)", log)
+
+    def test_below_the_limit_the_upload_is_stopped_and_the_client_is_told(self):
+        margin = 25
+        server, c = self.server(self.available_mb - margin)
+        data = c.pasv()
+        self.assertEqual(c.cmd("STOR growing.bin")[0], 150)
+        sent = 0
+        chunk = b"x" * (1 << 20)
+        try:
+            for _ in range(120):
+                data.sendall(chunk)
+                sent += 1
+        except OSError:
+            pass                                                # the server closed the connection
+        data.close()
+        code, text = c.read_reply()
+        self.assertEqual(code, 452, text)
+        stored = os.path.getsize(os.path.join(server.home, "growing.bin")) >> 20
+        self.assertLess(stored, margin + 25, "the upload was not stopped: %d MB" % stored)
+        self.assertGreater(stored, 0)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+
+    def test_with_enough_space_the_upload_goes_on_as_always(self):
+        server, c = self.server(1)
+        self.assertEqual(c.upload("STOR fine.bin", c.pasv(), b"y" * 100000), 226)
+        self.assertEqual(os.path.getsize(os.path.join(server.home, "fine.bin")), 100000)
+
+    def test_without_the_parameter_nothing_is_checked(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=60)
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, server.user, server.password)
+        self.addCleanup(c.close)
+        self.assertEqual(c.upload("STOR fine.bin", c.pasv(), b"z" * 1000), 226)
+
+
+class ReplyOrderTests(unittest.TestCase):
+    """The reply 150 of a transfer must come before its final reply (226). The control thread woke the
+    worker and then wrote the 150: a small transfer could finish first, and the worker wrote the 226
+    before the 150 (found by test/load_test.py with 40 clients at the same time). The client then
+    read the 226 as the answer of the command and every reply after it was one step late."""
+
+    CLIENTS = 40
+    TRANSFERS = 500
+    USE_TLS = False
+
+    def test_the_150_always_comes_before_the_226(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=120, max_connections=60, max_per_ip=60,
+                                extra_config={"MAXIMUM_LOG_FILES": 0, "MAX_CONNECTION_TRY_PER_IP": 0, "RANDOM_PORT_START": 20000, "RANDOM_PORT_END": 60000})
+        server.start()
+        self.addCleanup(server.stop)
+        if self.USE_TLS:
+            probe = FtpControl(PORT, login=False, timeout=10)      # a build without OpenSSL answers 502
+            code = probe.cmd("AUTH TLS")[0]
+            probe.close()
+            if code == 502:
+                self.skipTest("uFTP was built without OpenSSL support")
+        with open(os.path.join(server.home, "tiny.txt"), "wb") as f:
+            f.write(b"x")
+        wrong = []
+        lock = threading.Lock()
+
+        def client(number):
+            try:
+                c = FtpControl(PORT, server.user, server.password, login=not self.USE_TLS, timeout=20)
+                if self.USE_TLS:
+                    c.start_tls()                   # AUTH TLS clears the login: it comes after
+                    c.cmd("PBSZ 0")
+                    c.cmd("PROT C")
+                    c.login(server.user, server.password)
+                for round_ in range(self.TRANSFERS):
+                    data = c.pasv()
+                    command = ("RETR tiny.txt", "LIST", "STOR up%d" % number)[round_ % 3]
+                    first = c.cmd(command)[0]
+                    if first != 150:
+                        with lock:
+                            wrong.append((number, first))
+                        data.close()
+                        return                      # the replies are out of step: the session is no use
+                    if command.startswith("STOR"):
+                        data.sendall(b"y" * 100)
+                    else:
+                        while data.recv(100):
+                            pass
+                    data.close()
+                    last = c.read_reply()[0]
+                    if last != 226:
+                        with lock:
+                            wrong.append((number, last))
+                        return
+                c.close()
+            except Exception as error:
+                with lock:
+                    wrong.append((number, repr(error)))
+
+        threads = [threading.Thread(target=client, args=(n,)) for n in range(self.CLIENTS)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=120)
+        self.assertEqual(wrong, [], "replies out of order in %d of %d sessions" % (len(wrong), self.CLIENTS))
+
+
+class ReplyOrderTlsTests(ReplyOrderTests):
+    """The same with the control connection in TLS, where the worker is slower to run after it has
+    written the 227: the client sent its command (STOR, RETR, LIST) before the flag "the data
+    connection is ready" was set, and got 425 Use PORT or PASV first."""
+
+    USE_TLS = True
+
+
+class DataSocketLeakTests(unittest.TestCase):
+    """A passive data worker is stopped (pthread_cancel) when a new PASV, QUIT or a closed connection arrives. The worker
+    sat in a blocking accept() with cancellation enabled: when the cancel came just as accept() returned, the
+    connection was accepted and the descriptor lost, a socket left in CLOSE-WAIT for ever (30 of them in a long run, one
+    every few minutes under load). The accept is now done without cancellation after a poll() that holds nothing.
+    The test provokes the race many times, from many clients, and counts the descriptors of the server."""
+
+    CLIENTS = 30
+    ROUNDS = 1200
+
+    @staticmethod
+    def descriptors(pid):
+        return len(os.listdir("/proc/%d/fd" % pid))
+
+    def run_clients(self, one_round, rounds):
+        server = UFTPTestServer(port=PORT, idle_timeout=300, max_connections=60, max_per_ip=60,
+                                extra_config={"MAXIMUM_LOG_FILES": 0, "MAX_CONNECTION_TRY_PER_IP": 0,
+                                              "RANDOM_PORT_START": 20000, "RANDOM_PORT_END": 60000})
+        server.start()
+        self.addCleanup(server.stop)
+        with open(os.path.join(server.home, "big.bin"), "wb") as f:
+            f.write(b"b" * (8 << 20))
+        time.sleep(1)
+        base = self.descriptors(server.process.pid)
+        problems = []
+        lock = threading.Lock()
+
+        def client(number):
+            try:
+                c = FtpControl(PORT, server.user, server.password, timeout=30)
+                for _ in range(rounds):
+                    one_round(c)
+                c.close()
+            except Exception as error:
+                with lock:
+                    problems.append(repr(error)[:80])
+
+        threads = [threading.Thread(target=client, args=(n,)) for n in range(self.CLIENTS)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=300)
+        self.assertEqual(problems, [])
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline and self.descriptors(server.process.pid) > base + 3:
+            time.sleep(0.5)
+        left = self.descriptors(server.process.pid)
+        self.assertLessEqual(left, base + 3, "%d descriptors left open (%d at the start)" % (left, base))
+
+    @staticmethod
+    def until_227(c):
+        """Read replies until the 227 of the PASV (the ones of the stopped commands come before it)."""
+        for _ in range(6):
+            if c.read_reply()[0] == 227:
+                return
+        raise AssertionError("no 227")
+
+    def test_a_worker_stopped_while_accepting_does_not_keep_the_connection(self):
+        def one_round(c):
+            data = c.pasv()                 # the worker accepts this connection...
+            c.send("PASV")                  # ...while this command stops it and starts another
+            data.close()
+            self.until_227(c)
+        self.run_clients(one_round, self.ROUNDS)
+
+    def test_a_worker_stopped_while_connecting_in_active_mode_does_not_keep_the_socket(self):
+        def one_round(c):
+            listener, port = listening_socket()
+            c.send("PORT 127,0,0,1,%d,%d" % (port // 256, port % 256))
+            c.send("PASV")                  # stops the worker that is connecting to the listener
+            self.until_227(c)
+            listener.close()
+        self.run_clients(one_round, self.ROUNDS // 2)
+
+    def test_a_download_stopped_half_way_does_not_keep_the_file_or_the_socket(self):
+        def one_round(c):
+            data = c.pasv()
+            c.send("RETR big.bin")
+            data.recv(65536)                # the transfer is going on...
+            c.send("PASV")                  # ...and this stops it
+            data.close()
+            self.until_227(c)
+        self.run_clients(one_round, self.ROUNDS // 4)
+
+
+class ThreadLimitTests(unittest.TestCase):
+    """When the system can not create another thread (the limit of processes of the user, or no memory), the
+    server used to stop: exit(0) in startDataChannel, so one client that sent PASV dropped every session
+    (with RESPAWN_PROCESS the supervisor started it again, with nobody connected). Now only that PASV is
+    refused (425) and the others go on. The limit is set with ulimit -u in a wrapper around the binary."""
+
+    @staticmethod
+    def tasks_of_the_user():
+        uid = os.getuid()
+        total = 0
+        for name in os.listdir("/proc"):
+            if name.isdigit():
+                try:
+                    if os.stat("/proc/%s" % name).st_uid == uid:
+                        total += len(os.listdir("/proc/%s/task" % name))
+                except OSError:
+                    pass
+        return total
+
+    def test_the_server_does_not_stop_when_it_can_not_create_a_thread(self):
+        real = os.path.abspath(os.environ.get("UFTP_BIN", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "build", "uFTP")))
+        folder = tempfile.mkdtemp(prefix="uftp-nproc-")
+        self.addCleanup(shutil.rmtree, folder, True)
+        wrapper = os.path.join(folder, "uftp-limited.sh")
+        limit = self.tasks_of_the_user() + 120
+        with open(wrapper, "w") as f:
+            f.write("#!/bin/bash\nulimit -u %d || exit 99\nexec %s \"$@\"\n" % (limit, real))
+        os.chmod(wrapper, 0o755)
+
+        server = UFTPTestServer(port=PORT, idle_timeout=120, max_connections=400, max_per_ip=400, binary=wrapper,
+                                extra_config={"MAXIMUM_LOG_FILES": 1, "MAX_CONNECTION_TRY_PER_IP": 0})
+        server.start()
+        self.addCleanup(server.stop)
+
+        controls, results = [], []
+        lock = threading.Lock()
+
+        def client(number):
+            try:
+                c = FtpControl(PORT, server.user, server.password, timeout=30)
+                code = c.cmd("PASV")[0]
+                with lock:
+                    controls.append(c)
+                    results.append(code)
+            except Exception as error:
+                with lock:
+                    results.append(repr(error)[:60])
+
+        threads = [threading.Thread(target=client, args=(n,)) for n in range(300)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+
+        self.assertIsNone(server.process.poll(), "the server stopped (exit status %s); replies: %s" % (
+            server.process.poll(), sorted(set(map(str, results)))))
+        self.assertGreater(results.count(227), 0)
+        self.assertGreater(results.count(425), 0, "the limit was not reached: %s" % sorted(set(map(str, results))))
+        self.assertEqual([r for r in results if r not in (227, 425)], [], "unexpected replies")
+        for c in controls:                               # everybody goes away: the server is as at the start
+            c.close()
+        time.sleep(2)
+        c = FtpControl(PORT, server.user, server.password, timeout=30)
+        self.addCleanup(c.close)
+        self.assertEqual(c.cmd("PASV")[0], 227)
+
+
+class DescriptorLimitTests(unittest.TestCase):
+    """select() can not watch a descriptor of 1024 or more: FD_SET wrote outside the sets and the
+    server fell (SIGSEGV) at about the 1020th connection, with MAXIMUM_ALLOWED_FTP_CONNECTION above
+    that (found by test/load_test.py). The connections that do not fit are refused and the server
+    goes on."""
+
+    def setUp(self):
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if hard != resource.RLIM_INFINITY and hard < 4096:
+            self.skipTest("the limit of descriptors is below 4096")
+        if soft < 4096:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (4096, hard))
+            self.addCleanup(resource.setrlimit, resource.RLIMIT_NOFILE, (soft, hard))
+
+    def connect(self, index):
+        sock = socket.socket()
+        sock.bind(("127.0.0.%d" % (2 + index // 500), 0))
+        sock.settimeout(10)
+        sock.connect(("127.0.0.1", PORT))
+        self.addCleanup(sock.close)
+        return sock
+
+    def test_more_connections_than_select_can_watch_do_not_stop_the_server(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=600, max_connections=1300, max_per_ip=1300,
+                                extra_config={"MAXIMUM_LOG_FILES": 1, "MAX_CONNECTION_TRY_PER_IP": 0,
+                                              "MAX_CONNECTION_RATE_PER_IP": 0, "LOGIN_TIMEOUT": 0})
+        server.start()
+        self.addCleanup(server.stop)
+
+        socks = []
+        for index in range(1150):
+            try:
+                socks.append(self.connect(index))
+            except OSError:
+                pass
+            self.assertIsNone(server.process.poll(), "the server died with %d connections" % len(socks))
+
+        self.assertIsNone(server.process.poll(), "the server died")
+        # the ones that fit are served, with the others the server must go on
+        for sock in socks[:50]:
+            sock.close()
+        time.sleep(1)
+        self.assertIsNone(server.process.poll(), "the server died after the connections (%s)" % server.read_log()[-300:])
+        c = FtpControl(PORT, server.user, server.password, timeout=15)
+        self.addCleanup(c.close)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        self.assertNotIn("SIGSEGV", server.read_log())
+
+
+class SizeRaceTests(unittest.TestCase):
+    """SIZE of a file that is created and removed all the time (by another session of the user,
+    or by anything else that works in the home). The file was checked and then opened, and a file
+    that was gone in between made the server use a null pointer: SIGSEGV, every session lost."""
+
+    SECONDS = 8
+
+    def test_size_of_a_file_that_comes_and_goes_does_not_crash_the_server(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 1})
+        server.start()
+        self.addCleanup(server.stop)
+        path = os.path.join(server.home, "race.txt")
+        stop = threading.Event()
+
+        def flip():
+            while not stop.is_set():
+                try:
+                    os.close(os.open(path, os.O_WRONLY | os.O_CREAT, 0o666))
+                    os.unlink(path)
+                except OSError:
+                    pass
+
+        flipper = threading.Thread(target=flip)
+        flipper.start()
+        self.addCleanup(flipper.join)
+        self.addCleanup(stop.set)
+        c = FtpControl(PORT, server.user, server.password)
+        self.addCleanup(c.close)
+        c.sock.settimeout(5)
+        deadline = time.monotonic() + self.SECONDS
+        try:
+            while time.monotonic() < deadline and server.is_running():
+                c.sock.sendall(b"SIZE race.txt\r\n" * 500)
+                time.sleep(0.01)
+                try:
+                    c.sock.recv(1 << 20)
+                except OSError:
+                    pass
+        except OSError:
+            pass
+        stop.set()
+        self.assertTrue(server.is_running(), "the server crashed: " + server.log_folder_text()[-400:])
+
+
 class LogTests(unittest.TestCase):
     """The log file can be filled by anybody (one line per refused connection, before
     any login), and a log file that can not be opened crashed the server."""
@@ -368,6 +868,8 @@ class LogTests(unittest.TestCase):
         lines = []
         folder = os.path.join(server.workdir, "log")
         for name in os.listdir(folder):
+            if os.path.islink(os.path.join(folder, name)):      # uftpLog.current: the file of today again
+                continue
             with open(os.path.join(folder, name), errors="replace") as f:
                 lines += [line for line in f if text in line]
         return lines
@@ -445,7 +947,8 @@ class DiagnosticLogTests(unittest.TestCase):
     def check_reset_is_debug(self, tls):
         server = self.start()
         self.reset_connection(server, tls)
-        log = self.wait_for_log(server, "control connection read error")
+        # the last line of the closing: the reason of the error is written just before it
+        log = self.wait_for_log(server, "connection closed: control connection read error")
         line = next(l for l in log.splitlines() if "control connection read error:" in l)
         self.assertIn("[DEBUG]", line)
         self.assertNotIn("[ERROR]", log)
@@ -459,6 +962,33 @@ class DiagnosticLogTests(unittest.TestCase):
 
     def test_client_reset_over_tls_is_not_a_server_error(self):
         self.check_reset_is_debug(tls=True)
+
+    def test_cancelled_worker_line_names_the_client(self):
+        """A second data command while the worker of the first one is still alive: the
+        line says which client it is (it used to be a bare "[DEBUG] Cancelling thread")."""
+        server = self.start()
+        c = FtpControl(PORT, server.user, server.password)
+        self.assertEqual(c.cmd("PASV")[0], 227)
+        self.assertEqual(c.cmd("PASV")[0], 227)
+        log = self.wait_for_log(server, "Cancelling the data worker")
+        self.assertRegex(log, rf"\[DEBUG\] \[\d+ \S+ {server.user}\] Cancelling the data worker: it is still busy")
+        self.assertNotIn("Cancelling thread because it is busy", log)
+
+    def test_cwd_log_tells_a_missing_directory_from_a_file(self):
+        """The reply is the same for both ("No such file or directory"); the log says
+        which one it is, and which client asked."""
+        server = self.start()
+        with open(os.path.join(server.home, "plain.txt"), "w") as f:
+            f.write("x")
+        c = FtpControl(PORT, server.user, server.password)
+        for target in ("missing", "plain.txt"):
+            code, text = c.cmd(f"CWD {target}")
+            self.assertEqual(code, 550)
+            self.assertIn("No such file or directory", text)
+        log = self.wait_for_log(server, "CWD target is not a directory")
+        self.assertRegex(log, rf"\[DEBUG\] \[\d+ \S+ {server.user}\] CWD directory does not exist: \S*/missing")
+        self.assertRegex(log, rf"\[DEBUG\] \[\d+ \S+ {server.user}\] CWD target is not a directory: \S*/plain\.txt")
+        self.assertNotIn("CWD not a directory", log)
 
     def test_startup_line(self):
         server = self.start()
@@ -772,10 +1302,30 @@ class AccessLogTests(unittest.TestCase):
         server = self.start()
         c = self.tls_session(server)
         data = self.tls_upload(c, "reset.bin", 300000)
-        os.close(data.detach())                      # unread TLS records pending: the kernel sends a reset
+        # a reset on purpose (linger 0): it used to depend on unread TLS records of the server
+        # (the session tickets of the data connection), which the server does not send any more
+        raw = socket.socket(fileno=data.detach())
+        raw.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        raw.close()
         self.assertEqual(c.read_reply()[0], 426)
         line = self.log_lines(server, "reset.bin failed after")
         self.assertTrue(line and "data connection error" in line[0], server.log_folder_text())
+
+    def test_the_log_of_today_has_a_fixed_name(self):
+        """fail2ban reads the files that exist when it starts; a program that writes a new file every day
+        needs a fixed name that follows the day, or the bans stop after midnight. uftpLog.current is a link
+        to the file of today, moved when a new day starts."""
+        server = self.start()
+        self.connect(server)
+        folder = os.path.join(server.workdir, "log")
+        link = os.path.join(folder, "uftpLog.current")
+        self.assertTrue(os.path.islink(link), os.listdir(folder))
+        today = time.strftime("%Y-%m-%d")
+        self.assertEqual(os.readlink(link), "uftpLog_" + today)
+        with open(link) as through_the_link, open(os.path.join(folder, "uftpLog_" + today)) as the_file:
+            self.assertEqual(through_the_link.read(), the_file.read())
+        # the wildcard of the old jail (uftpLog_*) does not see the link: no line is counted twice
+        self.assertNotIn("uftpLog.current", [n for n in os.listdir(folder) if n.startswith("uftpLog_")])
 
     def test_tls_and_login_over_tls_are_recorded(self):
         server = self.start()
@@ -786,7 +1336,8 @@ class AccessLogTests(unittest.TestCase):
     def test_blocked_user_is_recorded(self):
         server = self.start(BLOCK_USER_0="tester2")
         c = self.connect(server, login=False)
-        self.assertEqual(c.cmd("USER tester2")[0], 530)
+        self.assertEqual(c.cmd("USER tester2")[0], 331)          # the client is not told
+        self.assertEqual(c.cmd("PASS tester2Password")[0], 530)
         self.assertTrue(self.log_lines(server, f"{self.client_address(server)} -] login refused: user tester2 is blocked"))
 
     def test_failed_active_connection_says_where_and_why(self):
@@ -797,8 +1348,12 @@ class AccessLogTests(unittest.TestCase):
         c.send("PORT " + port_argument(HOST, port))
         line = self.log_lines(server, "active data connection to")
         self.assertTrue(line and f"to 127.0.0.1 port {port} failed: Connection refused" in line[0], server.log_folder_text())
+        self.assertIn("[DEBUG]", line[0])             # the client's doing, not a server error
+        # the client is told (425) and the session goes on: it used to be closed, with no reply
+        self.assertEqual(c.read_reply()[0], 425)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
         c.close()
-        self.assertTrue(self.log_lines(server, "connection closed: active data connection failed"))
+        self.assertFalse(self.log_lines(server, "connection closed: active data connection failed"))
 
     def test_refusal_with_450_is_an_access_record(self):
         """The retries after a 450 can be counted in the log: each refusal is a line, with
@@ -909,6 +1464,58 @@ class AccessLogTests(unittest.TestCase):
         for _ in range(300):
             self.assertEqual(c.read_reply()[0], 257)
         self.assertEqual(len(self.log_lines(server, "] MKD ", count=300)), 300)
+
+
+class PipelinedCommandsTests(unittest.TestCase):
+    """More commands than the control channel reads at once (4096 bytes) arriving
+    together must all be answered. Over TLS the whole record (up to 16 KB) is
+    decrypted at the first read: the bytes left inside OpenSSL do not wake select() up,
+    and those commands used to wait for the client to send something else."""
+
+    COMMANDS = 2000      # "NOOP\r\n" x 2000 = 12000 bytes: one TLS record, three reads
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 1})
+        try:
+            cls.server.start()
+        except FileNotFoundError as e:
+            raise unittest.SkipTest(str(e))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.stop()
+
+    def answered(self, tls):
+        c = FtpControl(PORT, self.server.user, self.server.password, login=False)
+        if tls:
+            try:
+                c.start_tls()
+            except AssertionError as e:
+                if "502" in str(e):
+                    raise unittest.SkipTest("uFTP was built without OpenSSL support")
+                raise
+        c.login()
+        c.sock.settimeout(5)
+        c.sock.sendall(b"NOOP\r\n" * self.COMMANDS)
+        count = 0
+        try:
+            while count < self.COMMANDS:
+                self.assertEqual(c.read_reply()[0], 200)
+                count += 1
+        except (socket.timeout, TimeoutError):
+            pass
+        # the session is still in step: the next command gets its own reply
+        if count == self.COMMANDS:
+            self.assertEqual(c.cmd("PWD")[0], 257)
+        c.close()
+        return count
+
+    def test_commands_beyond_one_read_over_tls_are_all_answered(self):
+        self.assertEqual(self.answered(tls=True), self.COMMANDS)
+
+    def test_commands_beyond_one_read_in_clear_text_are_all_answered(self):
+        self.assertEqual(self.answered(tls=False), self.COMMANDS)
 
 
 class TlsWaitTests(unittest.TestCase):
@@ -1033,6 +1640,16 @@ class TlsWaitTests(unittest.TestCase):
             self.assertEqual(c.cmd("NOOP")[0], 200)
             data.close()
 
+    def log_in(self, connection):
+        """USER and PASS on a raw connection (clear text or TLS), reading the two replies."""
+        connection.settimeout(10)
+        for line, expected in (("USER %s\r\n" % self.server.user, b"331"), ("PASS %s\r\n" % self.server.password, b"230")):
+            connection.sendall(line.encode())
+            reply = b""
+            while not reply.endswith(b"\r\n"):
+                reply += connection.recv(4096)
+            self.assertTrue(reply.startswith(expected), reply)
+
     def test_slow_reader_of_the_control_connection_is_not_disconnected(self):
         """A reply that could not be written in 250 ms closed the client: live clients
         were disconnected in production. The client here stops reading for a second
@@ -1046,6 +1663,7 @@ class TlsWaitTests(unittest.TestCase):
         raw.sendall(b"AUTH TLS\r\n")
         self.assertTrue(welcome.readline().startswith(b"234"))
         tls = self.tls_data(raw)
+        self.log_in(tls)                             # a client that has logged in: one that has not gets a tenth of a second
 
         count = 30000
         commands = b"HELP\r\n" * count
@@ -1078,6 +1696,7 @@ class TlsWaitTests(unittest.TestCase):
         raw.connect((HOST, PORT))
         self.addCleanup(raw.close)
         raw.recv(1000)                               # welcome
+        self.log_in(raw)                             # a client that has logged in: one that has not gets a tenth of a second
         count = 30000
         sender = threading.Thread(target=lambda: raw.sendall(b"HELP\r\n" * count))
         sender.start()
@@ -1408,6 +2027,520 @@ class UFTPResilienceTests(unittest.TestCase):
             idle.close()
             active.close()
         self.assertServerAlive()
+
+
+class TransferLatencyTests(unittest.TestCase):
+    """A transfer must not wait for the delayed ACK of the client. The server writes two small replies on the
+    control connection (150, then 226): without TCP_NODELAY the second one waited for the ACK of the first,
+    which Linux delays by about 40 ms, so every transfer took at least 41 ms, even of a few bytes."""
+
+    def test_a_small_transfer_does_not_wait_for_the_delayed_ack(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        with open(os.path.join(server.home, "small.txt"), "wb") as f:
+            f.write(b"x" * 4096)
+        c = FtpControl(PORT, server.user, server.password, timeout=10)
+        stor, retr = [], []
+        for n in range(12):
+            data = c.pasv()
+            c.cmd("STOR up%d" % n)
+            data.sendall(b"y" * 4096)
+            data.close()
+            t = time.perf_counter()
+            self.assertEqual(c.read_reply()[0], 226)
+            stor.append(time.perf_counter() - t)
+            data = c.pasv()
+            c.cmd("RETR small.txt")
+            while data.recv(65536):
+                pass
+            data.close()
+            t = time.perf_counter()
+            self.assertEqual(c.read_reply()[0], 226)
+            retr.append(time.perf_counter() - t)
+        c.close()
+        # the first one of each can be quick by luck (the system answers at once at the start of a connection)
+        self.assertLess(statistics.median(stor), 0.02, "the 226 of an upload took %.1f ms (median)" % (statistics.median(stor) * 1000))
+        self.assertLess(statistics.median(retr), 0.02, "the 226 of a download took %.1f ms (median)" % (statistics.median(retr) * 1000))
+
+    def test_an_upload_is_not_much_slower_than_a_download(self):
+        """Every block of an upload waited 100 microseconds: 8 MB/s whatever the network (a download of the
+        same file ran at 150 MB/s). Compared with the download on the same server, so that a slow machine
+        or a sanitizer build does not matter."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        size = 32 << 20
+        block = b"z" * (1 << 20)
+        c = FtpControl(PORT, server.user, server.password, timeout=30)
+        c.cmd("TYPE I")
+        data = c.pasv()
+        c.cmd("STOR big.bin")
+        t = time.perf_counter()
+        for _ in range(size // len(block)):
+            data.sendall(block)
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        upload = time.perf_counter() - t
+        data = c.pasv()
+        c.cmd("RETR big.bin")
+        t = time.perf_counter()
+        received = 0
+        while True:
+            part = data.recv(1 << 20)
+            if not part:
+                break
+            received += len(part)
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        download = time.perf_counter() - t
+        c.close()
+        self.assertEqual(received, size)
+        self.assertLess(upload, download * 4 + 0.5, "upload %.2f s, download %.2f s of %d MB" % (upload, download, size >> 20))
+
+    def test_a_download_is_not_limited_by_small_blocks(self):
+        """RETR read and wrote 1 KB at a time: about 150 MB/s on a machine where the other servers do GB/s (one
+        system call per KB). Measured against a fixed minimum, that is a fifth of what it does now."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        size = 128 << 20
+        with open(os.path.join(server.home, "big.bin"), "wb") as f:
+            f.write(b"q" * size)
+        c = FtpControl(PORT, server.user, server.password, timeout=30)
+        c.cmd("TYPE I")
+        data = c.pasv()
+        c.cmd("RETR big.bin")
+        t = time.perf_counter()
+        received = 0
+        while True:
+            part = data.recv(1 << 20)
+            if not part:
+                break
+            received += len(part)
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        seconds = time.perf_counter() - t
+        c.close()
+        self.assertEqual(received, size)
+        self.assertGreater(size / seconds / 1e6, 400, "download of %d MB at %.0f MB/s" % (size >> 20, size / seconds / 1e6))
+
+    def test_a_listing_does_not_look_up_the_owner_of_every_file_again(self):
+        """LIST asked the system for the owner and the group of every file (it reads /etc/passwd and /etc/group
+        each time): about 100 microseconds a file, half a second for 5000 files. 3000 files must be listed in
+        well under that (the check is generous so that a slow machine or a sanitizer build do not matter)."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        listing = os.path.join(server.home, "many")
+        os.mkdir(listing)
+        for n in range(3000):
+            with open(os.path.join(listing, "file%04d.txt" % n), "wb"):
+                pass
+        c = FtpControl(PORT, server.user, server.password, timeout=30)
+        times = []
+        for _ in range(5):
+            data = c.pasv()
+            c.cmd("LIST many")
+            t = time.perf_counter()
+            size = 0
+            while True:
+                part = data.recv(1 << 20)
+                if not part:
+                    break
+                size += len(part)
+            data.close()
+            self.assertEqual(c.read_reply()[0], 226)
+            times.append(time.perf_counter() - t)
+        c.close()
+        self.assertGreater(size, 3000 * 40)
+        self.assertLess(min(times), 0.15 * sanitizer_factor(), "LIST of 3000 files took %.0f ms" % (min(times) * 1000))
+
+    def test_a_tls_transfer_does_not_wait_in_steps_of_10_ms(self):
+        """The TLS handshake of the data connection waited 10 ms between two attempts, so every transfer in FTPS
+        lost 10 to 20 ms. A small listing takes a few milliseconds."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        probe = FtpControl(PORT, login=False, timeout=10)
+        code = probe.cmd("AUTH TLS")[0]
+        probe.close()
+        if code == 502:
+            self.skipTest("uFTP was built without OpenSSL support")
+        c = FtpControl(PORT, login=False, timeout=20)
+        c.start_tls()
+        c.login(server.user, server.password)
+        self.assertEqual(c.cmd("PBSZ 0")[0], 200)
+        self.assertEqual(c.cmd("PROT P")[0], 200)
+        context = tls_client_context()
+        times = []
+        for _ in range(15):
+            raw = c.pasv()
+            c.cmd("LIST")
+            t = time.perf_counter()
+            data = context.wrap_socket(raw, server_hostname=HOST)
+            while data.recv(65536):
+                pass
+            data.close()
+            self.assertEqual(c.read_reply()[0], 226)
+            times.append(time.perf_counter() - t)
+        c.close()
+        self.assertLess(statistics.median(times), 0.008, "a TLS listing took %.1f ms (median)" % (statistics.median(times) * 1000))
+
+
+    def test_a_plain_download_is_sent_with_sendfile(self):
+        """RETR read every block into the program and wrote it back (fread + write): 0.40 s of CPU per GB,
+        sendfile() copies inside the kernel (0.09 s). The server runs under strace, which writes down the
+        sendfile() calls (a wrapper script is the "binary" of the test server)."""
+        strace = shutil.which("strace")
+        if strace is None:
+            self.skipTest("strace is not installed")
+        workdir = tempfile.mkdtemp(prefix="uftp-sendfile-")
+        self.addCleanup(shutil.rmtree, workdir, True)
+        trace = os.path.join(workdir, "trace.txt")
+        wrapper = os.path.join(workdir, "uftp-under-strace.sh")
+        with open(wrapper, "w") as f:
+            f.write('#!/bin/sh\nexec %s -f -e trace=sendfile,sendfile64 -o %s %s "$@"\n' % (strace, trace, DEFAULT_BIN))
+        os.chmod(wrapper, 0o755)
+        server = UFTPTestServer(port=PORT, idle_timeout=60, binary=wrapper, extra_config={"MAXIMUM_LOG_FILES": 0})
+        try:
+            server.start()
+        except Exception as error:         # ptrace not allowed here (containers, hardened kernels)
+            self.skipTest("the server can not be started under strace: %s" % error)
+        self.addCleanup(server.stop)
+        payload = bytes(range(256)) * (16 << 10)               # 4 MB
+        with open(os.path.join(server.home, "sf.bin"), "wb") as f:
+            f.write(payload)
+        c = FtpControl(PORT, server.user, server.password, timeout=30)
+        c.cmd("TYPE I")
+        code, received = c.download("RETR sf.bin", c.pasv())
+        self.assertEqual((code, received), (226, payload))
+        c.close()
+        time.sleep(0.5)
+        with open(trace) as f:
+            sent = [int(m.group(1)) for m in re.finditer(r"sendfile6?4?\(.*\) = (\d+)", f.read())]
+        self.assertGreaterEqual(sum(sent), len(payload), "sendfile() sent %d of %d bytes" % (sum(sent), len(payload)))
+
+    def test_download_with_rest_is_exact_for_every_offset(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        payload = bytes((i * 7 + i // 251) % 256 for i in range(3 * 65536 + 1234))
+        with open(os.path.join(server.home, "rest.bin"), "wb") as f:
+            f.write(payload)
+        c = FtpControl(PORT, server.user, server.password, timeout=20)
+        c.cmd("TYPE I")
+        for offset in (0, 1, 4095, 65535, 65536, 65537, 2 * 65536 + 7, len(payload) - 1, len(payload)):
+            self.assertEqual(c.cmd("REST %d" % offset)[0], 350)
+            code, received = c.download("RETR rest.bin", c.pasv())
+            self.assertEqual(code, 226, "offset %d" % offset)
+            self.assertEqual(received, payload[offset:], "offset %d" % offset)
+        c.close()
+
+    def test_a_download_stopped_with_abor_leaves_the_server_working(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        with open(os.path.join(server.home, "huge.bin"), "wb") as f:
+            f.write(b"h" * (64 << 20))
+        c = FtpControl(PORT, server.user, server.password, timeout=20)
+        c.cmd("TYPE I")
+        data = c.pasv()
+        self.assertEqual(c.cmd("RETR huge.bin")[0], 150)
+        data.recv(1 << 16)                  # the client does not read on: the server blocks in the send
+        time.sleep(0.5)
+        c.send("ABOR")
+        codes = [c.read_reply()[0], c.read_reply()[0]]
+        data.close()
+        self.assertEqual(codes, [426, 226])
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        code, received = c.download("RETR huge.bin", c.pasv())
+        self.assertEqual((code, len(received)), (226, 64 << 20))
+        c.close()
+        self.assertEqual(server.process.poll(), None)
+
+    def test_a_file_that_gets_shorter_during_the_download_ends_the_transfer(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        path = os.path.join(server.home, "shrink.bin")
+        with open(path, "wb") as f:
+            f.write(b"s" * (32 << 20))
+        c = FtpControl(PORT, server.user, server.password, timeout=20)
+        c.cmd("TYPE I")
+        data = c.pasv()
+        self.assertEqual(c.cmd("RETR shrink.bin")[0], 150)
+        data.recv(1 << 16)
+        os.truncate(path, 1 << 20)
+        total = 1 << 16
+        while True:
+            part = data.recv(1 << 20)
+            if not part:
+                break
+            total += len(part)
+        data.close()
+        self.assertEqual(c.read_reply()[0], 226)
+        self.assertLessEqual(total, 32 << 20)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        c.close()
+
+
+    def test_download_goes_on_with_read_and_write_when_sendfile_fails(self):
+        """sendfile() answering EINVAL (a file system that does not support it) must not fail the download:
+        the old loop takes over from the same point. The failure is injected with strace."""
+        strace = shutil.which("strace")
+        if strace is None:
+            self.skipTest("strace is not installed")
+        workdir = tempfile.mkdtemp(prefix="uftp-inject-")
+        self.addCleanup(shutil.rmtree, workdir, True)
+        wrapper = os.path.join(workdir, "uftp-under-strace.sh")
+        with open(wrapper, "w") as f:
+            f.write('#!/bin/sh\nexec %s -f -e trace=sendfile,sendfile64 -e inject=sendfile,sendfile64:error=EINVAL -o %s %s "$@"\n'
+                    % (strace, os.path.join(workdir, "trace.txt"), DEFAULT_BIN))
+        os.chmod(wrapper, 0o755)
+        server = UFTPTestServer(port=PORT, idle_timeout=60, binary=wrapper, extra_config={"MAXIMUM_LOG_FILES": 0})
+        try:
+            server.start()
+        except Exception as error:
+            self.skipTest("the server can not be started under strace: %s" % error)
+        self.addCleanup(server.stop)
+        payload = os.urandom(3 << 20) + b"\xff" * 100
+        with open(os.path.join(server.home, "inject.bin"), "wb") as f:
+            f.write(payload)
+        c = FtpControl(PORT, server.user, server.password, timeout=30)
+        c.cmd("TYPE I")
+        for offset in (0, 12345, len(payload) - 7):
+            c.cmd("REST %d" % offset)
+            code, received = c.download("RETR inject.bin", c.pasv())
+            self.assertEqual(code, 226)
+            self.assertEqual(received, payload[offset:], "offset %d" % offset)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        c.close()
+
+
+class ControlStallTests(unittest.TestCase):
+    """The control thread is one for all the clients: a client that does not read its replies must not stop the others."""
+
+    def test_a_client_that_pipelines_commands_and_reads_nothing_does_not_stop_the_server(self):
+        """A reply that could not be written waited for the timeout, and every command that followed in the same buffer
+        waited again: a single connection that sent HELP some thousand times and never read stopped the whole server for
+        about a minute (the probe was answered after 63 seconds, or reset)."""
+        server = UFTPTestServer(port=PORT, idle_timeout=120, max_per_ip=50, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        probe = FtpControl(PORT, server.user, server.password, timeout=30)
+        attackers = [socket.create_connection((HOST, PORT), timeout=5) for _ in range(3)]
+        for a in attackers:
+            self.addCleanup(a.close)
+
+        def flood(a):
+            blob = b"HELP\r\n" * 2000
+            try:
+                for _ in range(100):
+                    a.sendall(blob)
+            except OSError:
+                pass
+
+        threads = [threading.Thread(target=flood, args=(a,), daemon=True) for a in attackers]
+        for t in threads:
+            t.start()
+        worst = 0.0
+        deadline = time.monotonic() + 8
+        while time.monotonic() < deadline:
+            started = time.perf_counter()
+            self.assertEqual(probe.cmd("NOOP")[0], 200)
+            worst = max(worst, time.perf_counter() - started)
+            time.sleep(0.05)
+        self.assertLess(worst, 1.5, "a NOOP of another client waited %.1f s while three connections flooded the server" % worst)
+        probe.close()
+
+    def test_a_logged_in_client_that_reads_slowly_is_still_served(self):
+        """The short wait is only for the clients that have not logged in."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, server.user, server.password, timeout=10)
+        for _ in range(200):
+            c.send("HELP")
+        time.sleep(0.5)
+        for _ in range(200):
+            self.assertEqual(c.read_reply()[0], 214)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        c.close()
+
+
+    def test_the_server_closes_the_connection_after_quit_at_once(self):
+        """The client to close was closed at the next turn of the control loop, which started after the wait for events: with
+        nothing else happening, 10 seconds after the 221 of QUIT (and the slot stayed taken that long)."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, server.user, server.password, timeout=30)
+        started = time.perf_counter()
+        c.send("QUIT")
+        self.assertEqual(c.read_reply()[0], 221)
+        c.sock.settimeout(20)
+        while c.sock.recv(1024):
+            pass
+        elapsed = time.perf_counter() - started
+        self.assertLess(elapsed, 2.0, "the server closed the connection %.1f s after QUIT" % elapsed)
+        c.close()
+
+    def test_a_refused_login_closes_the_connection_at_once(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 0, "MAX_CONNECTION_TRY_PER_IP": 2})
+        server.start()
+        self.addCleanup(server.stop)
+        for _ in range(2):                                          # two failed logins use up the tries of this address
+            c = FtpControl(PORT, login=False, timeout=30)
+            c.cmd("USER nobody")
+            self.assertEqual(c.cmd("PASS wrong")[0], 530)
+            c.close()
+        c = FtpControl(PORT, login=False, timeout=30)
+        c.cmd("USER nobody")
+        started = time.perf_counter()
+        code, text = c.cmd("PASS wrong")
+        self.assertEqual(code, 530)
+        self.assertIn("Too many login failure", text)
+        c.sock.settimeout(20)
+        try:
+            while c.sock.recv(1024):
+                pass
+        except OSError:
+            pass
+        elapsed = time.perf_counter() - started
+        c.close()
+        self.assertLess(elapsed, 2.0, "the server closed the connection %.1f s after refusing the login" % elapsed)
+
+class ConfigurationLimitsTests(unittest.TestCase):
+    def test_a_very_long_value_or_name_in_the_configuration_file(self):
+        """A parameter of 1024 characters or more filled the array of the parser to its last byte, without the terminator:
+        strcpy() read past it (AddressSanitizer: stack-buffer-overflow in readConfigurationFile)."""
+        server = UFTPTestServer(port=PORT, idle_timeout=30, extra_config={"A_PARAMETER_WITH_A_LONG_VALUE": "v" * 1500,
+                                                                         "N" * 1500: "a name that is too long",
+                                                                         "MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, server.user, server.password, timeout=10)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        c.close()
+
+
+    def test_values_that_can_not_work_stop_the_server_with_a_message(self):
+        """MAXIMUM_ALLOWED_FTP_CONNECTION that can not be allocated (or does not fit an int) and a passive port range that is
+        inverted or outside 1..65535 (it answered 227 with port 0, or with a port outside the range) are refused at the start."""
+        for key, value in (("MAXIMUM_ALLOWED_FTP_CONNECTION", "-1"), ("MAXIMUM_ALLOWED_FTP_CONNECTION", "0"),
+                           ("MAXIMUM_ALLOWED_FTP_CONNECTION", "99999999999"), ("RANDOM_PORT_START", "50000"),
+                           ("RANDOM_PORT_END", "99999"), ("RANDOM_PORT_START", "-3")):
+            server = UFTPTestServer(port=PORT, idle_timeout=30, extra_config={key: value, "MAXIMUM_LOG_FILES": 0})
+            with self.assertRaises(RuntimeError, msg="%s = %s" % (key, value)):
+                server.start(startup_timeout=4)
+            self.assertIsNotNone(server.process.poll() if server.process else 1)
+
+    def test_a_valid_passive_port_range_gives_a_port_in_the_range(self):
+        server = UFTPTestServer(port=PORT, idle_timeout=30, extra_config={"RANDOM_PORT_START": 41000, "RANDOM_PORT_END": 41050, "MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, server.user, server.password, timeout=10)
+        for _ in range(5):
+            code, text = c.cmd("PASV")
+            self.assertEqual(code, 227)
+            numbers = [int(n) for n in re.search(r"\(([\d,]+)\)", text).group(1).split(",")]
+            self.assertTrue(41000 <= numbers[4] * 256 + numbers[5] <= 41050, text)
+        c.close()
+
+
+class SignalTests(unittest.TestCase):
+    def test_sigint_stops_the_server_with_status_0_and_logs_it(self):
+        """The handler of SIGINT only logs and leaves with _exit(0): it used to call the allocator and exit(), which are not
+        safe inside a signal handler (a deadlock if the signal came while the allocator was in use, not provocable on demand)."""
+        server = UFTPTestServer(port=PORT, idle_timeout=30, extra_config={"MAXIMUM_LOG_FILES": 5})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, server.user, server.password, timeout=10)
+        self.assertEqual(c.cmd("NOOP")[0], 200)
+        server.process.send_signal(signal.SIGINT)
+        try:
+            self.assertIn(server.process.wait(timeout=10), (0, 66) if built_with_tsan() else (0,))
+        finally:
+            c.close()
+        self.assertIn("stopped by SIGINT", server.log_folder_text())
+
+
+class LogInjectionTests(unittest.TestCase):
+    def test_control_characters_sent_by_a_client_are_not_written_to_the_log(self):
+        """A user name or a path with ESC sequences, backspaces or the bell went to the log as they were: whoever read it with
+        cat or tail could have the screen cleared, the title of the terminal changed or the text overwritten."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 5})
+        server.start()
+        self.addCleanup(server.stop)
+        c = FtpControl(PORT, login=False, timeout=10)
+        c.send(b"USER evil\x1b[2J\x1b[31mRED\x07\x08\x08\x7f")
+        c.read_reply()
+        c.send(b"PASS wrong")
+        c.read_reply()
+        c.close()
+        c = FtpControl(PORT, server.user, server.password, timeout=10)
+        c.send(b"CWD \x1b]0;pwned\x07dir")
+        c.read_reply()
+        c.send(b"STOR \x1b[1mbold\x00x")
+        c.read_reply()
+        c.close()
+        deadline = time.monotonic() + 5
+        log = ""
+        while time.monotonic() < deadline and "login failed for user evil" not in log:
+            time.sleep(0.3)
+            log = server.log_folder_text()
+        self.assertIn("login failed for user evil", log)
+        for character in "\x1b\x07\x08\x7f\x00":
+            self.assertNotIn(character, log, repr(character))
+
+
+    def test_control_characters_are_not_in_the_summary_of_repeated_lines_either(self):
+        """The same line repeated (a login failing again and again) is written once and summarised after 10 seconds from the
+        text as it was received: the control characters came back in the summary."""
+        server = UFTPTestServer(port=PORT, idle_timeout=60, extra_config={"MAXIMUM_LOG_FILES": 5, "MAX_CONNECTION_TRY_PER_IP": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        for _ in range(6):
+            c = FtpControl(PORT, login=False, timeout=10)
+            c.send(b"USER evil\x1b[2J\x07\x08name")
+            c.read_reply()
+            c.send(b"PASS wrong")
+            c.read_reply()
+            c.close()
+        deadline = time.monotonic() + 25
+        log = ""
+        while time.monotonic() < deadline and "more times in the last" not in log:
+            time.sleep(1)
+            log = server.log_folder_text()
+        self.assertIn("more times in the last", log)
+        self.assertIn("login failed for user evil", log)
+        for character in "\x1b\x07\x08\x7f":
+            self.assertNotIn(character, log, repr(character))
+
+
+class BigDirectoryTests(unittest.TestCase):
+    def test_listing_a_directory_of_a_hundred_thousand_files_takes_seconds_not_minutes(self):
+        """The allocator found the block to free or to resize by walking the list of every block of the worker: a listing was
+        quadratic in the number of files (30,000 files 2.7 s, 100,000 about 30 s, a million: hours). It is now one lookup."""
+        server = UFTPTestServer(port=PORT, idle_timeout=120, extra_config={"MAXIMUM_LOG_FILES": 0})
+        server.start()
+        self.addCleanup(server.stop)
+        big = os.path.join(server.home, "big")
+        os.mkdir(big)
+        for n in range(100000):
+            open(os.path.join(big, "file-%06d.dat" % n), "w").close()
+        c = FtpControl(PORT, server.user, server.password, timeout=120 * sanitizer_factor())
+        for command, minimum in (("LIST big", 100000), ("MLSD big", 100000)):
+            started = time.perf_counter()
+            data_socket = c.pasv()
+            data_socket.settimeout(60 * sanitizer_factor())
+            code, data = c.download(command, data_socket)
+            elapsed = time.perf_counter() - started
+            self.assertEqual(code, 226, command)
+            self.assertGreaterEqual(data.count(b"\n"), minimum, command)
+            self.assertLess(elapsed, 12.0 * sanitizer_factor(), "%s of 100,000 files took %.1f s" % (command, elapsed))
+        c.close()
 
 
 if __name__ == "__main__":

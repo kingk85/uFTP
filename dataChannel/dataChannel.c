@@ -23,6 +23,7 @@
  * THE SOFTWARE.
  */
 
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -84,10 +85,9 @@ void workerCleanup(cleanUpWorkerArgs *args)
     {
         SSL *dataSsl = NULL;
 
-        if (ftpData->clients[theSocketId].workerData.passiveModeOn == 1)
+        if (ftpData->clients[theSocketId].workerData.passiveModeOn == 1 ||
+            ftpData->clients[theSocketId].workerData.activeModeOn == 1)
             dataSsl = ftpData->clients[theSocketId].workerData.serverSsl;
-        else if (ftpData->clients[theSocketId].workerData.activeModeOn == 1)
-            dataSsl = ftpData->clients[theSocketId].workerData.clientSsl;
 
         /* Our close_notify is sent, waiting if the send buffer is full: strict clients
            (FileZilla) need it complete before the connection is closed. The close_notify
@@ -159,7 +159,7 @@ static int processStorAppe(cleanUpWorkerArgs *args)
     ftpDataType *ftpData = args->ftpData;
     int theSocketId = args->socketId;
     int returnCode = 0;
-    off_t restartPos = ftpData->clients[theSocketId].workerData.retrRestartAtByte;
+    off_t restartPos = ftpData->clients[theSocketId].workerData.transferRestartAtByte;
     FILE *file = NULL;
 
     const char *filePath = ftpData->clients[theSocketId].fileToStor.text;
@@ -200,13 +200,26 @@ static int processStorAppe(cleanUpWorkerArgs *args)
 
     if (!isAppe && restartPos > 0) {
         fseeko(file, restartPos, SEEK_SET);
-        ftpData->clients[theSocketId].workerData.retrRestartAtByte = 0;
     }
 
     /* An upload used to end with "226 file stor ok" even when the data connection broke
        (read error) or the file could not be written (disk full, quota, file size limit):
        the client and the log were told that an incomplete file had been stored. */
+    /* heap, not stack: see writeRetrFile (the worker is stopped with pthread_cancel; its cleanup frees the table) */
+    char *block = (char *) DYNMEM_malloc(TRANSFER_BLOCK_SIZE, &ftpData->clients[theSocketId].workerData.memoryTable, "storBlock");
+
+    if (block == NULL) {
+        fclose(file);
+        ftpData->clients[theSocketId].workerData.theStorFile = NULL;
+        ftpData->clients[theSocketId].workerData.commandProcessed = 1;
+        snprintf(ftpData->clients[theSocketId].workerData.theCommandResponse, STRING_SZ_SMALL, "451 Requested action aborted: local error in processing\r\n");
+        return -1;
+    }
     long long int bytesStored = 0;
+    int recordPending = 0, recordEnded = 0;
+    int useRecords = (ftpData->clients[theSocketId].recordStructure == 1);
+    long long int bytesSinceSpaceCheck = 0;
+    long long int minimumFreeBytes = (long long int)ftpData->ftpParameters.minimumFreeSpaceMb << 20;
     const char *failure = NULL;
     char failureText[160] = "";
 
@@ -216,16 +229,14 @@ static int processStorAppe(cleanUpWorkerArgs *args)
 
         if (ftpData->clients[theSocketId].dataChannelIsTls != 1) {
             bytesRead = read(ftpData->clients[theSocketId].workerData.socketConnection,
-                             ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+                             block, TRANSFER_BLOCK_SIZE);
         }
     #ifdef OPENSSL_ENABLED
         else {
-            if (ftpData->clients[theSocketId].workerData.passiveModeOn == 1) {
+            if (ftpData->clients[theSocketId].workerData.passiveModeOn == 1 ||
+                ftpData->clients[theSocketId].workerData.activeModeOn == 1) {
                 bytesRead = SSL_read(ftpData->clients[theSocketId].workerData.serverSsl,
-                                     ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
-            } else if (ftpData->clients[theSocketId].workerData.activeModeOn == 1) {
-                bytesRead = SSL_read(ftpData->clients[theSocketId].workerData.clientSsl,
-                                     ftpData->clients[theSocketId].workerData.buffer, CLIENT_BUFFER_STRING_SIZE);
+                                     block, TRANSFER_BLOCK_SIZE);
             }
         }
     #endif
@@ -236,8 +247,7 @@ static int processStorAppe(cleanUpWorkerArgs *args)
            just that; a reset or another system error is a failure. */
         if (bytesRead <= 0 && ftpData->clients[theSocketId].dataChannelIsTls == 1) {
             int readError = errno;
-            SSL *dataSsl = ftpData->clients[theSocketId].workerData.passiveModeOn == 1 ?
-                           ftpData->clients[theSocketId].workerData.serverSsl : ftpData->clients[theSocketId].workerData.clientSsl;
+            SSL *dataSsl = ftpData->clients[theSocketId].workerData.serverSsl;
             int sslError = SSL_get_error(dataSsl, bytesRead);
             ERR_clear_error();
 
@@ -255,20 +265,49 @@ static int processStorAppe(cleanUpWorkerArgs *args)
         if (bytesRead == 0) {
             break;
         } else if (bytesRead > 0) {
-            if (fwrite(ftpData->clients[theSocketId].workerData.buffer, bytesRead, 1, file) != 1) {
+            if (useRecords) {
+                /* STRU R: the markers are taken out, the data is the file */
+                bytesRead = recordDecode(block, bytesRead, &recordPending, &recordEnded);
+                if (bytesRead < 0) {
+                    snprintf(failureText, sizeof(failureText), "invalid record marker");
+                    failure = "501 Invalid record marker\r\n";
+                    break;
+                }
+            }
+
+            if (bytesRead > 0 && fwrite(block, bytesRead, 1, file) != 1) {
                 snprintf(failureText, sizeof(failureText), "write error: %s", strerror(errno));
                 failure = "451 Requested action aborted: local error in processing\r\n";
                 break;
             }
             bytesStored += bytesRead;
-            usleep(100);
+
+            /* MIN_FREE_SPACE_MB: look at the disk every megabyte, so that an upload that
+               has started with enough space can not go on until the disk is full */
+            bytesSinceSpaceCheck += bytesRead;
+            if (minimumFreeBytes > 0 && bytesSinceSpaceCheck >= (1 << 20)) {
+                bytesSinceSpaceCheck = 0;
+                if (FILE_FreeSpaceIsBelow(filePath, minimumFreeBytes) == 1) {
+                    snprintf(failureText, sizeof(failureText), "the free space of the disk is below MIN_FREE_SPACE_MB (%d MB)",
+                             ftpData->ftpParameters.minimumFreeSpaceMb);
+                    failure = "452 Insufficient storage space in system.\r\n";
+                    break;
+                }
+            }
+
             ftpData->clients[theSocketId].lastActivityTimeStamp = (int)time(NULL);
+
+            if (recordEnded) {
+                break;      /* end-of-file marker: what follows is not part of the file */
+            }
         } else {
             snprintf(failureText, sizeof(failureText), "data connection error: %s", strerror(errno));
             failure = "426 Connection closed; transfer aborted\r\n";
             break;
         }
     }
+
+    DYNMEM_free(block, &ftpData->clients[theSocketId].workerData.memoryTable);
 
     /* buffered data is written by fclose: a full disk can show up only here */
     if (fclose(file) != 0 && failure == NULL) {
@@ -295,6 +334,18 @@ static int processStorAppe(cleanUpWorkerArgs *args)
     snprintf(ftpData->clients[theSocketId].workerData.theCommandResponse, STRING_SZ_SMALL, "226 file stor ok\r\n");
 
     return 1;
+}
+
+/* "The data connection is ready": from now on a transfer command is accepted (see
+   giveCommandToDataWorker). It must be set BEFORE the reply of PASV/EPSV/PORT/EPRT is written: a client
+   sends STOR/RETR/LIST as soon as it has read the reply, and the control thread, if the worker was not
+   yet running again after the write, answered 425 "Use PORT or PASV first" (seen with the control
+   connection in TLS, under load). It is set under the mutex that the control thread takes to read it. */
+static void dataConnectionIsReady(ftpDataType *ftpData, int theSocketId)
+{
+    pthread_mutex_lock(&ftpData->clients[theSocketId].conditionMutex);
+    ftpData->clients[theSocketId].workerData.socketIsReadyForConnection = 1;
+    pthread_mutex_unlock(&ftpData->clients[theSocketId].conditionMutex);
 }
 
 /* The reply of PASV/EPSV/PORT/EPRT (227, 229, 200) is sent by the worker between these
@@ -348,6 +399,7 @@ static int acceptConnection(cleanUpWorkerArgs *args)
 
         if (ftpData->clients[theSocketId].workerData.socketIsConnected == 0)
         {
+            dataConnectionIsReady(ftpData, theSocketId);
             int previousCancelState = dataReplyBegin();
 
             if (ftpData->clients[theSocketId].workerData.passiveModeOn == 1 && ftpData->clients[theSocketId].workerData.extendedPassiveModeOn == 0)
@@ -376,8 +428,6 @@ static int acceptConnection(cleanUpWorkerArgs *args)
 
             dataReplyEnd(ftpData, theSocketId, returnCode, previousCancelState);
 
-            ftpData->clients[theSocketId].workerData.socketIsReadyForConnection = 1;
-
             if (returnCode <= 0)
             {
                 ftpData->clients[theSocketId].closeTheClient = 1;
@@ -390,27 +440,71 @@ static int acceptConnection(cleanUpWorkerArgs *args)
                (the port is announced in clear text and comes from a small range) gets
                the transfer. Connections from other addresses are closed and the server
                keeps waiting for the client. PASV_PROMISCUOUS = true disables the check. */
+            /* The worker is stopped with pthread_cancel (a new PASV, QUIT, a closed connection). accept() is a
+               cancellation point: when the cancel arrived just as it returned, the connection was accepted and
+               the descriptor lost (a socket in CLOSE-WAIT for ever, one every few minutes under load). So the
+               wait is a poll(), where the worker holds nothing and can be stopped, and the accept() on the
+               listening socket (non blocking) is done with the cancellation disabled until the descriptor is
+               stored, where the cleanup of the worker closes it. */
+            fcntl(ftpData->clients[theSocketId].workerData.passiveListeningSocket, F_SETFL,
+                  fcntl(ftpData->clients[theSocketId].workerData.passiveListeningSocket, F_GETFL, 0) | O_NONBLOCK);
+
             while (1)
             {
                 struct sockaddr_storage peerAddress;
                 socklen_t peerAddressLength = sizeof(peerAddress);
-                int dataSocket = accept(ftpData->clients[theSocketId].workerData.passiveListeningSocket, (struct sockaddr *)&peerAddress, &peerAddressLength);
+                struct pollfd waiting;
+                int previousAcceptCancelState;
+                int dataSocket;
+                int fromTheClient;
 
-                if (dataSocket == -1)
+                waiting.fd = ftpData->clients[theSocketId].workerData.passiveListeningSocket;
+                waiting.events = POLLIN;
+                waiting.revents = 0;
+
+                if (poll(&waiting, 1, -1) < 0)
                 {
+                    if (errno == EINTR)
+                    {
+                        continue;
+                    }
                     ftpData->clients[theSocketId].workerData.socketConnection = -1;
                     break;
                 }
 
-                if (ftpData->ftpParameters.pasvPromiscuous == 1 ||
-                    isPeerFromAddress((struct sockaddr *)&peerAddress, ftpData->clients[theSocketId].clientIpAddress) == 1)
+                pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previousAcceptCancelState);
+                dataSocket = accept(ftpData->clients[theSocketId].workerData.passiveListeningSocket, (struct sockaddr *)&peerAddress, &peerAddressLength);
+
+                if (dataSocket == -1)
                 {
-                    ftpData->clients[theSocketId].workerData.socketConnection = dataSocket;
+                    int acceptError = errno;
+                    pthread_setcancelstate(previousAcceptCancelState, NULL);
+
+                    /* the connection went away between the poll and the accept: wait for another */
+                    if (acceptError == EAGAIN || acceptError == EWOULDBLOCK || acceptError == ECONNABORTED || acceptError == EINTR)
+                    {
+                        continue;
+                    }
+                    ftpData->clients[theSocketId].workerData.socketConnection = -1;
                     break;
                 }
 
-                LOGF("%sPassive data connection from another address refused (client %s)", LOG_SECURITY_PREFIX, ftpData->clients[theSocketId].clientIpAddress);
+                /* some systems give the accepted socket the non blocking flag of the listening one */
+                fcntl(dataSocket, F_SETFL, fcntl(dataSocket, F_GETFL, 0) & ~O_NONBLOCK);
+
+                fromTheClient = (ftpData->ftpParameters.pasvPromiscuous == 1 ||
+                                 isPeerFromAddress((struct sockaddr *)&peerAddress, ftpData->clients[theSocketId].clientIpAddress) == 1);
+
+                if (fromTheClient)
+                {
+                    ftpData->clients[theSocketId].workerData.socketConnection = dataSocket;
+                    pthread_setcancelstate(previousAcceptCancelState, NULL);
+                    break;
+                }
+
                 close(dataSocket);
+                pthread_setcancelstate(previousAcceptCancelState, NULL);
+                LOGF("%sPassive data connection from another address refused (client %s)", LOG_SECURITY_PREFIX, ftpData->clients[theSocketId].clientIpAddress);
             }
 
             if (ftpData->clients[theSocketId].workerData.socketConnection != -1)
@@ -442,51 +536,35 @@ static int acceptConnection(cleanUpWorkerArgs *args)
   {
     my_printf("\n -----------------  CREATING ACTIVE SOCKET --------------!");
     if (ftpData->clients[theSocketId].workerData.addressType == 1)
-        ftpData->clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData->clients[theSocketId].workerData.connectionPort, ftpData->clients[theSocketId].workerData.activeIpAddress);
+        ftpData->clients[theSocketId].workerData.socketConnection = createActiveSocket(ftpData->clients[theSocketId].workerData.connectionPort, ftpData->clients[theSocketId].workerData.activeIpAddress, &ftpData->clients[theSocketId].workerData.socketConnection);
     #ifdef IPV6_ENABLED
     else if (ftpData->clients[theSocketId].workerData.addressType == 2)
-        ftpData->clients[theSocketId].workerData.socketConnection = createActiveSocketV6(ftpData->clients[theSocketId].workerData.connectionPort, ftpData->clients[theSocketId].workerData.activeIpAddress);    
+        ftpData->clients[theSocketId].workerData.socketConnection = createActiveSocketV6(ftpData->clients[theSocketId].workerData.connectionPort, ftpData->clients[theSocketId].workerData.activeIpAddress, &ftpData->clients[theSocketId].workerData.socketConnection);    
     #endif
-    int activeConnectError = errno;     /* the TLS setup below may change errno */
-
-	#ifdef OPENSSL_ENABLED
-	if (ftpData->clients[theSocketId].dataChannelIsTls == 1)
-	{
-		returnCode = SSL_set_fd(ftpData->clients[theSocketId].workerData.clientSsl, ftpData->clients[theSocketId].workerData.socketConnection);
-
-		if (returnCode == 0)
-		{
-			my_printf("\nSSL ERRORS ON WORKER SSL_set_fd");
-			markClientForClosing(ftpData, theSocketId, "TLS setup of the active data connection failed (SSL_set_fd)");
-		}
-
-		//SSL_set_connect_state(ftpData->clients[theSocketId].workerData.clientSsl);
-		returnCode = SSL_connect(ftpData->clients[theSocketId].workerData.clientSsl);
-		if (returnCode <= 0)
-		{
-			my_printf("\nSSL ERRORS ON WORKER %d error code: %d", returnCode, SSL_get_error(ftpData->clients[theSocketId].workerData.clientSsl, returnCode));
-			ERR_print_errors_fp(stderr);
-		}
-		else
-		{
-			//my_printf("\nSSL ACCEPTED ON WORKER");
-		}
-	}
-	#endif
-
     if (ftpData->clients[theSocketId].workerData.socketConnection < 0)
     {
-        LOG_CLIENT(ftpData, theSocketId, LOG_ERROR_PREFIX, "active data connection to %s port %d failed: %s",
-                   ftpData->clients[theSocketId].workerData.activeIpAddress, ftpData->clients[theSocketId].workerData.connectionPort, strerror(activeConnectError));
-        markClientForClosing(ftpData, theSocketId, "active data connection failed");
-        my_printf("\n Closing the client 4");
+        /* The client announced a port where nobody listens, or that is not reachable: its
+           doing, not a problem of the server. RFC 959: 425, and the session goes on (the
+           client can send another PORT). It used to be disconnected, with no reply. */
+        LOG_CLIENT(ftpData, theSocketId, LOG_DEBUG_PREFIX, "active data connection to %s port %d failed: %s",
+                   ftpData->clients[theSocketId].workerData.activeIpAddress, ftpData->clients[theSocketId].workerData.connectionPort, strerror(errno));
+
+        int failedCancelState = dataReplyBegin();
+        returnCode = socketPrintf(ftpData, theSocketId, "s", "425 Can't open data connection.\r\n");
+        dataReplyEnd(ftpData, theSocketId, returnCode, failedCancelState);
+
+        if (returnCode <= 0)
+        {
+            ftpData->clients[theSocketId].closeTheClient = 1;
+        }
+
         return -1;
     }
 
+    dataConnectionIsReady(ftpData, theSocketId);
     int previousCancelState = dataReplyBegin();
     returnCode = socketPrintf(ftpData, theSocketId, "s", "200 connection accepted\r\n");
     dataReplyEnd(ftpData, theSocketId, returnCode, previousCancelState);
-    ftpData->clients[theSocketId].workerData.socketIsReadyForConnection = 1;
 
     if (returnCode <= 0)
     {
@@ -496,6 +574,19 @@ static int acceptConnection(cleanUpWorkerArgs *args)
     }
 
     ftpData->clients[theSocketId].workerData.socketIsConnected = 1;
+
+    #ifdef OPENSSL_ENABLED
+    /* RFC 4217 section 7: the server is the TLS server on the data connection also when
+       it is the one that opens the TCP connection. The handshake starts after the 200:
+       the client waits for it before it starts TLS. */
+    if (ftpData->clients[theSocketId].dataChannelIsTls == 1)
+    {
+        if (acceptSSLConnection(theSocketId, ftpData) < 0)
+        {
+            return -1;
+        }
+    }
+    #endif
   }
 
   return 1;
@@ -507,10 +598,9 @@ static int processRetr(cleanUpWorkerArgs *args)
 	int theSocketId = args->socketId;
     long long int writenSize = 0, writeReturn = 0;
 
-    my_printf("\n ftpData->clients[theSocketId].workerData.retrRestartAtByte = %lld", ftpData->clients[theSocketId].workerData.retrRestartAtByte);
+    my_printf("\n ftpData->clients[theSocketId].workerData.transferRestartAtByte = %lld", ftpData->clients[theSocketId].workerData.transferRestartAtByte);
 
-    writenSize = writeRetrFile(ftpData, theSocketId, ftpData->clients[theSocketId].workerData.retrRestartAtByte, ftpData->clients[theSocketId].workerData.theStorFile);
-    ftpData->clients[theSocketId].workerData.retrRestartAtByte = 0;
+    writenSize = writeRetrFile(ftpData, theSocketId, ftpData->clients[theSocketId].workerData.transferRestartAtByte, ftpData->clients[theSocketId].workerData.theStorFile);
 
     if (writenSize == RETR_TRANSFER_FAILED)
     {
@@ -551,6 +641,22 @@ static int processListNlst(cleanUpWorkerArgs *args)
 	int returnCode = 0;
 
     int theFiles = 0, theCommandType = 0;
+
+    if (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "MLSD", strlen("MLSD")) == 1)
+    {
+        /* RFC 3659: machine readable listing, with the facts the client chose with OPTS MLST */
+        if (FTP_WriteMlsdToSocket(ftpData, theSocketId, ftpData->clients[theSocketId].listPath.text,
+                                  ftpData->clients[theSocketId].mlstFacts, &theFiles,
+                                  &ftpData->clients[theSocketId].workerData.memoryTable) <= 0)
+        {
+            markClientForClosing(ftpData, theSocketId, "the listing could not be sent");
+            return -1;
+        }
+
+        ftpData->clients[theSocketId].workerData.commandProcessed = 1;
+        snprintf(ftpData->clients[theSocketId].workerData.theCommandResponse, STRING_SZ_SMALL, "226 %d matches total\r\n", theFiles);
+        return 1;
+    }
 
     if (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "LIST", strlen("LIST")) == 1)
         theCommandType = COMMAND_TYPE_LIST;
@@ -633,7 +739,8 @@ void *connectionWorkerHandle(cleanUpWorkerArgs *args)
         }
         else if (ftpData->clients[theSocketId].workerData.commandReceived == 1 &&
                (  (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "LIST", strlen("LIST")) == 1)
-               || (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1)))
+               || (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "NLST", strlen("NLST")) == 1)
+               || (compareStringCaseInsensitive(ftpData->clients[theSocketId].workerData.theCommandReceived, "MLSD", strlen("MLSD")) == 1)))
         {
             if (processListNlst(args) != 1)
             {

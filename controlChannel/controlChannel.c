@@ -54,8 +54,69 @@
 
 /* Private function definition */
 static int processCommand(int processingElement, ftpDataType *ftpData);
+static int isCommandByte(struct clientData *client, unsigned char byte);
 static void memoryDebug(ftpDataType *ftpData);
 static int isTransferCommand(int processingElement, ftpDataType *ftpData);
+
+/* Telnet (RFC 854) on the control connection. RFC 959 section 4.1.3 and RFC 1123 section
+   4.1.2.12: a client aborts a transfer with IAC IP IAC DM (the Telnet synch) followed by
+   ABOR, and a Telnet client may negotiate options. Those bytes are not part of the command.
+
+   Only the bytes before the first character of a line are looked at: a 0xFF inside a
+   command (a file name in latin-1) is left as it is. The state is kept in the client
+   because a sequence can arrive in two reads. */
+enum { TELNET_DATA = 0, TELNET_IAC, TELNET_OPTION, TELNET_SUBNEGOTIATION, TELNET_SUBNEGOTIATION_IAC };
+
+#define TELNET_IAC_BYTE 255
+#define TELNET_SB 250
+#define TELNET_SE 240
+#define TELNET_WILL 251
+#define TELNET_DONT 254
+
+/* 1 if the byte belongs to the command, 0 if it is a Telnet byte to be skipped */
+static int isCommandByte(struct clientData *client, unsigned char byte)
+{
+    if (client->commandIndex != 0 && client->telnetState == TELNET_DATA)
+        return 1;
+
+    switch (client->telnetState)
+    {
+        case TELNET_IAC:
+            if (byte == TELNET_IAC_BYTE)                      /* IAC IAC: the byte 255 as data */
+            {
+                client->telnetState = TELNET_DATA;
+                return 1;
+            }
+            if (byte >= TELNET_WILL && byte <= TELNET_DONT)   /* WILL WONT DO DONT <option> */
+                client->telnetState = TELNET_OPTION;
+            else if (byte == TELNET_SB)                       /* subnegotiation until IAC SE */
+                client->telnetState = TELNET_SUBNEGOTIATION;
+            else                                              /* NOP, DM, IP, AO...: one byte */
+                client->telnetState = TELNET_DATA;
+            return 0;
+
+        case TELNET_OPTION:
+            client->telnetState = TELNET_DATA;
+            return 0;
+
+        case TELNET_SUBNEGOTIATION:
+            if (byte == TELNET_IAC_BYTE)
+                client->telnetState = TELNET_SUBNEGOTIATION_IAC;
+            return 0;
+
+        case TELNET_SUBNEGOTIATION_IAC:
+            client->telnetState = (byte == TELNET_SE) ? TELNET_DATA : TELNET_SUBNEGOTIATION;
+            return 0;
+
+        default:                                              /* TELNET_DATA at the start of a line */
+            if (byte == TELNET_IAC_BYTE)
+            {
+                client->telnetState = TELNET_IAC;
+                return 0;
+            }
+            return 1;
+    }
+}
 
 void evaluateControlChannel(ftpDataType *ftpData)
 {
@@ -68,7 +129,7 @@ void evaluateControlChannel(ftpDataType *ftpData)
     memoryDebug(ftpData);
 
     /* waits for socket activity */
-    selectWait(ftpData);
+    waitForClientEvents(ftpData);
 
     /* Timeouts must be checked regardless of socket activity: checking them only
        when select() times out lets a single busy client prevent every other idle
@@ -106,8 +167,7 @@ void evaluateControlChannel(ftpDataType *ftpData)
             continue;
         }
 
-        if (FD_ISSET(ftpData->clients[processingSock].socketDescriptor, &ftpData->connectionData.rset) || 
-            FD_ISSET(ftpData->clients[processingSock].socketDescriptor, &ftpData->connectionData.eset))
+        if (ftpData->clients[processingSock].socketEventReady == 1)
         {
 
         #ifdef OPENSSL_ENABLED
@@ -123,7 +183,7 @@ void evaluateControlChannel(ftpDataType *ftpData)
 
                     /* Only WANT_READ/WANT_WRITE mean the handshake is still in progress.
                        Any other error (EOF, SSL_ERROR_SYSCALL, protocol error) is fatal:
-                       keeping the client would make select() return immediately forever
+                       keeping the client would make the wait return immediately forever
                        on the readable-at-EOF socket and spin the CPU. */
                     int sslError = SSL_get_error(ftpData->clients[processingSock].ssl, returnCode);
                     if (sslError != SSL_ERROR_WANT_READ && sslError != SSL_ERROR_WANT_WRITE)
@@ -263,6 +323,20 @@ void evaluateControlChannel(ftpDataType *ftpData)
             int commandProcessStatus = 0;
             for (i = 0; i < ftpData->clients[processingSock].bufferIndex; i++)
             {
+                /* A reply could not be written (the client does not read): the client is going to be closed,
+                   and every command of the same buffer that followed waited again for the write, up to the
+                   timeout each, with the whole server stopped (a client that sends HELP a few hundred times
+                   and reads nothing stopped it for about a minute). */
+                if (ftpData->clients[processingSock].closeTheClient == 1)
+                {
+                    break;
+                }
+
+                if (isCommandByte(&ftpData->clients[processingSock], (unsigned char)ftpData->clients[processingSock].buffer[i]) == 0)
+                {
+                    continue;
+                }
+
                 if (ftpData->clients[processingSock].commandIndex < CLIENT_COMMAND_STRING_SIZE)
                 {
                     if (ftpData->clients[processingSock].buffer[i] != '\r' && ftpData->clients[processingSock].buffer[i] != '\n')
@@ -346,6 +420,9 @@ static int isTransferCommand(int processingElement, ftpDataType *ftpData)
     if (IS_CMD(ftpData->clients[processingElement].theCommandReceived, "RETR") ||
         IS_CMD(ftpData->clients[processingElement].theCommandReceived, "STOR") ||
         IS_CMD(ftpData->clients[processingElement].theCommandReceived, "PASV") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "EPSV") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "PORT") ||
+        IS_CMD(ftpData->clients[processingElement].theCommandReceived, "EPRT") ||
         IS_CMD(ftpData->clients[processingElement].theCommandReceived, "TYPE") ||
         IS_CMD(ftpData->clients[processingElement].theCommandReceived, "APPE"))
     {
@@ -393,6 +470,10 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
         {"OPTS", parseCommandOpts},
         {"MDTM", parseCommandMdtm},
         {"NLST", parseCommandNlst},
+        {"MLSD", parseCommandMlsd},
+        {"MLST", parseCommandMlst},
+        {"LANG", parseCommandLang},
+        {"HOST", parseCommandHost},
         {"QUIT", parseCommandQuit},
         {"RMD", parseCommandRmd},
         {"XRMD", parseCommandRmd},
@@ -453,6 +534,8 @@ static int processCommand(int processingElement, ftpDataType *ftpData)
          /* FEAT, SYST, HELP and NOOP carry no user data: clients use them before
             logging in (e.g. FEAT to discover AUTH TLS, RFC 2389 / RFC 4217) */
          IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "FEAT") &&
+         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "HOST") &&
+         IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "LANG") &&
          IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "SYST") &&
          IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "HELP") &&
          IS_NOT_CMD(ftpData->clients[processingElement].theCommandReceived, "NOOP") &&
